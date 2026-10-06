@@ -1,0 +1,26 @@
+# PostgreSQL 16 para desarrollo local del backend Spring Boot.
+# Uso: docker compose up -d   (desde backend-spring/)
+#
+# Usa el puerto 5432, igual que el docker-compose.yml de la raíz (backend FastAPI):
+# no levantes ambos a la vez.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: sgp-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sgp
+      POSTGRES_PASSWORD: sgp
+      POSTGRES_DB: sgp
+    ports:
+      - "5432:5432"
+    volumes:
+      - sgp-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sgp -d sgp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  sgp-pgdata:

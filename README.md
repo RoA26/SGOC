@@ -10,6 +10,10 @@ Reemplazo del sistema monolítico heredado por una arquitectura desacoplada:
 > **Estado: Hito 1, configuración base y autenticación.** Proveedores, productos y
 > órdenes de compra quedan fuera de este hito.
 
+> **Backend alternativo en Java:** [`backend-spring/`](backend-spring/README.md) contiene el
+> Hito 1 implementado con Spring Boot 3 + Spring Security (JWT) + JPA + PostgreSQL
+> (paquete `com.unisen.sgp`). Es independiente del backend FastAPI de `backend/`.
+
 ## Estructura
 
 ```

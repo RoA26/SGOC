@@ -1,0 +1,99 @@
+# =============================================================================
+# Unisen SGP - Configuración base
+# Todo valor sensible o dependiente del entorno se inyecta por variables de
+# entorno (Docker / VPS). En local pueden definirse en un fichero `.env`.
+# =============================================================================
+spring:
+  application:
+    name: sgp-backend
+
+  # Carga opcional de `.env` (formato CLAVE=valor) para desarrollo local.
+  config:
+    import: optional:file:.env[.properties]
+
+  # --- PostgreSQL ---
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/sgp}
+    username: ${DB_USERNAME:sgp}
+    password: ${DB_PASSWORD:sgp}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      connection-timeout: 10000 # ms
+
+  jpa:
+    # El esquema lo gestiona Flyway; Hibernate solo valida que coincide con las entidades.
+    hibernate:
+      ddl-auto: validate
+    # Evita consultas perezosas fuera de la capa de servicio (antipatrón OSIV).
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: UTC
+
+  mvc:
+    # Errores en formato RFC 9457 (application/problem+json).
+    problemdetails:
+      enabled: true
+
+server:
+  port: ${SERVER_PORT:8080}
+  # Respeta X-Forwarded-* del proxy inverso (HTTPS en DuckDNS) al construir URLs.
+  forward-headers-strategy: framework
+  error:
+    include-stacktrace: never
+    include-message: never
+
+# --- Actuator: solo el healthcheck, para Docker / balanceadores ---
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+# --- Swagger / OpenAPI (desactivar en producción con SWAGGER_ENABLED=false) ---
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+    path: /swagger-ui.html
+
+# =============================================================================
+# Propiedades propias de la aplicación
+# =============================================================================
+app:
+  jwt:
+    # Clave HMAC en Base64 de al menos 256 bits. Obligatoria: sin ella la app no arranca.
+    # Genera una con:  openssl rand -base64 64
+    secret: ${JWT_SECRET:}
+    # Duración del token (formatos: 30m, 1h, 8h...).
+    expiration: ${JWT_EXPIRATION:1h}
+    issuer: ${JWT_ISSUER:unisen-sgp}
+
+  security:
+    # Coste de BCrypt (4-31). 12 es un buen equilibrio para producción.
+    bcrypt-strength: ${BCRYPT_STRENGTH:12}
+    cors:
+      # Orígenes permitidos separados por comas (p. ej. https://sgp-unisen.duckdns.org).
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+  # Alta del primer administrador al arrancar (solo si el correo aún no existe).
+  bootstrap:
+    admin:
+      email: ${ADMIN_EMAIL:}
+      password: ${ADMIN_PASSWORD:}
+      nombre: ${ADMIN_NOMBRE:Administrador}

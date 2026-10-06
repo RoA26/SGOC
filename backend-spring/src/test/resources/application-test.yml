@@ -1,0 +1,24 @@
+# Perfil de tests: H2 en memoria en modo PostgreSQL (no requiere Docker ni BD externa).
+# Para ejecutar contra PostgreSQL real, sobrescribe con variables de entorno:
+#   SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/sgp_test \
+#   SPRING_DATASOURCE_USERNAME=sgp SPRING_DATASOURCE_PASSWORD=sgp ./mvnw test
+spring:
+  datasource:
+    url: jdbc:h2:mem:sgp;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+
+app:
+  jwt:
+    # Clave exclusiva de tests (no usar en ningún otro entorno).
+    secret: C3LPGb/hXLJuWguuQNdojKmT+oqHgYVu1ysc5uP5JDww2XPg6n4BThTiam3ZmzUT
+    expiration: 1h
+    issuer: unisen-sgp-test
+  security:
+    bcrypt-strength: 4
+    cors:
+      allowed-origins: http://localhost:5173
+  bootstrap:
+    admin:
+      email: ""
+      password: ""
