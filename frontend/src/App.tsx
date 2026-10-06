@@ -1,8 +1,11 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AppLayout } from '@/components/layout/AppLayout'
 import { RutaInvitado } from '@/features/auth/RutaInvitado'
 import { RutaProtegida } from '@/features/auth/RutaProtegida'
 import Inicio from '@/pages/Inicio'
 import Login from '@/pages/Login'
+import Productos from '@/pages/Productos'
+import Proveedores from '@/pages/Proveedores'
 
 export default function App() {
   return (
@@ -13,7 +16,11 @@ export default function App() {
         </Route>
 
         <Route element={<RutaProtegida />}>
-          <Route path="/" element={<Inicio />} />
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<Inicio />} />
+            <Route path="/proveedores" element={<Proveedores />} />
+            <Route path="/productos" element={<Productos />} />
+          </Route>
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

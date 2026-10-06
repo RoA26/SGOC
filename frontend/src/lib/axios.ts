@@ -11,6 +11,8 @@ export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
   timeout: 15_000,
   headers: { Accept: 'application/json' },
+  // Arrays como "sort=a&sort=b" (formato de Spring), no "sort[]=a&sort[]=b".
+  paramsSerializer: { indexes: null },
 })
 
 // Adjunta el JWT de la sesión a cada petición.

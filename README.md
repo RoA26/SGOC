@@ -33,8 +33,11 @@ absolutas en el código. PostgreSQL y Spring Boot no publican puertos hacia inte
         ├── brand/unisen/    tokens.css, componentes.css, logos SVG (marca Unisen)
         ├── lib/axios.ts     Instancia única de Axios (VITE_API_URL)
         ├── store/           Sesión con Zustand (accessToken, nombre…)
-        ├── features/auth/   API de autenticación y rutas protegida/invitado
-        └── pages/           Login.tsx, Inicio.tsx
+        ├── schemas/         Esquemas Zod (proveedorSchema, productoSchema) = validaciones del backend
+        ├── services/        proveedorService, productoService (/api/v1/...)
+        ├── components/ui/   DataTable, Modal, ConfirmDialog, FormField
+        ├── features/        auth (rutas), proveedores y productos (formularios en modal)
+        └── pages/           Login, Inicio, Proveedores, Productos
 ```
 
 ## Limpieza de deuda técnica
@@ -164,10 +167,17 @@ Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, si
 | --- | --- | --- |
 | POST | `/api/auth/login` | `{email, password}` → `{accessToken, tokenType, expiresIn, usuario}` |
 | GET | `/api/auth/me` | Perfil del usuario autenticado (Bearer) |
+| GET | `/api/v1/proveedores?page=0&size=10&sort=razonSocial,asc` | Listado paginado |
+| GET · POST · PUT · DELETE | `/api/v1/proveedores[/{id}]` | Detalle, alta, edición y baja lógica |
+| GET | `/api/v1/productos?page=0&size=10&sort=nombre,asc` | Listado paginado (incluye el proveedor) |
+| GET · POST · PUT · DELETE | `/api/v1/productos[/{id}]` | Detalle, alta, edición y baja lógica |
+
+Lecturas: cualquier usuario autenticado. Altas, cambios y bajas: solo `ADMIN` (la interfaz oculta
+los botones al resto). Detalle de reglas y errores en [backend-spring/README.md](backend-spring/README.md).
 
 ## Calidad
 
 ```bash
-cd backend-spring && ./mvnw test                  # 40 tests
+cd backend-spring && ./mvnw test                  # 60 tests
 cd frontend && npm run lint && npm run build      # oxlint + TypeScript estricto
 ```
