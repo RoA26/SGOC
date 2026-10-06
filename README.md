@@ -1,179 +1,152 @@
-# SGOC: Sistema de Gestión de Órdenes de Compra
+# Unisen SGP: Sistema de Gestión de Órdenes de Compra
 
-Reemplazo del sistema monolítico heredado por una arquitectura desacoplada:
+Producción: **https://rrf.duckdns.org**
 
-| Capa     | Tecnología                                                                   |
-| -------- | ---------------------------------------------------------------------------- |
-| Backend  | FastAPI · SQLAlchemy 2 (async) · Pydantic v2 · asyncpg · Alembic · PostgreSQL |
-| Frontend | React 18 · Vite · TypeScript (strict) · Tailwind CSS v4 · React Router · Axios |
+| Capa | Tecnología |
+| --- | --- |
+| Backend | Java 21 · Spring Boot 3.5 · Spring Security (JWT) · Spring Data JPA · Flyway |
+| Frontend | React 18 · TypeScript · Vite · Tailwind CSS v4 · Zustand · Axios |
+| Infraestructura | Docker Compose · Nginx 1.30 · PostgreSQL 16 |
 
-> **Estado: Hito 1, configuración base y autenticación.** Proveedores, productos y
-> órdenes de compra quedan fuera de este hito.
+```
+Navegador ──HTTPS──▶ host (TLS de rrf.duckdns.org) ──HTTP──▶ frontend · Nginx :80
+                                                               ├── /       → estáticos de React
+                                                               └── /api/   → spring-backend:8081 ──▶ postgres:5432
+```
 
-> **Backend alternativo en Java:** [`backend-spring/`](backend-spring/README.md) contiene el
-> Hito 1 implementado con Spring Boot 3 + Spring Security (JWT) + JPA + PostgreSQL
-> (paquete `com.unisen.sgp`). Es independiente del backend FastAPI de `backend/`.
+El navegador solo habla con Nginx: la SPA llama a `/api` en el **mismo origen**, sin CORS ni URLs
+absolutas en el código. PostgreSQL y Spring Boot no publican puertos hacia internet.
 
 ## Estructura
 
 ```
 .
-├── docker-compose.yml          # PostgreSQL 16 para desarrollo
-├── backend/
-│   ├── requirements.txt        # Dependencias de producción (versiones fijadas)
-│   ├── requirements-dev.txt    # + pytest, ruff, mypy
-│   ├── alembic/                # Migraciones (async)
-│   ├── app/
-│   │   ├── main.py             # Punto de entrada: FastAPI + CORS + routers
-│   │   ├── cli.py              # Administración: crear usuarios
-│   │   ├── api/                # Routers HTTP (auth.py) y dependencias (deps.py)
-│   │   ├── core/               # config.py, database.py, security.py
-│   │   ├── models/             # Modelos SQLAlchemy (User)
-│   │   ├── schemas/            # Schemas Pydantic (entrada/salida)
-│   │   └── services/           # Lógica de negocio (sin conocimiento de HTTP)
-│   └── tests/
+├── docker-compose.yml       PostgreSQL + spring-backend + frontend (Nginx)
+├── .env.example             Variables del despliegue (copiar a .env)
+├── backend-spring/          API REST Spring Boot (ver backend-spring/README.md)
+│   └── Dockerfile           Maven → JRE 21 alpine, usuario sin privilegios
 └── frontend/
+    ├── Dockerfile           Node (build) → Nginx (estáticos + proxy /api)
+    ├── nginx.conf
+    ├── tailwind.config.ts   Tema conectado a las variables CSS de la marca
     └── src/
-        ├── components/ui/      # Button, Input, Alert, Spinner, FullPageLoader
-        ├── features/auth/      # AuthProvider, useAuth, ProtectedRoute, GuestRoute, API
-        ├── lib/                # Instancia de Axios, tokenStorage, utilidades JWT/errores
-        ├── pages/              # Login.tsx, Dashboard.tsx
-        └── App.tsx             # Enrutador
+        ├── brand/unisen/    tokens.css, componentes.css, logos SVG (marca Unisen)
+        ├── lib/axios.ts     Instancia única de Axios (VITE_API_URL)
+        ├── store/           Sesión con Zustand (accessToken, nombre…)
+        ├── features/auth/   API de autenticación y rutas protegida/invitado
+        └── pages/           Login.tsx, Inicio.tsx
 ```
 
-## Puesta en marcha
+## Limpieza de deuda técnica
 
-Requisitos: Python 3.12+, Node.js 20.19+ (o 22.12+), y PostgreSQL 16 o Docker.
-
-### 1. Base de datos
+El backend FastAPI y el frontend React anterior se eliminaron con:
 
 ```bash
-docker compose up -d
+git rm -r backend frontend docker-compose.yml backend-spring/compose.yaml
+rm -rf backend frontend          # restos no versionados: node_modules/, .venv/, .env…
+git commit -m "Limpieza: eliminar backend FastAPI y frontend obsoleto"
 ```
 
-### 2. Backend (http://localhost:8000)
+Después se generó un `frontend/` nuevo con `npm create vite@latest frontend -- --template react-ts`.
+
+## Despliegue en el VPS
+
+Requisitos: Docker con el plugin Compose, `rrf.duckdns.org` apuntando a la IP del VPS y el
+puerto 80 abierto.
 
 ```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate            # Windows: .venv\Scripts\activate
-pip install -r requirements-dev.txt
-
+git clone https://github.com/RoA26/SGOC.git && cd SGOC
 cp .env.example .env
-# Genera y pega una clave JWT en .env (JWT_SECRET_KEY):
-python -c "import secrets; print(secrets.token_urlsafe(64))"
+# Rellena en .env las variables obligatorias:
+#   POSTGRES_PASSWORD   contraseña de la base de datos
+#   JWT_SECRET          openssl rand -base64 64
+#   ADMIN_PASSWORD      contraseña del primer administrador (ADMIN_EMAIL)
 
-alembic upgrade head                 # Crea la tabla users
-python -m app.cli create-user --email admin@example.com --full-name "Administrador"
-uvicorn app.main:app --reload
+docker compose up -d --build
+docker compose ps                  # los tres servicios deben quedar "healthy"
 ```
 
-La documentación interactiva queda en http://localhost:8000/docs. El botón *Authorize*
-acepta el token devuelto por `/api/auth/login`.
+Abre http://rrf.duckdns.org e inicia sesión con `ADMIN_EMAIL` / `ADMIN_PASSWORD`. El administrador
+se crea en el primer arranque; los siguientes no lo modifican.
 
-> No hay endpoint público de registro: las cuentas se crean con la CLI. En entornos no
-> interactivos la contraseña se puede pasar por stdin con `--password-stdin`.
+El arranque va en orden: PostgreSQL sano → backend listo (readiness) → Nginx. Si el backend se
+reinicia, Nginx lo vuelve a encontrar solo. Mientras no responde, `/api` devuelve un `503` en
+JSON que el login muestra como "servidor no disponible".
 
-### 3. Frontend (http://localhost:5173)
+### TLS (siguiente paso, en el host)
+
+Nginx escucha en HTTP y respeta `X-Forwarded-Proto`. Para terminar HTTPS en el host:
+
+1. En `.env`: `HTTP_PORT=127.0.0.1:8080`, para que solo el proxy del host llegue al contenedor.
+2. Un proxy inverso en el host para `rrf.duckdns.org`. Por ejemplo, con Caddy y certificado
+   automático de Let's Encrypt:
+
+   ```
+   rrf.duckdns.org {
+       reverse_proxy 127.0.0.1:8080
+   }
+   ```
+
+## Desarrollo local
 
 ```bash
+# Base de datos (desde la raíz)
+cp .env.example .env                 # rellena las variables obligatorias
+docker compose up -d postgres        # PostgreSQL en 127.0.0.1:5432
+
+# Terminal 1: backend
+cd backend-spring
+cp .env.example .env                 # DB_PASSWORD = POSTGRES_PASSWORD; JWT_SECRET; ADMIN_*
+./mvnw spring-boot:run               # http://localhost:8081
+
+# Terminal 2: frontend
 cd frontend
 npm install
-cp .env.example .env                 # VITE_API_URL=http://localhost:8000/api
-npm run dev
+npm run dev                          # http://localhost:5173 (proxy /api → :8081)
 ```
 
-#### Cómo se inicializó el frontend
+## Marca Unisen
 
-Estos son los comandos que generaron `frontend/`. Sirven de referencia; no hay que volver a ejecutarlos.
+Todos los recursos de marca viven en `frontend/src/brand/unisen/`:
 
-```bash
-# 1. Proyecto Vite con la plantilla React + TypeScript
-npm create vite@latest frontend -- --template react-ts
-cd frontend
-npm install
+| Archivo | Uso |
+| --- | --- |
+| `tokens.css` | Colores, tipografías, radios y sombras como variables `--unisen-*` (modo claro y oscuro) |
+| `componentes.css` | Tokens de componente y clases base `u-input`, `u-btn`, `u-card`, `u-alert`… |
+| `unisen-logo-claro.svg` | Logo para fondos oscuros (panel de marca del login) |
+| `unisen-logo-oscuro.svg` | Logo para fondos claros (móvil, cabecera) |
 
-# 2. Fijar React 18 (la plantilla actual de Vite instala React 19)
-npm install react@^18.3.1 react-dom@^18.3.1
-npm install -D @types/react@^18.3 @types/react-dom@^18.3
+> ⚠ **Ahora mismo son marcadores de posición.** Para integrar los oficiales, sustituye estos
+> archivos con los mismos nombres. Si el `tokens.css` oficial usa otros nombres de variable,
+> ajusta solo el mapeo de `frontend/tailwind.config.ts`.
 
-# 3. Enrutado y cliente HTTP
-npm install react-router-dom axios
+`tailwind.config.ts` no contiene valores, solo referencias a variables. Por ejemplo, `bg-primary`
+genera `var(--unisen-color-primary)`. Así el modo oscuro y cualquier cambio de marca se aplican
+desde los tokens. Las opacidades funcionan igual (`bg-accent/20`).
 
-# 4. Tailwind CSS v4 con su plugin oficial para Vite
-npm install tailwindcss @tailwindcss/vite
-```
+| Clases de Tailwind | Variable |
+| --- | --- |
+| `bg-background` | `--unisen-color-bg` |
+| `bg-surface`, `bg-surface-muted` | `--unisen-color-surface`, `--unisen-color-surface-muted` |
+| `text-foreground`, `text-foreground-muted` | `--unisen-color-text`, `--unisen-color-text-muted` |
+| `bg-primary`, `text-primary-foreground` | `--unisen-color-primary`, `--unisen-color-on-primary` |
+| `text-accent` | `--unisen-color-accent` |
+| `bg-brand-panel`, `text-brand-panel-foreground` | `--unisen-color-brand-panel`, `--unisen-color-brand-panel-text` |
+| `font-sans`, `font-serif` | `--unisen-font-sans` (Geist), `--unisen-font-serif` (Instrument Serif) |
+| `rounded-{sm,md,lg,xl}`, `shadow-card`, `h-control` | `--unisen-radius-*`, `--unisen-shadow-card`, `--unisen-control-height` |
 
-Configuración de Tailwind v4: no requiere `tailwind.config.js` ni PostCSS.
+Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, sin CDN externos.
 
-```ts
-// vite.config.ts
-import tailwindcss from '@tailwindcss/vite'
-export default defineConfig({ plugins: [react(), tailwindcss()] })
-```
+## API (a través de Nginx)
 
-```css
-/* src/index.css */
-@import 'tailwindcss';
-```
-
-## API (Hito 1)
-
-| Método | Ruta              | Auth   | Descripción                                          |
-| ------ | ----------------- | ------ | ---------------------------------------------------- |
-| POST   | `/api/auth/login` | —      | `{email, password}` → `{access_token, token_type, expires_in}` |
-| GET    | `/api/auth/me`    | Bearer | Perfil del usuario autenticado                       |
-| GET    | `/api/health`     | —      | Estado del servicio y de la conexión a la BD         |
-
-Códigos: `401` credenciales o token inválidos/expirados, `403` cuenta deshabilitada,
-`422` payload inválido.
-
-## Decisiones de diseño
-
-**Backend**
-- **bcrypt** directo (sin passlib, que está sin mantenimiento) con coste configurable
-  (`BCRYPT_ROUNDS`). Se respeta su límite de 72 bytes, y el hashing se ejecuta en un
-  hilo (`anyio.to_thread`) para no bloquear el event loop.
-- **Anti-enumeración de usuarios:** un correo inexistente y una contraseña incorrecta
-  devuelven el mismo mensaje y tardan lo mismo, porque se verifica contra un hash señuelo.
-  Que una cuenta está deshabilitada solo se revela tras validar la contraseña.
-- **JWT (PyJWT, HS256):** el algoritmo se fija en la verificación (evita el ataque `alg: none`).
-  Los claims `sub`, `exp`, `iat` y `jti` son obligatorios y el claim `type=access` deja
-  sitio para añadir *refresh tokens* más adelante. La clave es obligatoria y debe tener
-  al menos 32 caracteres: sin ella la app no arranca.
-- **Capas:** `api` (HTTP) → `services` (casos de uso, excepciones de dominio) → `models`.
-  `core/security.py` no depende ni de HTTP ni de la BD.
-- **Emails normalizados** a minúsculas, así que el login no distingue mayúsculas.
-- **CORS** restringido a `CORS_ORIGINS` (por defecto `http://localhost:5173`), sin
-  cookies: el token viaja en el header `Authorization`.
-- **Alembic** con *naming convention* para tener nombres de constraints deterministas.
-
-**Frontend**
-- **Estado de sesión como unión discriminada** (`loading | authenticated | unauthenticated`):
-  si `status === 'authenticated'`, TypeScript garantiza que `user` y `token` no son nulos.
-- **Persistencia** del JWT en `localStorage`. Al arrancar se descarta si está caducado y,
-  si no, se valida contra `/auth/me` antes de mostrar rutas privadas. Una caída de red no
-  borra la sesión; un `401`/`403` sí.
-- **Cierre de sesión automático** al expirar el token, ante cualquier `401` de la API
-  (interceptor de Axios) y de forma sincronizada entre pestañas (evento `storage`).
-- **Rutas:** `ProtectedRoute` redirige a `/login` recordando la ruta solicitada.
-  `GuestRoute` impide volver a `/login` con sesión activa y redirige tras el login.
-
-> **Nota de seguridad:** `localStorage` es accesible desde JavaScript, así que un XSS podría
-> leer el token. Para producción se recomienda valorar una cookie `HttpOnly` +
-> `SameSite` con *refresh tokens* (candidato a un hito posterior).
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| POST | `/api/auth/login` | `{email, password}` → `{accessToken, tokenType, expiresIn, usuario}` |
+| GET | `/api/auth/me` | Perfil del usuario autenticado (Bearer) |
 
 ## Calidad
 
 ```bash
-# Backend (desde backend/)
-pytest                                   # SQLite en memoria, sin dependencias externas
-# Contra PostgreSQL real (crea antes la base de datos sgoc_test):
-TEST_DATABASE_URL=postgresql+asyncpg://sgoc:sgoc@localhost:5432/sgoc_test pytest
-ruff check . && ruff format --check .
-mypy app tests alembic/env.py            # modo strict
-
-# Frontend (desde frontend/)
-npm run lint                             # oxlint
-npm run build                            # tsc (strict) + build de producción
+cd backend-spring && ./mvnw test                  # 40 tests
+cd frontend && npm run lint && npm run build      # oxlint + TypeScript estricto
 ```

@@ -1,0 +1,19 @@
+@import 'tailwindcss';
+
+/* Marca Unisen: tokens globales y componentes base (capa "components"). */
+@import './brand/unisen/tokens.css';
+@import './brand/unisen/componentes.css' layer(components);
+
+/* Tailwind v4 lee el tema desde el archivo de configuración en TypeScript. */
+@config '../tailwind.config.ts';
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground;
+  }
+}

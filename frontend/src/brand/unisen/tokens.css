@@ -1,0 +1,77 @@
+/* =============================================================================
+ * Unisen · Design tokens
+ *
+ * ⚠ MARCADOR DE POSICIÓN: sustituir por el tokens.css oficial de Unisen.
+ *   Si el oficial usa otros nombres de variable, basta con ajustar el mapeo en
+ *   tailwind.config.ts (cada clase de Tailwind apunta a una de estas variables).
+ * ============================================================================= */
+
+:root {
+  color-scheme: light;
+
+  /* --- Tipografía --- */
+  --unisen-font-sans: 'Geist Variable', 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --unisen-font-serif: 'Instrument Serif', ui-serif, Georgia, 'Times New Roman', serif;
+  --unisen-font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  /* --- Superficies --- */
+  --unisen-color-bg: #f6f5f1;
+  --unisen-color-surface: #ffffff;
+  --unisen-color-surface-muted: #eeece6;
+  --unisen-color-border: #e0ddd5;
+  --unisen-color-border-strong: #c6c1b6;
+
+  /* --- Texto --- */
+  --unisen-color-text: #1b1a17;
+  --unisen-color-text-muted: #6a665d;
+
+  /* --- Marca --- */
+  --unisen-color-primary: #1d2b4f;
+  --unisen-color-primary-hover: #2a3c68;
+  --unisen-color-on-primary: #ffffff;
+  --unisen-color-accent: #b5552d;
+
+  /* Panel de marca (siempre oscuro, en claro y en oscuro) */
+  --unisen-color-brand-panel: #16213d;
+  --unisen-color-brand-panel-text: #f3f1ea;
+  --unisen-color-brand-panel-muted: #a9b1c7;
+
+  /* --- Estados --- */
+  --unisen-color-danger: #b42318;
+  --unisen-color-danger-surface: #fef3f2;
+  --unisen-color-danger-border: #fdcdc8;
+  --unisen-color-success: #067647;
+  --unisen-color-focus: #3d5bd9;
+
+  /* --- Forma y profundidad --- */
+  --unisen-radius-sm: 6px;
+  --unisen-radius-md: 10px;
+  --unisen-radius-lg: 14px;
+  --unisen-radius-xl: 22px;
+  --unisen-shadow-sm: 0 1px 2px rgb(27 26 23 / 0.06);
+  --unisen-shadow-card: 0 1px 2px rgb(27 26 23 / 0.04), 0 12px 32px -12px rgb(27 26 23 / 0.18);
+}
+
+/* Tema oscuro: sigue la preferencia del sistema salvo que se fuerce data-theme="light". */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --unisen-color-bg: #111215;
+    --unisen-color-surface: #191a1e;
+    --unisen-color-surface-muted: #23252a;
+    --unisen-color-border: #2e3036;
+    --unisen-color-border-strong: #454852;
+    --unisen-color-text: #f1efe9;
+    --unisen-color-text-muted: #a3a09a;
+    --unisen-color-primary: #c9d4ff;
+    --unisen-color-primary-hover: #dde4ff;
+    --unisen-color-on-primary: #111a33;
+    --unisen-color-accent: #e98b62;
+    --unisen-color-danger: #fda29b;
+    --unisen-color-danger-surface: #3a1714;
+    --unisen-color-danger-border: #6a2a24;
+    --unisen-color-success: #75e0a7;
+    --unisen-color-focus: #8fa6ff;
+    --unisen-shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 16px 40px -16px rgb(0 0 0 / 0.6);
+  }
+}

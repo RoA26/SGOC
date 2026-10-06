@@ -1,0 +1,130 @@
+/* =============================================================================
+ * Unisen · Componentes base
+ *
+ * ⚠ MARCADOR DE POSICIÓN: sustituir por el componentes.css oficial de Unisen.
+ *   Define tokens de componente (derivados de tokens.css) y clases base `u-*`.
+ *   Se importa en la capa `components` de Tailwind: las utilidades pueden
+ *   sobrescribir estas clases cuando haga falta.
+ * ============================================================================= */
+
+:root {
+  --unisen-control-height: 2.75rem;
+  --unisen-control-radius: var(--unisen-radius-md);
+  --unisen-control-border: var(--unisen-color-border-strong);
+  --unisen-control-bg: var(--unisen-color-surface);
+  --unisen-card-radius: var(--unisen-radius-xl);
+}
+
+/* --- Campos de formulario --- */
+.u-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--unisen-color-text);
+}
+
+.u-input {
+  display: block;
+  width: 100%;
+  height: var(--unisen-control-height);
+  padding-inline: 0.875rem;
+  border: 1px solid var(--unisen-control-border);
+  border-radius: var(--unisen-control-radius);
+  background: var(--unisen-control-bg);
+  color: var(--unisen-color-text);
+  font: inherit;
+  font-size: 0.9375rem;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.u-input::placeholder {
+  color: var(--unisen-color-text-muted);
+  opacity: 0.7;
+}
+
+.u-input:focus {
+  outline: none;
+  border-color: var(--unisen-color-focus);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--unisen-color-focus) 25%, transparent);
+}
+
+.u-input[aria-invalid='true'] {
+  border-color: var(--unisen-color-danger);
+}
+
+.u-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.u-field-error {
+  font-size: 0.8125rem;
+  color: var(--unisen-color-danger);
+}
+
+/* --- Botones --- */
+.u-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: var(--unisen-control-height);
+  padding-inline: 1.125rem;
+  border: 1px solid transparent;
+  border-radius: var(--unisen-control-radius);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, opacity 120ms ease;
+}
+
+.u-btn:focus-visible {
+  outline: 2px solid var(--unisen-color-focus);
+  outline-offset: 2px;
+}
+
+.u-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.u-btn--primary {
+  background: var(--unisen-color-primary);
+  color: var(--unisen-color-on-primary);
+}
+
+.u-btn--primary:hover:not(:disabled) {
+  background: var(--unisen-color-primary-hover);
+}
+
+.u-btn--ghost {
+  background: transparent;
+  border-color: var(--unisen-color-border-strong);
+  color: var(--unisen-color-text);
+}
+
+.u-btn--ghost:hover:not(:disabled) {
+  background: var(--unisen-color-surface-muted);
+}
+
+/* --- Tarjetas y avisos --- */
+.u-card {
+  border: 1px solid var(--unisen-color-border);
+  border-radius: var(--unisen-card-radius);
+  background: var(--unisen-color-surface);
+  box-shadow: var(--unisen-shadow-card);
+}
+
+.u-alert {
+  border: 1px solid transparent;
+  border-radius: var(--unisen-radius-md);
+  padding: 0.75rem 0.875rem;
+  font-size: 0.875rem;
+}
+
+.u-alert--error {
+  border-color: var(--unisen-color-danger-border);
+  background: var(--unisen-color-danger-surface);
+  color: var(--unisen-color-danger);
+}
