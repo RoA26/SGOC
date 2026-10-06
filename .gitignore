@@ -1,19 +1,10 @@
-# --- Entornos y secretos ---
+# --- Secretos y entornos ---
 .env
 .env.*
 !.env.example
 
-# --- Python ---
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-.mypy_cache/
-.ruff_cache/
-.pytest_cache/
-.coverage
-htmlcov/
-*.egg-info/
+# --- Java / Maven ---
+target/
 
 # --- Node / Frontend ---
 node_modules/
@@ -22,7 +13,8 @@ dist/
 npm-debug.log*
 
 # --- Editores / SO ---
+.idea/
+*.iml
 .vscode/*
 !.vscode/extensions.json
-.idea/
 .DS_Store
