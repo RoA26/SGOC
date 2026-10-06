@@ -1,6 +1,6 @@
 # Unisen SGP: Sistema de Gestión de Órdenes de Compra
 
-Producción: **https://rrf.duckdns.org**
+Producción: **https://rrtf.duckdns.org**
 
 | Capa | Tecnología |
 | --- | --- |
@@ -9,9 +9,9 @@ Producción: **https://rrf.duckdns.org**
 | Infraestructura | Docker Compose · Nginx 1.30 · PostgreSQL 16 |
 
 ```
-Navegador ──HTTPS──▶ host (TLS de rrf.duckdns.org) ──HTTP──▶ frontend · Nginx :80
+Navegador ──HTTPS──▶ host (TLS de rrtf.duckdns.org) ──HTTP──▶ frontend · Nginx :80
                                                                ├── /       → estáticos de React
-                                                               └── /api/   → spring-backend:8081 ──▶ postgres:5432
+                                                               └── /api/   → backend:8081 ──▶ postgres:5432
 ```
 
 El navegador solo habla con Nginx: la SPA llama a `/api` en el **mismo origen**, sin CORS ni URLs
@@ -21,7 +21,7 @@ absolutas en el código. PostgreSQL y Spring Boot no publican puertos hacia inte
 
 ```
 .
-├── docker-compose.yml       PostgreSQL + spring-backend + frontend (Nginx)
+├── docker-compose.yml       PostgreSQL + backend + frontend (Nginx)
 ├── .env.example             Variables del despliegue (copiar a .env)
 ├── backend-spring/          API REST Spring Boot (ver backend-spring/README.md)
 │   └── Dockerfile           Maven → JRE 21 alpine, usuario sin privilegios
@@ -39,7 +39,7 @@ absolutas en el código. PostgreSQL y Spring Boot no publican puertos hacia inte
 
 ## Limpieza de deuda técnica
 
-El backend FastAPI y el frontend React anterior se eliminaron con:
+El backend FastAPI y el frontend React anterior se eliminaron en el commit `d13066a` con:
 
 ```bash
 git rm -r backend frontend docker-compose.yml backend-spring/compose.yaml
@@ -47,11 +47,32 @@ rm -rf backend frontend          # restos no versionados: node_modules/, .venv/,
 git commit -m "Limpieza: eliminar backend FastAPI y frontend obsoleto"
 ```
 
-Después se generó un `frontend/` nuevo con `npm create vite@latest frontend -- --template react-ts`.
+> Ya están aplicados: **no los vuelvas a ejecutar**, porque `frontend/` es ahora el frontend nuevo.
+
+## Cómo se generó el frontend
+
+```bash
+npm create vite@latest frontend -- --template react-ts
+cd frontend
+npm install
+
+# React 18 (la plantilla actual de Vite instala React 19)
+npm install react@^18.3.1 react-dom@^18.3.1
+npm install -D @types/react@^18.3 @types/react-dom@^18.3
+
+# Tailwind CSS v4 (plugin de Vite), HTTP, enrutado y estado
+npm install tailwindcss @tailwindcss/vite axios react-router-dom zustand
+
+# Tipografías de la marca, autoalojadas
+npm install @fontsource-variable/geist @fontsource/instrument-serif
+```
+
+Tailwind v4 se activa con `tailwindcss()` en `vite.config.ts` y, en `src/index.css`,
+`@import 'tailwindcss';` más `@config '../tailwind.config.ts';` para usar el tema en TypeScript.
 
 ## Despliegue en el VPS
 
-Requisitos: Docker con el plugin Compose, `rrf.duckdns.org` apuntando a la IP del VPS y el
+Requisitos: Docker con el plugin Compose, `rrtf.duckdns.org` apuntando a la IP del VPS y el
 puerto 80 abierto.
 
 ```bash
@@ -66,7 +87,7 @@ docker compose up -d --build
 docker compose ps                  # los tres servicios deben quedar "healthy"
 ```
 
-Abre http://rrf.duckdns.org e inicia sesión con `ADMIN_EMAIL` / `ADMIN_PASSWORD`. El administrador
+Abre http://rrtf.duckdns.org e inicia sesión con `ADMIN_EMAIL` / `ADMIN_PASSWORD`. El administrador
 se crea en el primer arranque; los siguientes no lo modifican.
 
 El arranque va en orden: PostgreSQL sano → backend listo (readiness) → Nginx. Si el backend se
@@ -78,11 +99,11 @@ JSON que el login muestra como "servidor no disponible".
 Nginx escucha en HTTP y respeta `X-Forwarded-Proto`. Para terminar HTTPS en el host:
 
 1. En `.env`: `HTTP_PORT=127.0.0.1:8080`, para que solo el proxy del host llegue al contenedor.
-2. Un proxy inverso en el host para `rrf.duckdns.org`. Por ejemplo, con Caddy y certificado
+2. Un proxy inverso en el host para `rrtf.duckdns.org`. Por ejemplo, con Caddy y certificado
    automático de Let's Encrypt:
 
    ```
-   rrf.duckdns.org {
+   rrtf.duckdns.org {
        reverse_proxy 127.0.0.1:8080
    }
    ```

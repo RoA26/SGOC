@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/authStore'
 /**
  * Instancia única de Axios para toda la aplicación.
  *
- * VITE_API_URL vale "/api" por defecto: en producción Nginx (rrf.duckdns.org) reenvía
+ * VITE_API_URL vale "/api" por defecto: en producción Nginx (rrtf.duckdns.org) reenvía
  * /api/ al contenedor de Spring Boot, y en desarrollo lo hace el proxy de Vite.
  */
 export const api = axios.create({

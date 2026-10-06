@@ -67,10 +67,10 @@ e indica qué variable falta.
 | `JWT_EXPIRATION` | `1h` | Validez del token (`30m`, `8h`…) |
 | `JWT_ISSUER` | `unisen-sgp` | Claim `iss` firmado y exigido |
 | `BCRYPT_STRENGTH` | `12` | Coste de BCrypt |
-| `CORS_ALLOWED_ORIGINS` | `https://rrf.duckdns.org,http://localhost:5173` | Orígenes del frontend, separados por comas |
+| `CORS_ALLOWED_ORIGINS` | `https://rrtf.duckdns.org,http://localhost:5173` | Orígenes del frontend, separados por comas |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NOMBRE` | vacío | Alta del primer administrador al arrancar (idempotente) |
 | `SWAGGER_ENABLED` | `true` | Pon `false` en producción si no quieres exponer la documentación |
-| `SERVER_PORT` | `8081` | Puerto HTTP (Nginx reenvía `/api/` a `spring-backend:8081`) |
+| `SERVER_PORT` | `8081` | Puerto HTTP (Nginx reenvía `/api/` a `backend:8081`) |
 
 ## API
 
@@ -115,7 +115,7 @@ Los errores siguen RFC 9457 (`application/problem+json`):
   se rechazan al darlas de alta y en el login devuelven `401`, nunca un error interno.
 - **Sin fugas:** `toString()` de `LoginRequest`, `JwtProperties` y del admin enmascaran
   secretos. El hash se borra del `UserDetails` tras autenticar. Los `500` no exponen detalles.
-- **CORS** restringido a `CORS_ALLOWED_ORIGINS` (`https://rrf.duckdns.org` y Vite en local), sin
+- **CORS** restringido a `CORS_ALLOWED_ORIGINS` (`https://rrtf.duckdns.org` y Vite en local), sin
   credenciales (el token viaja en un header). En producción el frontend llama a `/api` en el
   mismo origen a través de Nginx, por lo que CORS solo interviene si otro origen llama a la API.
 - **Esquema gestionado por Flyway:** `ddl-auto: validate` hace que Hibernate solo verifique el
@@ -144,7 +144,7 @@ deprecadas, rompe el build.
 `Dockerfile` multietapa: Maven + JDK 21 compila; la imagen final es `eclipse-temurin:21-jre-alpine`
 con usuario sin privilegios, capas de Spring Boot extraídas (las dependencias se cachean entre
 versiones) y `HEALTHCHECK` contra `/actuator/health/readiness`. Lo orquesta el
-`docker-compose.yml` de la raíz como servicio `spring-backend` (puerto interno 8081).
+`docker-compose.yml` de la raíz como servicio `backend` (puerto interno 8081).
 
 ```bash
 docker build -t unisen/sgp-backend ./backend-spring     # desde la raíz del repo

@@ -19,7 +19,7 @@ app:
     cors:
       # Mismos valores que los de producción en application.yml (fijados aquí para que un
       # .env local no altere el resultado de los tests).
-      allowed-origins: https://rrf.duckdns.org,http://localhost:5173
+      allowed-origins: https://rrtf.duckdns.org,http://localhost:5173
   bootstrap:
     admin:
       email: ""

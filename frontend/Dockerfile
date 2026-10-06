@@ -13,7 +13,7 @@ COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 
 COPY . .
-# Ruta relativa por defecto: el navegador llama al mismo origen (Nginx → spring-backend).
+# Ruta relativa por defecto: el navegador llama al mismo origen (Nginx → backend).
 ARG VITE_API_URL=/api
 ENV VITE_API_URL=${VITE_API_URL}
 RUN npm run build
