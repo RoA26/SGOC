@@ -37,19 +37,21 @@ Requisitos: JDK 21 y Docker (o un PostgreSQL 16 propio). No hace falta instalar 
 
 ```bash
 cd backend-spring
-docker compose up -d                       # PostgreSQL en localhost:5432 (bd/usuario/clave: sgp)
+# PostgreSQL del docker-compose.yml de la raíz (solo escucha en 127.0.0.1:5432)
+(cd .. && docker compose up -d postgres)
 
 cp .env.example .env
 # Edita .env y rellena como mínimo:
+#   DB_PASSWORD     → el mismo valor que POSTGRES_PASSWORD en el .env de la raíz
 #   JWT_SECRET      → openssl rand -base64 64
 #   ADMIN_PASSWORD  → contraseña del primer administrador (mín. 8 caracteres)
 
 ./mvnw spring-boot:run
 ```
 
-- API: http://localhost:8080
-- Swagger UI: http://localhost:8080/swagger-ui.html (botón *Authorize* → pega el `accessToken`)
-- Health: http://localhost:8080/actuator/health
+- API: http://localhost:8081
+- Swagger UI: http://localhost:8081/swagger-ui.html (botón *Authorize* → pega el `accessToken`)
+- Health: http://localhost:8081/actuator/health
 
 El `.env` se carga automáticamente al arrancar desde esta carpeta
 (`spring.config.import: optional:file:.env[.properties]`). En Docker o en el VPS, define las
@@ -65,10 +67,10 @@ e indica qué variable falta.
 | `JWT_EXPIRATION` | `1h` | Validez del token (`30m`, `8h`…) |
 | `JWT_ISSUER` | `unisen-sgp` | Claim `iss` firmado y exigido |
 | `BCRYPT_STRENGTH` | `12` | Coste de BCrypt |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Orígenes del frontend, separados por comas |
+| `CORS_ALLOWED_ORIGINS` | `https://rrf.duckdns.org,http://localhost:5173` | Orígenes del frontend, separados por comas |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NOMBRE` | vacío | Alta del primer administrador al arrancar (idempotente) |
 | `SWAGGER_ENABLED` | `true` | Pon `false` en producción si no quieres exponer la documentación |
-| `SERVER_PORT` | `8080` | Puerto HTTP |
+| `SERVER_PORT` | `8081` | Puerto HTTP (Nginx reenvía `/api/` a `spring-backend:8081`) |
 
 ## API
 
@@ -80,7 +82,7 @@ e indica qué variable falta.
 | * | cualquier otra | Bearer | `401` sin token válido |
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/login \
+curl -X POST http://localhost:8081/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"admin@unisen.com","password":"<ADMIN_PASSWORD>"}'
 ```
@@ -113,7 +115,9 @@ Los errores siguen RFC 9457 (`application/problem+json`):
   se rechazan al darlas de alta y en el login devuelven `401`, nunca un error interno.
 - **Sin fugas:** `toString()` de `LoginRequest`, `JwtProperties` y del admin enmascaran
   secretos. El hash se borra del `UserDetails` tras autenticar. Los `500` no exponen detalles.
-- **CORS** restringido a `CORS_ALLOWED_ORIGINS`, sin credenciales (el token viaja en un header).
+- **CORS** restringido a `CORS_ALLOWED_ORIGINS` (`https://rrf.duckdns.org` y Vite en local), sin
+  credenciales (el token viaja en un header). En producción el frontend llama a `/api` en el
+  mismo origen a través de Nginx, por lo que CORS solo interviene si otro origen llama a la API.
 - **Esquema gestionado por Flyway:** `ddl-auto: validate` hace que Hibernate solo verifique el
   esquema. `open-in-view: false`.
 - **Detrás de proxy (DuckDNS/HTTPS):** `server.forward-headers-strategy: framework`.
@@ -121,7 +125,7 @@ Los errores siguen RFC 9457 (`application/problem+json`):
 ## Tests
 
 ```bash
-./mvnw test        # 38 tests: H2 en modo PostgreSQL, sin dependencias externas
+./mvnw test        # 40 tests: H2 en modo PostgreSQL, sin dependencias externas
 
 # Contra PostgreSQL real (crea antes la BD sgp_test):
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/sgp_test \
@@ -135,7 +139,19 @@ revocados, rutas protegidas, CORS, Swagger, health y el alta del administrador.
 El compilador corre con `-Xlint:all -Werror`: cualquier warning, incluido el uso de APIs
 deprecadas, rompe el build.
 
+## Docker
+
+`Dockerfile` multietapa: Maven + JDK 21 compila; la imagen final es `eclipse-temurin:21-jre-alpine`
+con usuario sin privilegios, capas de Spring Boot extraídas (las dependencias se cachean entre
+versiones) y `HEALTHCHECK` contra `/actuator/health/readiness`. Lo orquesta el
+`docker-compose.yml` de la raíz como servicio `spring-backend` (puerto interno 8081).
+
+```bash
+docker build -t unisen/sgp-backend ./backend-spring     # desde la raíz del repo
+```
+
+Los tests no se ejecutan dentro del build: van en `./mvnw test` (CI).
+
 ## Fuera de alcance de este hito
 
-Proveedores, productos y órdenes de compra; refresh tokens; gestión de usuarios vía API;
-`Dockerfile` y despliegue en el VPS (DuckDNS + HTTPS).
+Proveedores, productos y órdenes de compra; refresh tokens; gestión de usuarios vía API.

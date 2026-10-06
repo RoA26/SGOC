@@ -295,6 +295,24 @@ class AuthControllerTest {
     }
 
     @Test
+    void corsPermiteElDominioDeProduccion() throws Exception {
+        mockMvc.perform(options(LOGIN_URL)
+                        .header(HttpHeaders.ORIGIN, "https://rrf.duckdns.org")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "authorization,content-type"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "https://rrf.duckdns.org"));
+    }
+
+    @Test
+    void corsRechazaElDominioSinHttps() throws Exception {
+        mockMvc.perform(options(LOGIN_URL)
+                        .header(HttpHeaders.ORIGIN, "http://rrf.duckdns.org")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void corsRechazaOrigenesDesconocidos() throws Exception {
         mockMvc.perform(options(LOGIN_URL)
                         .header(HttpHeaders.ORIGIN, "https://malicioso.example.com")
