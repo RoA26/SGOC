@@ -18,17 +18,17 @@ src/main/java/com/unisen/sgp
 ├── SgpApplication.java
 ├── config/            SecurityConfig (SecurityFilterChain, CORS, BCrypt, AuthenticationManager),
 │                      OpenApiConfig, propiedades tipadas, AdminBootstrap (alta del primer admin)
-├── controller/        AuthController  → POST /api/auth/login, GET /api/auth/me
-├── exception/         GlobalExceptionHandler (errores RFC 9457 / Problem Details)
-├── model/entity/      Usuario (JPA), Rol
-├── model/dto/         LoginRequest, LoginResponse, UsuarioResponse (records)
-├── repository/        UsuarioRepository (Spring Data)
+├── controller/        AuthController, ProveedorController, ProductoController
+├── exception/         GlobalExceptionHandler (RFC 9457), RecursoNoEncontrado, Conflicto, CampoInvalido
+├── model/entity/      Usuario, Rol, Proveedor, Producto, EntidadAuditable
+├── model/dto/         Records de request/response (Login…, Proveedor…DTO, Producto…DTO), Patrones
+├── repository/        UsuarioRepository, ProveedorRepository, ProductoRepository
 ├── security/          JwtUtil, JwtAuthenticationFilter, UsuarioPrincipal (UserDetails),
 │                      UsuarioDetailsService, entry point 401 y handler 403
-└── service/           AuthService, UsuarioService
+└── service/           AuthService, UsuarioService, ProveedorService, ProductoService
 src/main/resources
 ├── application.yml
-└── db/migration/V1__crear_tabla_usuarios.sql
+└── db/migration/      V1 usuarios · V2 proveedores y productos
 ```
 
 ## Puesta en marcha (local)
@@ -78,8 +78,34 @@ e indica qué variable falta.
 | --- | --- | --- | --- |
 | POST | `/api/auth/login` | Pública | `200` `{accessToken, tokenType, expiresIn, usuario}` |
 | GET | `/api/auth/me` | Bearer | `200` `{id, email, nombre, rol}` |
+| GET | `/api/v1/proveedores` | Bearer | `200` página de proveedores activos |
+| GET | `/api/v1/proveedores/{id}` | Bearer | `200` proveedor · `404` |
+| POST | `/api/v1/proveedores` | Bearer **ADMIN** | `201` + `Location` · `400` · `409` NIT duplicado |
+| PUT | `/api/v1/proveedores/{id}` | Bearer **ADMIN** | `200` · `400` · `404` · `409` |
+| DELETE | `/api/v1/proveedores/{id}` | Bearer **ADMIN** | `204` baja lógica · `409` si tiene productos activos |
+| GET | `/api/v1/productos` | Bearer | `200` página de productos activos con su proveedor |
+| GET | `/api/v1/productos/{id}` | Bearer | `200` producto · `404` |
+| POST | `/api/v1/productos` | Bearer **ADMIN** | `201` · `400` (incluye proveedor inexistente) · `409` SKU duplicado |
+| PUT | `/api/v1/productos/{id}` | Bearer **ADMIN** | `200` · `400` · `404` · `409` |
+| DELETE | `/api/v1/productos/{id}` | Bearer **ADMIN** | `204` baja lógica |
 | GET | `/actuator/health` | Pública | `200` `{status: "UP"}` |
 | * | cualquier otra | Bearer | `401` sin token válido |
+
+**Paginación:** `?page=0&size=10&sort=campo,asc` (tamaño máximo 100; admite campos anidados como
+`sort=proveedor.razonSocial`). Respuesta:
+`{"content": [...], "page": {"size": 10, "number": 0, "totalElements": 13, "totalPages": 2}}`.
+
+**Catálogos:**
+- *Borrado lógico:* `DELETE` ejecuta `UPDATE … SET activo = false` (`@SQLDelete`) y
+  `@SQLRestriction("activo = true")` oculta los inactivos en todas las consultas.
+  (`@SQLRestriction` sustituye a `@Where`, deprecado desde Hibernate 6.3).
+- *Unicidad:* NIT y SKU son únicos **incluidos los dados de baja**; reutilizar uno exige
+  reactivar el registro original (funcionalidad pendiente).
+- *Integridad:* un proveedor con productos activos no se puede dar de baja (`409`), y un
+  producto solo puede asignarse a un proveedor activo (`400` en `errors.proveedorId`).
+- *Normalización:* el NIT pierde puntos y espacios (`900.123.456-7` → `900123456-7`), el
+  correo pasa a minúsculas y el SKU a mayúsculas. Las mismas reglas están en los esquemas Zod
+  del frontend.
 
 ```bash
 curl -X POST http://localhost:8081/api/auth/login \
@@ -96,9 +122,11 @@ Los errores siguen RFC 9457 (`application/problem+json`):
 
 | Código | Cuándo |
 | --- | --- |
-| `400` | JSON mal formado o validación fallida (`errors`: campo → mensaje) |
+| `400` | JSON mal formado, validación fallida u orden inválido (`errors`: campo → mensaje) |
 | `401` | Credenciales incorrectas; token ausente, manipulado o expirado; usuario eliminado o desactivado |
 | `403` | Login con contraseña correcta de una cuenta deshabilitada; rol insuficiente |
+| `404` | Recurso inexistente o dado de baja |
+| `409` | NIT/SKU duplicado (`errors`: campo → mensaje) o baja de un proveedor con productos activos |
 
 ## Decisiones de seguridad
 
@@ -125,7 +153,7 @@ Los errores siguen RFC 9457 (`application/problem+json`):
 ## Tests
 
 ```bash
-./mvnw test        # 40 tests: H2 en modo PostgreSQL, sin dependencias externas
+./mvnw test        # 60 tests: H2 en modo PostgreSQL, sin dependencias externas
 
 # Contra PostgreSQL real (crea antes la BD sgp_test):
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/sgp_test \
@@ -154,4 +182,5 @@ Los tests no se ejecutan dentro del build: van en `./mvnw test` (CI).
 
 ## Fuera de alcance de este hito
 
-Proveedores, productos y órdenes de compra; refresh tokens; gestión de usuarios vía API.
+Órdenes de compra; reactivación de registros dados de baja; búsqueda en catálogos; refresh
+tokens; gestión de usuarios vía API.

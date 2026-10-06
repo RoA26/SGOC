@@ -1,9 +1,14 @@
 package com.unisen.sgp.exception;
 
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -30,6 +35,20 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    /** Restricción de BD → campo del formulario y mensaje para el usuario. */
+    private record Restriccion(String nombre, String campo, String mensaje) {
+    }
+
+    private static final List<Restriccion> RESTRICCIONES = List.of(
+            new Restriccion("uq_proveedores_nit", "nit",
+                    "Ya existe un proveedor con este NIT (también se cuentan los dados de baja)."),
+            new Restriccion("uq_productos_sku", "sku",
+                    "Ya existe un producto con este SKU (también se cuentan los dados de baja)."),
+            new Restriccion("fk_productos_proveedor", "proveedorId",
+                    "El proveedor seleccionado no existe."),
+            new Restriccion("uq_usuarios_email", "email",
+                    "Ya existe un usuario con este correo."));
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ProblemDetail> handleBadCredentials(BadCredentialsException ex) {
@@ -60,6 +79,55 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(EmailYaRegistradoException.class)
     public ProblemDetail handleEmailYaRegistrado(EmailYaRegistradoException ex) {
         return problem(HttpStatus.CONFLICT, "Correo ya registrado", ex.getMessage());
+    }
+
+    @ExceptionHandler(RecursoNoEncontradoException.class)
+    public ProblemDetail handleNoEncontrado(RecursoNoEncontradoException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Recurso no encontrado", ex.getMessage());
+    }
+
+    @ExceptionHandler(ConflictoException.class)
+    public ProblemDetail handleConflicto(ConflictoException ex) {
+        return problem(HttpStatus.CONFLICT, "Operación no permitida", ex.getMessage());
+    }
+
+    /** Regla de negocio sobre un campo concreto: mismo formato que los errores de validación. */
+    @ExceptionHandler(CampoInvalidoException.class)
+    public ProblemDetail handleCampoInvalido(CampoInvalidoException ex) {
+        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "Datos inválidos", ex.getMessage());
+        problem.setProperty("errors", Map.of(ex.getCampo(), ex.getMessage()));
+        return problem;
+    }
+
+    /**
+     * Violación de una restricción de la BD (UNIQUE, FK, CHECK). Es la red de seguridad ante
+     * duplicados, incluso con peticiones concurrentes. Se identifica la restricción para
+     * indicar el campo afectado; los detalles SQL nunca llegan al cliente.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex) {
+        String causa = String.valueOf(NestedExceptionUtils.getMostSpecificCause(ex).getMessage())
+                .toLowerCase(Locale.ROOT);
+        Restriccion restriccion = RESTRICCIONES.stream()
+                .filter(r -> causa.contains(r.nombre()))
+                .findFirst()
+                .orElse(null);
+
+        if (restriccion == null) {
+            log.warn("Violación de integridad no catalogada: {}", causa);
+            return problem(HttpStatus.CONFLICT, "Conflicto de datos",
+                    "La operación entra en conflicto con los datos existentes.");
+        }
+        ProblemDetail problem = problem(HttpStatus.CONFLICT, "Conflicto de datos", restriccion.mensaje());
+        problem.setProperty("errors", Map.of(restriccion.campo(), restriccion.mensaje()));
+        return problem;
+    }
+
+    /** Ordenación por un campo inexistente (?sort=foo). */
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ProblemDetail handlePropertyReference(PropertyReferenceException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Parámetro inválido",
+                "No se puede ordenar por '" + ex.getPropertyName() + "': el campo no existe.");
     }
 
     /** Último recurso: registra el error y no filtra detalles internos al cliente. */
