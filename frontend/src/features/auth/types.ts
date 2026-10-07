@@ -1,6 +1,10 @@
 /** Contratos de la API de autenticación (reflejan los DTO de Spring Boot). */
 
-export type Rol = 'ADMIN' | 'USUARIO'
+/**
+ * Roles de la interfaz. GERENTE se anticipa al rediseño del contexto de Compras: el backend
+ * aún no lo emite (hoy solo ADMIN y USUARIO).
+ */
+export type Rol = 'ADMIN' | 'GERENTE' | 'USUARIO'
 
 export interface LoginRequest {
   username: string

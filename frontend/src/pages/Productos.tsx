@@ -1,24 +1,27 @@
-import { CheckCircle2, Pencil, Plus, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { CheckCircle2, Info, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { DataTable, type Column } from '@/components/ui/DataTable'
+import { usePuedeGestionarCatalogos } from '@/features/auth/permisos'
 import { ProductoFormModal } from '@/features/productos/ProductoFormModal'
 import { useAviso } from '@/hooks/useAviso'
 import { usePaginatedResource } from '@/hooks/usePaginatedResource'
 import { getApiErrorMessage } from '@/lib/errors'
+import { formatearCOP } from '@/lib/moneda'
 import { productoService, type Producto } from '@/services/productoService'
-import { useAuthStore } from '@/store/authStore'
+import { useProveedoresStore } from '@/store/proveedoresStore'
 
 const TAMANO_PAGINA = 10
 const ORDEN = 'nombre,asc'
-
-const formatoPrecio = new Intl.NumberFormat('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const SIN_PROVEEDORES = 'Debes registrar al menos un proveedor primero'
+const ID_AYUDA_SIN_PROVEEDORES = 'productos-sin-proveedores'
 
 type Editor = { producto?: Producto } | null
 
 export default function Productos() {
-  const esAdmin = useAuthStore((state) => state.rol === 'ADMIN')
+  const puedeGestionar = usePuedeGestionarCatalogos()
   const [pagina, setPagina] = useState(0)
   const { data, loading, error, reload } = usePaginatedResource(productoService.listar, pagina, TAMANO_PAGINA, ORDEN)
   const filas = data?.content ?? []
@@ -28,6 +31,18 @@ export default function Productos() {
   const [eliminando, setEliminando] = useState(false)
   const [errorEliminar, setErrorEliminar] = useState<string | null>(null)
   const { aviso, mostrarAviso } = useAviso()
+
+  // Un producto siempre pertenece a un proveedor: sin proveedores no se puede crear ninguno.
+  const proveedores = useProveedoresStore((state) => state.proveedores)
+  const estadoProveedores = useProveedoresStore((state) => state.estado)
+  const cargarProveedores = useProveedoresStore((state) => state.cargar)
+  useEffect(() => {
+    if (puedeGestionar) void cargarProveedores({ forzar: true })
+  }, [puedeGestionar, cargarProveedores])
+
+  const sinProveedores = estadoProveedores === 'listo' && proveedores.length === 0
+  // Mientras carga también se bloquea; si la carga falla, el formulario muestra el error.
+  const altaBloqueada = sinProveedores || estadoProveedores === 'inicial' || estadoProveedores === 'cargando'
 
   function alGuardar(producto: Producto, modo: 'creado' | 'actualizado') {
     setEditor(null)
@@ -81,12 +96,13 @@ export default function Productos() {
       header: 'Precio',
       align: 'right',
       cell: (producto) => (
-        <span className="font-medium whitespace-nowrap tabular-nums">{formatoPrecio.format(producto.precio)}</span>
+        <span className="font-medium whitespace-nowrap tabular-nums">{formatearCOP(producto.precio)}</span>
       ),
     },
   ]
 
-  if (esAdmin) {
+  // Sin permiso, la columna de acciones ni siquiera existe en el DOM.
+  if (puedeGestionar) {
     columnas.push({
       id: 'acciones',
       header: <span className="sr-only">Acciones</span>,
@@ -126,14 +142,35 @@ export default function Productos() {
         title="Productos"
         description="Bienes y servicios que se pueden incluir en una orden de compra."
         actions={
-          esAdmin && (
-            <button type="button" className="u-btn u-btn--primary" onClick={() => setEditor({})}>
+          puedeGestionar && (
+            <button
+              type="button"
+              className="u-btn u-btn--primary disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => setEditor({})}
+              disabled={altaBloqueada}
+              aria-busy={estadoProveedores === 'cargando'}
+              title={sinProveedores ? SIN_PROVEEDORES : undefined}
+              aria-describedby={sinProveedores ? ID_AYUDA_SIN_PROVEEDORES : undefined}
+            >
               <Plus className="size-4" aria-hidden="true" />
               Nuevo producto
             </button>
           )
         }
       />
+
+      {/* El title no se ve en pantallas táctiles ni lo leen todos los lectores: se explica también aquí. */}
+      {puedeGestionar && sinProveedores && (
+        <p id={ID_AYUDA_SIN_PROVEEDORES} className="mb-6 flex items-start gap-2 text-sm text-foreground-muted">
+          <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <span>
+            {SIN_PROVEEDORES}: cada producto pertenece a un proveedor.{' '}
+            <Link to="/proveedores" className="font-medium text-foreground underline-offset-4 hover:underline">
+              Ir a Proveedores
+            </Link>
+          </span>
+        </p>
+      )}
 
       <p role="status" aria-live="polite">
         {aviso && (
@@ -152,27 +189,33 @@ export default function Productos() {
         loading={loading}
         error={error}
         onRetry={reload}
-        emptyMessage={esAdmin ? 'Aún no hay productos. Crea el primero con «Nuevo producto».' : 'Aún no hay productos.'}
+        emptyMessage={
+          puedeGestionar && !sinProveedores
+            ? 'Aún no hay productos. Crea el primero con «Nuevo producto».'
+            : 'Aún no hay productos.'
+        }
         page={data?.page}
         onPageChange={setPagina}
       />
 
-      {editor && <ProductoFormModal producto={editor.producto} onClose={() => setEditor(null)} onSaved={alGuardar} />}
+      {puedeGestionar && editor && <ProductoFormModal producto={editor.producto} onClose={() => setEditor(null)} onSaved={alGuardar} />}
 
-      <ConfirmDialog
-        open={porEliminar !== null}
-        title="Eliminar producto"
-        confirmLabel="Eliminar"
-        busy={eliminando}
-        error={errorEliminar}
-        onConfirm={confirmarEliminacion}
-        onCancel={() => setPorEliminar(null)}
-      >
-        <p>
-          ¿Eliminar <strong className="text-foreground">{porEliminar?.nombre}</strong> ({porEliminar?.sku})? Dejará de
-          aparecer en el catálogo, pero se conserva su histórico.
-        </p>
-      </ConfirmDialog>
+      {puedeGestionar && (
+        <ConfirmDialog
+          open={porEliminar !== null}
+          title="Eliminar producto"
+          confirmLabel="Eliminar"
+          busy={eliminando}
+          error={errorEliminar}
+          onConfirm={confirmarEliminacion}
+          onCancel={() => setPorEliminar(null)}
+        >
+          <p>
+            ¿Eliminar <strong className="text-foreground">{porEliminar?.nombre}</strong> ({porEliminar?.sku})? Dejará de
+            aparecer en el catálogo, pero se conserva su histórico.
+          </p>
+        </ConfirmDialog>
+      )}
     </>
   )
 }

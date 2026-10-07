@@ -1,6 +1,7 @@
 import { Building2, House, LogOut, Package, Ticket, type LucideIcon } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { BrandLogo } from '@/components/BrandLogo'
+import { ETIQUETA_ROL } from '@/features/auth/permisos'
 import type { Rol } from '@/features/auth/types'
 import { cn } from '@/lib/cn'
 import { useAuthStore } from '@/store/authStore'
@@ -58,7 +59,7 @@ export function AppLayout() {
           <div className="flex shrink-0 items-center gap-3">
             <div className="hidden text-right leading-tight md:block">
               <p className="text-sm font-medium text-foreground">{nombre}</p>
-              <p className="text-xs text-foreground-muted">{rol === 'ADMIN' ? 'Administrador' : 'Consulta'}</p>
+              <p className="text-xs text-foreground-muted">{rol && ETIQUETA_ROL[rol]}</p>
             </div>
             <button type="button" className="u-btn u-btn--ghost h-9 px-3" onClick={clearSession}>
               <LogOut className="size-4" aria-hidden="true" />

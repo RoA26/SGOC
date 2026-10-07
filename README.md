@@ -180,7 +180,12 @@ Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, si
 | GET · POST · PUT · DELETE | `/api/v1/productos[/{id}]` | Detalle, alta, edición y baja lógica |
 
 Lecturas: cualquier usuario autenticado. Altas, cambios y bajas: solo `ADMIN` (la interfaz oculta
-los botones al resto). Detalle de reglas y errores en [backend-spring/README.md](backend-spring/README.md).
+los botones al resto; ya contempla también el rol `GERENTE`, que el backend aún no emite). Detalle
+de reglas y errores en [backend-spring/README.md](backend-spring/README.md).
+
+**Precios en COP:** la interfaz trabaja con pesos colombianos enteros (sin decimales) y los
+muestra como `$ 1.250.000`. "Nuevo producto" queda deshabilitado mientras no haya ningún
+proveedor registrado.
 
 **Registro:** quien recibe un código de invitación crea su cuenta en `/registro` (o con el
 enlace `/registro?codigo=XXXX-XXXX-XXXX-XXXX`, que precarga el código) y entra directamente. Los

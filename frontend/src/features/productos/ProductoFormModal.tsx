@@ -1,48 +1,20 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import axios from 'axios'
 import { Loader2 } from 'lucide-react'
-import { useEffect, useId, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { useEffect, useId } from 'react'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { FormField } from '@/components/ui/FormField'
 import { Modal } from '@/components/ui/Modal'
-import { getApiErrorMessage } from '@/lib/errors'
 import { applyApiErrors } from '@/lib/formErrors'
+import { formatearCOP } from '@/lib/moneda'
 import { productoSchema, type ProductoFormValues, type ProductoPayload } from '@/schemas/productoSchema'
-import { productoService, type Producto, type ProveedorResumen } from '@/services/productoService'
-import { proveedorService } from '@/services/proveedorService'
+import { productoService, type Producto } from '@/services/productoService'
+import { useProveedoresStore } from '@/store/proveedoresStore'
 
 const CAMPOS = ['sku', 'nombre', 'descripcion', 'precio', 'proveedorId'] as const
-/** Opciones del selector: suficiente para el catálogo inicial (luego, búsqueda remota). */
-const MAX_PROVEEDORES = 100
 
-interface OpcionesProveedor {
-  opciones: ProveedorResumen[]
-  cargando: boolean
-  error: string | null
-}
-
-function useOpcionesProveedor(): OpcionesProveedor {
-  const [estado, setEstado] = useState<OpcionesProveedor>({ opciones: [], cargando: true, error: null })
-
-  useEffect(() => {
-    const controller = new AbortController()
-    proveedorService
-      .listar({ page: 0, size: MAX_PROVEEDORES, sort: 'razonSocial,asc' }, controller.signal)
-      .then(({ content }) =>
-        setEstado({
-          opciones: content.map(({ id, nit, razonSocial }) => ({ id, nit, razonSocial })),
-          cargando: false,
-          error: null,
-        }),
-      )
-      .catch((error: unknown) => {
-        if (!axios.isCancel(error)) setEstado({ opciones: [], cargando: false, error: getApiErrorMessage(error) })
-      })
-    return () => controller.abort()
-  }, [])
-
-  return estado
-}
+/** Oculta las flechas nativas del input numérico (Chrome/Safari/Edge y Firefox). */
+const SIN_FLECHAS =
+  '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
 
 interface ProductoFormModalProps {
   producto?: Producto
@@ -53,13 +25,21 @@ interface ProductoFormModalProps {
 export function ProductoFormModal({ producto, onClose, onSaved }: ProductoFormModalProps) {
   const formId = useId()
   const editando = producto !== undefined
-  const proveedores = useOpcionesProveedor()
+  const proveedores = useProveedoresStore((state) => state.proveedores)
+  const estadoProveedores = useProveedoresStore((state) => state.estado)
+  const errorProveedores = useProveedoresStore((state) => state.error)
+  const cargarProveedores = useProveedoresStore((state) => state.cargar)
+  const cargando = estadoProveedores === 'inicial' || estadoProveedores === 'cargando'
+
+  useEffect(() => {
+    void cargarProveedores()
+  }, [cargarProveedores])
 
   // Si el proveedor actual no está entre las opciones cargadas, se añade para no perderlo.
   const opciones =
-    producto && !proveedores.opciones.some((opcion) => opcion.id === producto.proveedor.id)
-      ? [producto.proveedor, ...proveedores.opciones]
-      : proveedores.opciones
+    producto && !proveedores.some((opcion) => opcion.id === producto.proveedor.id)
+      ? [producto.proveedor, ...proveedores]
+      : proveedores
 
   const {
     register,
@@ -77,6 +57,8 @@ export function ProductoFormModal({ producto, onClose, onSaved }: ProductoFormMo
       proveedorId: producto?.proveedor.id ?? Number.NaN,
     },
   })
+  const precio = useWatch({ control, name: 'precio' })
+  const precioValido = Number.isInteger(precio) && precio > 0
 
   async function guardar(payload: ProductoPayload) {
     try {
@@ -123,16 +105,23 @@ export function ProductoFormModal({ producto, onClose, onSaved }: ProductoFormMo
           )}
         </FormField>
 
-        <FormField label="Precio unitario" required error={errors.precio?.message}>
+        <FormField
+          label="Precio unitario (COP)"
+          required
+          error={errors.precio?.message}
+          hint={precioValido ? `${formatearCOP(precio)} · sin decimales` : 'Pesos colombianos, sin decimales.'}
+        >
           {(fieldControl) => (
             <input
               {...fieldControl}
               {...register('precio', { valueAsNumber: true })}
               type="number"
-              inputMode="decimal"
-              step="0.01"
-              min="0.01"
-              className="u-input tabular-nums"
+              inputMode="numeric"
+              step="500"
+              min="0"
+              // La rueda del ratón cambiaría el valor sin querer al desplazar el modal.
+              onWheel={(event) => event.currentTarget.blur()}
+              className={`u-input tabular-nums ${SIN_FLECHAS}`}
             />
           )}
         </FormField>
@@ -144,7 +133,7 @@ export function ProductoFormModal({ producto, onClose, onSaved }: ProductoFormMo
         <FormField
           label="Proveedor"
           required
-          error={errors.proveedorId?.message ?? proveedores.error ?? undefined}
+          error={errors.proveedorId?.message ?? errorProveedores ?? undefined}
           className="sm:col-span-2"
         >
           {(fieldControl) => (
@@ -160,10 +149,10 @@ export function ProductoFormModal({ producto, onClose, onSaved }: ProductoFormMo
                   onBlur={field.onBlur}
                   value={Number.isFinite(field.value) ? String(field.value) : ''}
                   onChange={(event) => field.onChange(event.target.value === '' ? Number.NaN : Number(event.target.value))}
-                  disabled={proveedores.cargando}
+                  disabled={cargando}
                   className="u-input"
                 >
-                  <option value="">{proveedores.cargando ? 'Cargando proveedores…' : 'Selecciona un proveedor'}</option>
+                  <option value="">{cargando ? 'Cargando proveedores…' : 'Selecciona un proveedor'}</option>
                   {opciones.map((opcion) => (
                     <option key={opcion.id} value={opcion.id}>
                       {opcion.razonSocial} · {opcion.nit}

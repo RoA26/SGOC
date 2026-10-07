@@ -3,12 +3,13 @@ import { useState } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { DataTable, type Column } from '@/components/ui/DataTable'
+import { usePuedeGestionarCatalogos } from '@/features/auth/permisos'
 import { ProveedorFormModal } from '@/features/proveedores/ProveedorFormModal'
 import { useAviso } from '@/hooks/useAviso'
 import { usePaginatedResource } from '@/hooks/usePaginatedResource'
 import { getApiErrorMessage } from '@/lib/errors'
 import { proveedorService, type Proveedor } from '@/services/proveedorService'
-import { useAuthStore } from '@/store/authStore'
+import { useProveedoresStore } from '@/store/proveedoresStore'
 
 const TAMANO_PAGINA = 10
 const ORDEN = 'razonSocial,asc'
@@ -17,7 +18,9 @@ const ORDEN = 'razonSocial,asc'
 type Editor = { proveedor?: Proveedor } | null
 
 export default function Proveedores() {
-  const esAdmin = useAuthStore((state) => state.rol === 'ADMIN')
+  const puedeGestionar = usePuedeGestionarCatalogos()
+  // Crear o eliminar proveedores cambia lo que ve el catálogo de productos.
+  const invalidarProveedores = useProveedoresStore((state) => state.invalidar)
   const [pagina, setPagina] = useState(0)
   const { data, loading, error, reload } = usePaginatedResource(proveedorService.listar, pagina, TAMANO_PAGINA, ORDEN)
   const filas = data?.content ?? []
@@ -31,6 +34,7 @@ export default function Proveedores() {
   function alGuardar(proveedor: Proveedor, modo: 'creado' | 'actualizado') {
     setEditor(null)
     mostrarAviso(`Proveedor «${proveedor.razonSocial}» ${modo}.`)
+    invalidarProveedores()
     reload()
   }
 
@@ -46,6 +50,7 @@ export default function Proveedores() {
     try {
       await proveedorService.eliminar(porEliminar.id)
       mostrarAviso(`Proveedor «${porEliminar.razonSocial}» eliminado.`)
+      invalidarProveedores()
       setPorEliminar(null)
       // Si era el último de la página, retrocede una; si no, recarga la actual.
       if (filas.length === 1 && pagina > 0) setPagina(pagina - 1)
@@ -91,7 +96,8 @@ export default function Proveedores() {
     },
   ]
 
-  if (esAdmin) {
+  // Sin permiso, la columna de acciones ni siquiera existe en el DOM.
+  if (puedeGestionar) {
     columnas.push({
       id: 'acciones',
       header: <span className="sr-only">Acciones</span>,
@@ -128,7 +134,7 @@ export default function Proveedores() {
         title="Proveedores"
         description="Empresas a las que Unisen compra bienes y servicios."
         actions={
-          esAdmin && (
+          puedeGestionar && (
             <button type="button" className="u-btn u-btn--primary" onClick={() => setEditor({})}>
               <Plus className="size-4" aria-hidden="true" />
               Nuevo proveedor
@@ -154,29 +160,31 @@ export default function Proveedores() {
         loading={loading}
         error={error}
         onRetry={reload}
-        emptyMessage={esAdmin ? 'Aún no hay proveedores. Crea el primero con «Nuevo proveedor».' : 'Aún no hay proveedores.'}
+        emptyMessage={puedeGestionar ? 'Aún no hay proveedores. Crea el primero con «Nuevo proveedor».' : 'Aún no hay proveedores.'}
         page={data?.page}
         onPageChange={setPagina}
       />
 
-      {editor && (
+      {puedeGestionar && editor && (
         <ProveedorFormModal proveedor={editor.proveedor} onClose={() => setEditor(null)} onSaved={alGuardar} />
       )}
 
-      <ConfirmDialog
-        open={porEliminar !== null}
-        title="Eliminar proveedor"
-        confirmLabel="Eliminar"
-        busy={eliminando}
-        error={errorEliminar}
-        onConfirm={confirmarEliminacion}
-        onCancel={() => setPorEliminar(null)}
-      >
-        <p>
-          ¿Eliminar a <strong className="text-foreground">{porEliminar?.razonSocial}</strong>? Dejará de aparecer en
-          los catálogos, pero se conserva su histórico.
-        </p>
-      </ConfirmDialog>
+      {puedeGestionar && (
+        <ConfirmDialog
+          open={porEliminar !== null}
+          title="Eliminar proveedor"
+          confirmLabel="Eliminar"
+          busy={eliminando}
+          error={errorEliminar}
+          onConfirm={confirmarEliminacion}
+          onCancel={() => setPorEliminar(null)}
+        >
+          <p>
+            ¿Eliminar a <strong className="text-foreground">{porEliminar?.razonSocial}</strong>? Dejará de aparecer en
+            los catálogos, pero se conserva su histórico.
+          </p>
+        </ConfirmDialog>
+      )}
     </>
   )
 }
