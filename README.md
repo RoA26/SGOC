@@ -84,14 +84,19 @@ cp .env.example .env
 # Rellena en .env las variables obligatorias:
 #   POSTGRES_PASSWORD   contraseña de la base de datos
 #   JWT_SECRET          openssl rand -base64 64
-#   ADMIN_PASSWORD      contraseña del primer administrador (ADMIN_EMAIL)
+#   ADMIN_PASSWORD      contraseña del primer administrador (ADMIN_USERNAME, por defecto "admin")
 
 docker compose up -d --build
 docker compose ps                  # los tres servicios deben quedar "healthy"
 ```
 
-Abre http://rrtf.duckdns.org e inicia sesión con `ADMIN_EMAIL` / `ADMIN_PASSWORD`. El administrador
-se crea en el primer arranque; los siguientes no lo modifican.
+Abre http://rrtf.duckdns.org e inicia sesión con `ADMIN_USERNAME` / `ADMIN_PASSWORD`. El
+administrador se crea en el primer arranque; los siguientes no lo modifican. El registro está
+cerrado: el resto de cuentas se crean con códigos de invitación que genera el administrador.
+
+**Al actualizar un despliegue anterior al Hito 4:** la migración V3 asigna a cada usuario
+existente un username a partir de su correo (`admin@unisen.com` → `admin`), las sesiones
+abiertas caducan (hay que volver a entrar) y el login pasa a pedir el username.
 
 El arranque va en orden: PostgreSQL sano → backend listo (readiness) → Nginx. Si el backend se
 reinicia, Nginx lo vuelve a encontrar solo. Mientras no responde, `/api` devuelve un `503` en
@@ -165,7 +170,9 @@ Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, si
 
 | Método | Ruta | Descripción |
 | --- | --- | --- |
-| POST | `/api/auth/login` | `{email, password}` → `{accessToken, tokenType, expiresIn, usuario}` |
+| POST | `/api/auth/login` | `{username, password}` → `{accessToken, tokenType, expiresIn, usuario}` |
+| POST | `/api/auth/registro` | `{username, email, password, codigoInvitacion, nombre?}` → `201` usuario |
+| POST | `/api/auth/invitaciones` | Solo `ADMIN`: `{horasValidez?}` → `201` `{codigo, fechaExpiracion}` |
 | GET | `/api/auth/me` | Perfil del usuario autenticado (Bearer) |
 | GET | `/api/v1/proveedores?page=0&size=10&sort=razonSocial,asc` | Listado paginado |
 | GET · POST · PUT · DELETE | `/api/v1/proveedores[/{id}]` | Detalle, alta, edición y baja lógica |
@@ -175,9 +182,13 @@ Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, si
 Lecturas: cualquier usuario autenticado. Altas, cambios y bajas: solo `ADMIN` (la interfaz oculta
 los botones al resto). Detalle de reglas y errores en [backend-spring/README.md](backend-spring/README.md).
 
+> **Pendiente (frontend):** la pantalla de login aún envía `{email, password}`. Con el backend
+> del Hito 4 responde `400` hasta adaptarla a `{username, password}`; tampoco hay todavía
+> pantallas de registro ni de generación de invitaciones (la API ya está disponible).
+
 ## Calidad
 
 ```bash
-cd backend-spring && ./mvnw test                  # 60 tests
+cd backend-spring && ./mvnw test                  # 84 tests
 cd frontend && npm run lint && npm run build      # oxlint + TypeScript estricto
 ```

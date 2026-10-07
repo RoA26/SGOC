@@ -20,7 +20,7 @@ import org.springframework.util.StringUtils;
 /**
  * Emisión y validación de tokens JWT firmados con HMAC-SHA256.
  *
- * <p>Claims emitidos: {@code sub} (correo), {@code uid}, {@code rol}, {@code iss},
+ * <p>Claims emitidos: {@code sub} (username), {@code uid}, {@code rol}, {@code iss},
  * {@code iat}, {@code exp} y {@code jti}. El rol viaja solo como información para el
  * cliente: la autorización del backend siempre se resuelve contra la base de datos.
  */
@@ -87,7 +87,7 @@ public class JwtUtil {
         return claims;
     }
 
-    /** Valida el token y devuelve el nombre de usuario (correo) que contiene. */
+    /** Valida el token y devuelve el username (claim {@code sub}) que contiene. */
     public String extractUsername(String token) {
         return validateToken(token).getSubject();
     }

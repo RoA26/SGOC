@@ -18,6 +18,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 public final class UsuarioPrincipal implements UserDetails, CredentialsContainer {
 
     private final Long id;
+    private final String username;
     private final String email;
     private final String nombre;
     private final Rol rol;
@@ -25,8 +26,10 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
     private final List<GrantedAuthority> authorities;
     private String passwordHash;
 
-    private UsuarioPrincipal(Long id, String email, String passwordHash, String nombre, Rol rol, boolean activo) {
+    private UsuarioPrincipal(Long id, String username, String email, String passwordHash, String nombre, Rol rol,
+                             boolean activo) {
         this.id = id;
+        this.username = username;
         this.email = email;
         this.passwordHash = passwordHash;
         this.nombre = nombre;
@@ -38,6 +41,7 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
     public static UsuarioPrincipal from(Usuario usuario) {
         return new UsuarioPrincipal(
                 usuario.getId(),
+                usuario.getUsername(),
                 usuario.getEmail(),
                 usuario.getPasswordHash(),
                 usuario.getNombre(),
@@ -49,6 +53,10 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
         return id;
     }
 
+    public String getEmail() {
+        return email;
+    }
+
     public String getNombre() {
         return nombre;
     }
@@ -57,9 +65,10 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
         return rol;
     }
 
+    /** Identidad de Spring Security y "sub" del JWT. */
     @Override
     public String getUsername() {
-        return email;
+        return username;
     }
 
     @Override
@@ -85,6 +94,6 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
 
     @Override
     public String toString() {
-        return "UsuarioPrincipal{id=" + id + ", email='" + email + "', rol=" + rol + ", activo=" + activo + '}';
+        return "UsuarioPrincipal{id=" + id + ", username='" + username + "', rol=" + rol + ", activo=" + activo + '}';
     }
 }

@@ -22,5 +22,6 @@ app:
       allowed-origins: https://rrtf.duckdns.org,http://localhost:5173
   bootstrap:
     admin:
+      username: ""
       email: ""
       password: ""

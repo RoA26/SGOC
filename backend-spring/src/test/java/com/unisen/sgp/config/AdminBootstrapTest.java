@@ -13,6 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest(properties = {
+        "app.bootstrap.admin.username=Admin",
         "app.bootstrap.admin.email=Admin@Unisen.com",
         "app.bootstrap.admin.password=AdminInicial123",
         "app.bootstrap.admin.nombre=Admin Unisen",
@@ -31,7 +32,8 @@ class AdminBootstrapTest {
 
     @Test
     void creaElAdministradorAlArrancarYEsIdempotente() {
-        Usuario admin = usuarioRepository.findByEmail("admin@unisen.com").orElseThrow();
+        Usuario admin = usuarioRepository.findByUsername("admin").orElseThrow();
+        assertThat(admin.getEmail()).isEqualTo("admin@unisen.com");
         assertThat(admin.getRol()).isEqualTo(Rol.ADMIN);
         assertThat(admin.getNombre()).isEqualTo("Admin Unisen");
         assertThat(admin.isActivo()).isTrue();
@@ -40,7 +42,7 @@ class AdminBootstrapTest {
         // Un segundo arranque no duplica ni modifica el usuario.
         adminBootstrap.run(new DefaultApplicationArguments());
         assertThat(usuarioRepository.count()).isEqualTo(1);
-        assertThat(usuarioRepository.findByEmail("admin@unisen.com").orElseThrow().getPasswordHash())
+        assertThat(usuarioRepository.findByUsername("admin").orElseThrow().getPasswordHash())
                 .isEqualTo(admin.getPasswordHash());
     }
 }

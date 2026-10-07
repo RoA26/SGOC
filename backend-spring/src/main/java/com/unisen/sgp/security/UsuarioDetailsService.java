@@ -7,7 +7,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Carga usuarios por correo para Spring Security (login y validación de cada JWT). */
+/** Carga usuarios por username para Spring Security (login y validación de cada JWT). */
 @Service
 public class UsuarioDetailsService implements UserDetailsService {
 
@@ -20,7 +20,7 @@ public class UsuarioDetailsService implements UserDetailsService {
     @Override
     @Transactional(readOnly = true)
     public UsuarioPrincipal loadUserByUsername(String username) {
-        return usuarioRepository.findByEmail(Usuario.normalizarEmail(username))
+        return usuarioRepository.findByUsername(Usuario.normalizarUsername(username))
                 .map(UsuarioPrincipal::from)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado."));
     }

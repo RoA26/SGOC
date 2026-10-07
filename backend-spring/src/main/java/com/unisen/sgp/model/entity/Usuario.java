@@ -18,12 +18,17 @@ import org.hibernate.annotations.UpdateTimestamp;
 @Table(name = "usuarios")
 public class Usuario {
 
+    public static final int USERNAME_MAX_LENGTH = 50;
     public static final int EMAIL_MAX_LENGTH = 320;
     public static final int NOMBRE_MAX_LENGTH = 150;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** Identificador de inicio de sesión. Se almacena normalizado en minúsculas. */
+    @Column(nullable = false, unique = true, length = USERNAME_MAX_LENGTH)
+    private String username;
 
     @Column(nullable = false, unique = true, length = EMAIL_MAX_LENGTH)
     private String email;
@@ -54,12 +59,18 @@ public class Usuario {
     protected Usuario() {
     }
 
-    public Usuario(String email, String passwordHash, String nombre, Rol rol) {
+    public Usuario(String username, String email, String passwordHash, String nombre, Rol rol) {
         // Asignación directa: invocar setters sobrescribibles desde el constructor es inseguro.
+        this.username = normalizarUsername(Objects.requireNonNull(username, "username"));
         this.email = normalizarEmail(Objects.requireNonNull(email, "email"));
         this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash");
         this.nombre = Objects.requireNonNull(nombre, "nombre").strip();
         this.rol = Objects.requireNonNull(rol, "rol");
+    }
+
+    /** Normaliza un nombre de usuario: el login no distingue mayúsculas ni espacios accidentales. */
+    public static String normalizarUsername(String username) {
+        return username == null ? null : username.strip().toLowerCase(Locale.ROOT);
     }
 
     /** Normaliza un correo para almacenarlo y buscarlo de forma consistente. */
@@ -69,6 +80,10 @@ public class Usuario {
 
     public Long getId() {
         return id;
+    }
+
+    public String getUsername() {
+        return username;
     }
 
     public String getEmail() {
@@ -138,6 +153,6 @@ public class Usuario {
 
     @Override
     public String toString() {
-        return "Usuario{id=" + id + ", email='" + email + "', rol=" + rol + ", activo=" + activo + '}';
+        return "Usuario{id=" + id + ", username='" + username + "', rol=" + rol + ", activo=" + activo + '}';
     }
 }

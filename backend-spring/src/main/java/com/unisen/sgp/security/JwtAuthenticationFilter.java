@@ -60,6 +60,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private void authenticate(String token, HttpServletRequest request) {
         try {
+            // El "sub" del token es el username (Hito 4); los tokens antiguos con correo ya no resuelven.
             String username = jwtUtil.extractUsername(token);
             // Se consulta la BD en cada petición: desactivar un usuario revoca sus tokens al instante.
             UserDetails user = userDetailsService.loadUserByUsername(username);

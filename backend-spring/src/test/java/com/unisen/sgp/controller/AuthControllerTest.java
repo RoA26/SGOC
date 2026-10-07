@@ -31,6 +31,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -56,27 +57,32 @@ class AuthControllerTest {
     private JwtUtil jwtUtil;
     @Autowired
     private JwtProperties jwtProperties;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private Usuario ana;
     private Usuario inactivo;
 
     @BeforeEach
     void setUp() {
+        // Las invitaciones que dejen otros tests referencian usuarios (FK).
+        jdbcTemplate.update("DELETE FROM codigos_invitacion");
         usuarioRepository.deleteAll();
-        ana = usuarioService.crearUsuario("Ana.Compras@Unisen.com", "Ana Compras", PASSWORD, Rol.USUARIO);
-        inactivo = usuarioService.crearUsuario("baja@unisen.com", "Usuario de Baja", PASSWORD, Rol.USUARIO);
+        ana = usuarioService.crearUsuario("Ana.Compras", "Ana.Compras@Unisen.com", "Ana Compras", PASSWORD,
+                Rol.USUARIO);
+        inactivo = usuarioService.crearUsuario("baja", "baja@unisen.com", "Usuario de Baja", PASSWORD, Rol.USUARIO);
         inactivo.setActivo(false);
         usuarioRepository.save(inactivo);
     }
 
-    private ResultActions login(String email, String password) throws Exception {
+    private ResultActions login(String username, String password) throws Exception {
         return mockMvc.perform(post(LOGIN_URL)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(Map.of("email", email, "password", password))));
+                .content(objectMapper.writeValueAsString(Map.of("username", username, "password", password))));
     }
 
-    private String tokenFor(String email) throws Exception {
-        String body = login(email, PASSWORD).andReturn().getResponse().getContentAsString();
+    private String tokenFor(String username) throws Exception {
+        String body = login(username, PASSWORD).andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(body).get("accessToken").asText();
     }
 
@@ -88,12 +94,13 @@ class AuthControllerTest {
 
     @Test
     void loginCorrectoDevuelveTokenYUsuario() throws Exception {
-        String body = login("ana.compras@unisen.com", PASSWORD)
+        String body = login("ana.compras", PASSWORD)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.expiresIn").value(jwtProperties.expiration().toSeconds()))
                 .andExpect(jsonPath("$.accessToken", not(blankOrNullString())))
                 .andExpect(jsonPath("$.usuario.id").value(ana.getId()))
+                .andExpect(jsonPath("$.usuario.username").value("ana.compras"))
                 .andExpect(jsonPath("$.usuario.email").value("ana.compras@unisen.com"))
                 .andExpect(jsonPath("$.usuario.nombre").value("Ana Compras"))
                 .andExpect(jsonPath("$.usuario.rol").value("USUARIO"))
@@ -101,59 +108,78 @@ class AuthControllerTest {
                 .andReturn().getResponse().getContentAsString();
 
         String token = objectMapper.readTree(body).get("accessToken").asText();
-        assertThat(jwtUtil.extractUsername(token)).isEqualTo("ana.compras@unisen.com");
+        assertThat(jwtUtil.extractUsername(token)).isEqualTo("ana.compras");
     }
 
     @Test
-    void loginNoDistingueMayusculasNiEspaciosEnElCorreo() throws Exception {
-        login("  ANA.COMPRAS@UNISEN.COM ", PASSWORD).andExpect(status().isOk());
+    void loginNoDistingueMayusculasNiEspaciosEnElUsername() throws Exception {
+        login("  ANA.Compras ", PASSWORD).andExpect(status().isOk());
+    }
+
+    @Test
+    void elCorreoYaNoSirveParaIniciarSesion() throws Exception {
+        login("ana.compras@unisen.com", PASSWORD)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.detail").value("Usuario o contraseña incorrectos."));
     }
 
     @Test
     void passwordIncorrectoDevuelve401ProblemDetail() throws Exception {
-        login("ana.compras@unisen.com", "incorrecta")
+        login("ana.compras", "incorrecta")
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE))
                 .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer"))
                 .andExpect(jsonPath("$.status").value(401))
-                .andExpect(jsonPath("$.detail").value("Correo o contraseña incorrectos."));
+                .andExpect(jsonPath("$.detail").value("Usuario o contraseña incorrectos."));
     }
 
     @Test
-    void correoInexistenteEsIndistinguibleDePasswordIncorrecto() throws Exception {
-        login("nadie@unisen.com", PASSWORD)
+    void usuarioInexistenteEsIndistinguibleDePasswordIncorrecto() throws Exception {
+        login("nadie", PASSWORD)
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.detail").value("Correo o contraseña incorrectos."));
+                .andExpect(jsonPath("$.detail").value("Usuario o contraseña incorrectos."));
     }
 
     @Test
     void cuentaDeshabilitadaConPasswordCorrectoDevuelve403() throws Exception {
-        login("baja@unisen.com", PASSWORD)
+        login("baja", PASSWORD)
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.detail").value("La cuenta de usuario está deshabilitada."));
     }
 
     @Test
     void cuentaDeshabilitadaConPasswordIncorrectoNoRevelaSuEstado() throws Exception {
-        login("baja@unisen.com", "incorrecta")
+        login("baja", "incorrecta")
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.detail").value("Correo o contraseña incorrectos."));
+                .andExpect(jsonPath("$.detail").value("Usuario o contraseña incorrectos."));
     }
 
     @Test
     void passwordDeMasDe72BytesNoProvocaErrorInterno() throws Exception {
-        login("ana.compras@unisen.com", PASSWORD + "x".repeat(80)).andExpect(status().isUnauthorized());
-        login("nadie@unisen.com", "x".repeat(100)).andExpect(status().isUnauthorized());
+        login("ana.compras", PASSWORD + "x".repeat(80)).andExpect(status().isUnauthorized());
+        login("nadie", "x".repeat(100)).andExpect(status().isUnauthorized());
     }
 
     @Test
     void loginValidaElCuerpo() throws Exception {
         mockMvc.perform(post(LOGIN_URL).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"no-es-correo\",\"password\":\"\"}"))
+                        .content("{\"username\":\"  \",\"password\":\"\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Datos inválidos"))
-                .andExpect(jsonPath("$.errors.email").value("El correo no tiene un formato válido."))
+                .andExpect(jsonPath("$.errors.username").value("El usuario es obligatorio."))
                 .andExpect(jsonPath("$.errors.password").value("La contraseña es obligatoria."));
+
+        login("x".repeat(51), PASSWORD)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.username").value("El usuario es demasiado largo."));
+    }
+
+    @Test
+    void loginConElCampoEmailAntiguoDevuelve400() throws Exception {
+        mockMvc.perform(post(LOGIN_URL).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"ana.compras@unisen.com\",\"password\":\"x\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.username").value("El usuario es obligatorio."));
     }
 
     @Test
@@ -169,7 +195,7 @@ class AuthControllerTest {
                         .header(HttpHeaders.AUTHORIZATION, bearer("token-caducado-o-basura"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                Map.of("email", "ana.compras@unisen.com", "password", PASSWORD))))
+                                Map.of("username", "ana.compras", "password", PASSWORD))))
                 .andExpect(status().isOk());
     }
 
@@ -177,9 +203,10 @@ class AuthControllerTest {
 
     @Test
     void meConTokenValidoDevuelveElPerfil() throws Exception {
-        mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, bearer(tokenFor("ana.compras@unisen.com"))))
+        mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, bearer(tokenFor("ana.compras"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(ana.getId()))
+                .andExpect(jsonPath("$.username").value("ana.compras"))
                 .andExpect(jsonPath("$.email").value("ana.compras@unisen.com"))
                 .andExpect(jsonPath("$.rol").value("USUARIO"));
     }
@@ -202,7 +229,7 @@ class AuthControllerTest {
 
     @Test
     void meConTokenManipuladoDevuelve401() throws Exception {
-        String token = tokenFor("ana.compras@unisen.com");
+        String token = tokenFor("ana.compras");
         String manipulado = token.substring(0, token.length() - 4) + "AAAA";
 
         mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, bearer(manipulado)))
@@ -222,7 +249,7 @@ class AuthControllerTest {
 
     @Test
     void tokenDeUsuarioEliminadoDevuelve401() throws Exception {
-        String token = tokenFor("ana.compras@unisen.com");
+        String token = tokenFor("ana.compras");
         usuarioRepository.delete(ana);
 
         mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, bearer(token)))
@@ -230,9 +257,21 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.detail").value("El usuario del token ya no existe."));
     }
 
+    /** Antes del Hito 4 el {@code sub} era el correo: esos tokens dejan de resolver un usuario. */
+    @Test
+    void tokenAntiguoConElCorreoComoSubjectDevuelve401() throws Exception {
+        Usuario comoAntes = new Usuario("ana.compras@unisen.com", ana.getEmail(), ana.getPasswordHash(),
+                ana.getNombre(), ana.getRol());
+        String tokenAntiguo = jwtUtil.generateToken(UsuarioPrincipal.from(comoAntes));
+
+        mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, bearer(tokenAntiguo)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.detail").value("El usuario del token ya no existe."));
+    }
+
     @Test
     void desactivarUnUsuarioRevocaSusTokensAlInstante() throws Exception {
-        String token = tokenFor("ana.compras@unisen.com");
+        String token = tokenFor("ana.compras");
         ana.setActivo(false);
         usuarioRepository.save(ana);
 
@@ -244,21 +283,21 @@ class AuthControllerTest {
     @Test
     void cualquierOtraRutaEstaProtegida() throws Exception {
         mockMvc.perform(get("/api/ordenes-compra")).andExpect(status().isUnauthorized());
-        mockMvc.perform(post("/api/auth/registro")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/auth/invitaciones")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/actuator/env")).andExpect(status().isUnauthorized());
     }
 
     @Test
     void rutaInexistenteConTokenValidoDevuelve404() throws Exception {
         mockMvc.perform(get("/api/no-existe")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenFor("ana.compras@unisen.com"))))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(tokenFor("ana.compras"))))
                 .andExpect(status().isNotFound())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE));
     }
 
     @Test
     void laSesionEsStatelessYNoEmiteCookies() throws Exception {
-        login("ana.compras@unisen.com", PASSWORD)
+        login("ana.compras", PASSWORD)
                 .andExpect(status().isOk())
                 .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
     }
@@ -282,6 +321,11 @@ class AuthControllerTest {
         assertThat(spec.at("/components/securitySchemes/bearerAuth/scheme").asText()).isEqualTo("bearer");
         assertThat(spec.at("/paths/~1api~1auth~1login/post/security").isArray()).isTrue();
         assertThat(spec.at("/paths/~1api~1auth~1login/post/security")).isEmpty();
+        assertThat(spec.at("/paths/~1api~1auth~1registro/post/security").isArray()).isTrue();
+        assertThat(spec.at("/paths/~1api~1auth~1registro/post/security")).isEmpty();
+        // Generar invitaciones hereda el requisito global de bearerAuth.
+        assertThat(spec.at("/paths/~1api~1auth~1invitaciones/post").isObject()).isTrue();
+        assertThat(spec.at("/paths/~1api~1auth~1invitaciones/post/security").isMissingNode()).isTrue();
     }
 
     @Test

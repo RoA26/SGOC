@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -47,13 +48,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                     "Ya existe un producto con este SKU (también se cuentan los dados de baja)."),
             new Restriccion("fk_productos_proveedor", "proveedorId",
                     "El proveedor seleccionado no existe."),
+            new Restriccion("uq_usuarios_username", "username",
+                    "Ese nombre de usuario ya está en uso."),
             new Restriccion("uq_usuarios_email", "email",
                     "Ya existe un usuario con este correo."));
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ProblemDetail> handleBadCredentials(BadCredentialsException ex) {
         ProblemDetail problem = problem(HttpStatus.UNAUTHORIZED, "Credenciales inválidas",
-                "Correo o contraseña incorrectos.");
+                "Usuario o contraseña incorrectos.");
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
                 .body(problem);
@@ -76,9 +79,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.FORBIDDEN, "Acceso denegado", "No tienes permisos para acceder a este recurso.");
     }
 
-    @ExceptionHandler(EmailYaRegistradoException.class)
-    public ProblemDetail handleEmailYaRegistrado(EmailYaRegistradoException ex) {
-        return problem(HttpStatus.CONFLICT, "Correo ya registrado", ex.getMessage());
+    /** Username o correo repetidos: 409 con el campo afectado para marcarlo en el formulario. */
+    @ExceptionHandler(DatoDuplicadoException.class)
+    public ProblemDetail handleDatoDuplicado(DatoDuplicadoException ex) {
+        ProblemDetail problem = problem(HttpStatus.CONFLICT, "Conflicto de datos", ex.getMessage());
+        problem.setProperty("errors", Map.of(ex.getCampo(), ex.getMessage()));
+        return problem;
+    }
+
+    /** Otra transacción retiene el mismo registro (p. ej. dos canjes simultáneos del mismo código). */
+    @ExceptionHandler(PessimisticLockingFailureException.class)
+    public ProblemDetail handlePessimisticLocking(PessimisticLockingFailureException ex) {
+        log.warn("Conflicto de bloqueo: {}", ex.getMessage());
+        return problem(HttpStatus.CONFLICT, "Conflicto de concurrencia",
+                "Otra operación está usando los mismos datos. Inténtalo de nuevo.");
     }
 
     @ExceptionHandler(RecursoNoEncontradoException.class)

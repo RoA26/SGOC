@@ -1,6 +1,7 @@
 package com.unisen.sgp.service;
 
-import com.unisen.sgp.exception.EmailYaRegistradoException;
+import com.unisen.sgp.exception.CampoInvalidoException;
+import com.unisen.sgp.exception.DatoDuplicadoException;
 import com.unisen.sgp.model.entity.Rol;
 import com.unisen.sgp.model.entity.Usuario;
 import com.unisen.sgp.repository.UsuarioRepository;
@@ -25,29 +26,39 @@ public class UsuarioService {
     }
 
     /**
-     * Da de alta un usuario con la contraseña hasheada.
+     * Da de alta un usuario con la contraseña hasheada con BCrypt.
      *
-     * @throws EmailYaRegistradoException si el correo ya está en uso
-     * @throws IllegalArgumentException   si la contraseña no cumple la política
+     * <p>Se une a la transacción del llamador: si algo falla después (p. ej. al marcar la
+     * invitación), el alta se deshace.
+     *
+     * @throws DatoDuplicadoException si el username o el correo ya están en uso
+     * @throws CampoInvalidoException si la contraseña no cumple la política
      */
     @Transactional
-    public Usuario crearUsuario(String email, String nombre, String password, Rol rol) {
+    public Usuario crearUsuario(String username, String email, String nombre, String password, Rol rol) {
         validarPassword(password);
+        String usernameNormalizado = Usuario.normalizarUsername(username);
         String emailNormalizado = Usuario.normalizarEmail(email);
-        if (usuarioRepository.existsByEmail(emailNormalizado)) {
-            throw new EmailYaRegistradoException(emailNormalizado);
+        if (usuarioRepository.existsByUsername(usernameNormalizado)) {
+            throw DatoDuplicadoException.username();
         }
-        Usuario usuario = new Usuario(emailNormalizado, passwordEncoder.encode(password), nombre, rol);
-        return usuarioRepository.save(usuario);
+        if (usuarioRepository.existsByEmail(emailNormalizado)) {
+            throw DatoDuplicadoException.email();
+        }
+        Usuario usuario = new Usuario(usernameNormalizado, emailNormalizado,
+                passwordEncoder.encode(password), nombre, rol);
+        // flush: si una alta concurrente se adelanta, la violación UNIQUE salta aquí
+        // (→ 409 en GlobalExceptionHandler) y no al confirmar, fuera del servicio.
+        return usuarioRepository.saveAndFlush(usuario);
     }
 
     private static void validarPassword(String password) {
         if (password == null || password.length() < PASSWORD_MIN_LENGTH) {
-            throw new IllegalArgumentException(
+            throw new CampoInvalidoException("password",
                     "La contraseña debe tener al menos " + PASSWORD_MIN_LENGTH + " caracteres.");
         }
         if (password.getBytes(StandardCharsets.UTF_8).length > PASSWORD_MAX_BYTES) {
-            throw new IllegalArgumentException(
+            throw new CampoInvalidoException("password",
                     "La contraseña no puede superar " + PASSWORD_MAX_BYTES + " bytes.");
         }
     }

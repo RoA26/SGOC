@@ -34,7 +34,7 @@ class JwtUtilTest {
     @BeforeEach
     void setUp() throws ReflectiveOperationException {
         jwtUtil = jwtUtilAt(NOW, SECRET, ISSUER);
-        Usuario entidad = new Usuario("Ana@Unisen.com", "$2a$04$hash", "Ana Compras", Rol.USUARIO);
+        Usuario entidad = new Usuario("Ana.Compras", "Ana@Unisen.com", "$2a$04$hash", "Ana Compras", Rol.USUARIO);
         Field id = Usuario.class.getDeclaredField("id");
         id.setAccessible(true);
         id.set(entidad, 42L);
@@ -49,7 +49,7 @@ class JwtUtilTest {
     void generaTokenConClaimsEsperados() {
         Claims claims = jwtUtil.validateToken(jwtUtil.generateToken(usuario));
 
-        assertThat(claims.getSubject()).isEqualTo("ana@unisen.com");
+        assertThat(claims.getSubject()).isEqualTo("ana.compras");
         assertThat(claims.getIssuer()).isEqualTo(ISSUER);
         assertThat(claims.get(JwtUtil.CLAIM_USER_ID, Long.class)).isEqualTo(42L);
         assertThat(claims.get(JwtUtil.CLAIM_ROL, String.class)).isEqualTo("USUARIO");
@@ -60,7 +60,7 @@ class JwtUtilTest {
 
     @Test
     void extraeElNombreDeUsuario() {
-        assertThat(jwtUtil.extractUsername(jwtUtil.generateToken(usuario))).isEqualTo("ana@unisen.com");
+        assertThat(jwtUtil.extractUsername(jwtUtil.generateToken(usuario))).isEqualTo("ana.compras");
     }
 
     @Test
@@ -84,7 +84,7 @@ class JwtUtilTest {
         String token = jwtUtil.generateToken(usuario);
         JwtUtil justoTrasExpirar = jwtUtilAt(NOW.plus(Duration.ofHours(1)).plusSeconds(10), SECRET, ISSUER);
 
-        assertThat(justoTrasExpirar.extractUsername(token)).isEqualTo("ana@unisen.com");
+        assertThat(justoTrasExpirar.extractUsername(token)).isEqualTo("ana.compras");
     }
 
     @Test
@@ -112,7 +112,7 @@ class JwtUtilTest {
     @Test
     void rechazaTokenSinFirma() {
         String sinFirma = Jwts.builder()
-                .subject("ana@unisen.com").issuer(ISSUER)
+                .subject("ana.compras").issuer(ISSUER)
                 .expiration(Date.from(NOW.plusSeconds(3600)))
                 .compact();
 
@@ -122,7 +122,7 @@ class JwtUtilTest {
     @Test
     void rechazaTokenSinExpiracion() {
         String sinExp = Jwts.builder()
-                .subject("ana@unisen.com").issuer(ISSUER)
+                .subject("ana.compras").issuer(ISSUER)
                 .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET)), Jwts.SIG.HS256)
                 .compact();
 

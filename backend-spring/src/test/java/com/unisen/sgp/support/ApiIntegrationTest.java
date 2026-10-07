@@ -49,18 +49,23 @@ public abstract class ApiIntegrationTest {
         // SQL directo: repository.deleteAll() haría borrado lógico y dejaría las filas.
         jdbcTemplate.update("DELETE FROM productos");
         jdbcTemplate.update("DELETE FROM proveedores");
+        jdbcTemplate.update("DELETE FROM codigos_invitacion");
         jdbcTemplate.update("DELETE FROM usuarios");
 
-        usuarioService.crearUsuario("admin@unisen.com", "Admin", PASSWORD, Rol.ADMIN);
-        usuarioService.crearUsuario("compras@unisen.com", "Compras", PASSWORD, Rol.USUARIO);
-        adminToken = login("admin@unisen.com");
-        usuarioToken = login("compras@unisen.com");
+        usuarioService.crearUsuario("admin", "admin@unisen.com", "Admin", PASSWORD, Rol.ADMIN);
+        usuarioService.crearUsuario("compras", "compras@unisen.com", "Compras", PASSWORD, Rol.USUARIO);
+        adminToken = login("admin");
+        usuarioToken = login("compras");
     }
 
-    private String login(String email) throws Exception {
+    protected String login(String username) throws Exception {
+        return login(username, PASSWORD);
+    }
+
+    protected String login(String username, String password) throws Exception {
         String body = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("email", email, "password", PASSWORD))))
+                        .content(json(Map.of("username", username, "password", password))))
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(body).get("accessToken").asText();
     }

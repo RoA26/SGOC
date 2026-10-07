@@ -12,9 +12,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 /**
- * Crea el primer administrador al arrancar a partir de {@code ADMIN_EMAIL} y
- * {@code ADMIN_PASSWORD}. Es idempotente: si el correo ya existe no modifica nada,
- * de modo que puede quedarse configurado en el despliegue sin sobrescribir cambios.
+ * Crea el primer administrador al arrancar a partir de {@code ADMIN_USERNAME},
+ * {@code ADMIN_EMAIL} y {@code ADMIN_PASSWORD}. Es idempotente: si el username o el correo
+ * ya existen no modifica nada, de modo que puede quedarse configurado en el despliegue sin
+ * sobrescribir cambios.
+ *
+ * <p>Con el registro cerrado por invitación, este administrador es quien genera los primeros
+ * códigos.
  */
 @Component
 public class AdminBootstrap implements ApplicationRunner {
@@ -38,13 +42,14 @@ public class AdminBootstrap implements ApplicationRunner {
         if (admin == null || !admin.isConfigured()) {
             return;
         }
+        String username = Usuario.normalizarUsername(admin.username());
         String email = Usuario.normalizarEmail(admin.email());
-        if (usuarioRepository.existsByEmail(email)) {
-            log.info("Administrador inicial {} ya existe; no se realizan cambios.", email);
+        if (usuarioRepository.existsByUsername(username) || usuarioRepository.existsByEmail(email)) {
+            log.info("Administrador inicial {} ya existe; no se realizan cambios.", username);
             return;
         }
         String nombre = StringUtils.hasText(admin.nombre()) ? admin.nombre() : "Administrador";
-        usuarioService.crearUsuario(email, nombre, admin.password(), Rol.ADMIN);
-        log.info("Administrador inicial {} creado.", email);
+        usuarioService.crearUsuario(username, email, nombre, admin.password(), Rol.ADMIN);
+        log.info("Administrador inicial {} creado.", username);
     }
 }

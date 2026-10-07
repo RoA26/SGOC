@@ -45,6 +45,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en .env (openssl rand -base64 64)}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-1h}
       CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN:-rrtf.duckdns.org},http://localhost:5173
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       ADMIN_NOMBRE: ${ADMIN_NOMBRE:-Administrador}

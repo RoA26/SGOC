@@ -5,12 +5,15 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
- * Acceso a usuarios. Los correos se guardan normalizados (ver {@link Usuario#normalizarEmail}),
- * por lo que las búsquedas exactas aprovechan el índice único de {@code email}.
+ * Acceso a usuarios. Username y correo se guardan normalizados en minúsculas
+ * (ver {@link Usuario#normalizarUsername} y {@link Usuario#normalizarEmail}), así que las
+ * búsquedas exactas aprovechan sus índices únicos.
  */
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
-    Optional<Usuario> findByEmail(String email);
+    Optional<Usuario> findByUsername(String username);
+
+    boolean existsByUsername(String username);
 
     boolean existsByEmail(String email);
 }

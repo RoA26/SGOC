@@ -35,6 +35,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     public static final String LOGIN_PATH = "/api/auth/login";
+    /** Alta pública, pero solo prospera con un código de invitación válido. */
+    public static final String REGISTRO_PATH = "/api/auth/registro";
 
     private static final String[] SWAGGER_PATHS = {"/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"};
     private static final String[] HEALTH_PATHS = {"/actuator/health", "/actuator/health/**"};
@@ -65,7 +67,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, LOGIN_PATH).permitAll()
+                        .requestMatchers(HttpMethod.POST, LOGIN_PATH, REGISTRO_PATH).permitAll()
                         .requestMatchers(HEALTH_PATHS).permitAll()
                         .requestMatchers(SWAGGER_PATHS).permitAll()
                         // Necesario para que los errores reenviados a /error no se conviertan en 401.
@@ -86,7 +88,7 @@ public class SecurityConfig {
      * <p>Por defecto Spring comprueba si la cuenta está deshabilitada <em>antes</em> de
      * verificar la contraseña, lo que revela a cualquiera que una cuenta existe y está
      * inactiva. Aquí el estado se comprueba <em>después</em>: sin la contraseña correcta,
-     * la respuesta es siempre "credenciales inválidas". Para correos inexistentes,
+     * la respuesta es siempre "credenciales inválidas". Para usuarios inexistentes,
      * {@link DaoAuthenticationProvider} ya iguala los tiempos de respuesta.
      */
     @Bean
