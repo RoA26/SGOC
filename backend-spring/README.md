@@ -20,20 +20,26 @@ src/main/java/com/unisen/sgp
 ├── config/            SecurityConfig (SecurityFilterChain, CORS, BCrypt, AuthenticationManager),
 │                      OpenApiConfig, propiedades tipadas, AdminBootstrap (alta del primer admin)
 ├── controller/        AuthController (login, registro, invitaciones, me), ProveedorController,
-│                      ProductoController
+│                      ProductoController, SolicitudController
 ├── exception/         GlobalExceptionHandler (RFC 9457), RecursoNoEncontrado, Conflicto,
 │                      CampoInvalido, InvitacionInvalida, DatoDuplicado
-├── model/entity/      Usuario, CodigoInvitacion, Rol, Proveedor, Producto, EntidadAuditable
+├── model/entity/      Usuario, CodigoInvitacion, Rol, Proveedor, Producto, EntidadAuditable,
+│                      Solicitud + DetalleSolicitud (maestro-detalle), EstadoSolicitud,
+│                      ProductoReferencia (vista de solo lectura de productos)
 ├── model/dto/         Records de request/response (LoginRequest, RegistroRequestDTO,
-│                      Invitacion…DTO, Proveedor…DTO, Producto…DTO), Patrones
+│                      Invitacion…DTO, Proveedor…DTO, Producto…DTO, Solicitud…DTO,
+│                      DetalleSolicitud…DTO, CambioEstadoSolicitudDTO), Patrones
 ├── repository/        UsuarioRepository, CodigoInvitacionRepository, ProveedorRepository,
-│                      ProductoRepository
+│                      ProductoRepository, SolicitudRepository, DetalleSolicitudRepository,
+│                      ProductoReferenciaRepository
 ├── security/          JwtUtil, JwtAuthenticationFilter, UsuarioPrincipal (UserDetails),
-│                      UsuarioDetailsService, CodigosInvitacion, entry point 401 y handler 403
-└── service/           AuthService, UsuarioService, ProveedorService, ProductoService
+│                      UsuarioDetailsService, UsuarioActual, CodigosInvitacion, Permisos,
+│                      entry point 401 y handler 403
+└── service/           AuthService, UsuarioService, ProveedorService, ProductoService, SolicitudService
 src/main/resources
 ├── application.yml
-└── db/migration/      V1 usuarios · V2 proveedores y productos · V3 username e invitaciones
+└── db/migration/      V1 usuarios · V2 proveedores y productos · V3 username e invitaciones ·
+                       V4 solicitudes internas y rol GERENTE
 ```
 
 ## Puesta en marcha (local)
@@ -88,14 +94,18 @@ e indica qué variable falta.
 | GET | `/api/auth/me` | Bearer | `200` `{id, username, email, nombre, rol}` |
 | GET | `/api/v1/proveedores` | Bearer | `200` página de proveedores activos |
 | GET | `/api/v1/proveedores/{id}` | Bearer | `200` proveedor · `404` |
-| POST | `/api/v1/proveedores` | Bearer **ADMIN** | `201` + `Location` · `400` · `409` NIT duplicado |
-| PUT | `/api/v1/proveedores/{id}` | Bearer **ADMIN** | `200` · `400` · `404` · `409` |
-| DELETE | `/api/v1/proveedores/{id}` | Bearer **ADMIN** | `204` baja lógica · `409` si tiene productos activos |
+| POST | `/api/v1/proveedores` | Bearer **ADMIN/GERENTE** | `201` + `Location` · `400` · `409` NIT duplicado |
+| PUT | `/api/v1/proveedores/{id}` | Bearer **ADMIN/GERENTE** | `200` · `400` · `404` · `409` |
+| DELETE | `/api/v1/proveedores/{id}` | Bearer **ADMIN/GERENTE** | `204` baja lógica · `409` si tiene productos activos |
 | GET | `/api/v1/productos` | Bearer | `200` página de productos activos con su proveedor |
 | GET | `/api/v1/productos/{id}` | Bearer | `200` producto · `404` |
-| POST | `/api/v1/productos` | Bearer **ADMIN** | `201` · `400` (incluye proveedor inexistente) · `409` SKU duplicado |
-| PUT | `/api/v1/productos/{id}` | Bearer **ADMIN** | `200` · `400` · `404` · `409` |
-| DELETE | `/api/v1/productos/{id}` | Bearer **ADMIN** | `204` baja lógica |
+| POST | `/api/v1/productos` | Bearer **ADMIN/GERENTE** | `201` · `400` (incluye proveedor inexistente) · `409` SKU duplicado |
+| PUT | `/api/v1/productos/{id}` | Bearer **ADMIN/GERENTE** | `200` · `400` · `404` · `409` |
+| DELETE | `/api/v1/productos/{id}` | Bearer **ADMIN/GERENTE** | `204` baja lógica · `409` si está en solicitudes pendientes o aprobadas |
+| GET | `/api/v1/solicitudes?estado=` | Bearer | `200` página: USUARIO solo las suyas, ADMIN/GERENTE todas |
+| GET | `/api/v1/solicitudes/{id}` | Bearer | `200` con sus líneas · `404` si no existe o es de otro USUARIO |
+| POST | `/api/v1/solicitudes` | Bearer | `201` PENDIENTE con el usuario autenticado · `400` |
+| PATCH | `/api/v1/solicitudes/{id}/estado` | Bearer **ADMIN/GERENTE** | `200` · `400` · `403` · `404` · `409` ya revisada |
 | GET | `/actuator/health` | Pública | `200` `{status: "UP"}` |
 | * | cualquier otra | Bearer | `401` sin token válido |
 
@@ -205,7 +215,7 @@ volver a iniciar sesión.
 ## Tests
 
 ```bash
-./mvnw test        # 84 tests: H2 en modo PostgreSQL, sin dependencias externas
+./mvnw test        # 102 tests: H2 en modo PostgreSQL, sin dependencias externas
 
 # Contra PostgreSQL real (crea antes la BD sgp_test):
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/sgp_test \
@@ -234,7 +244,49 @@ docker build -t unisen/sgp-backend ./backend-spring     # desde la raíz del rep
 
 Los tests no se ejecutan dentro del build: van en `./mvnw test` (CI).
 
+## Solicitudes internas de compra
+
+La solicitud (lo que pide un trabajador) es la raíz de un agregado maestro-detalle: cabecera
+(`solicitudes`: solicitante, fecha, estado, justificación) y líneas (`detalles_solicitud`:
+producto y cantidad). `@OneToMany(cascade = ALL, orphanRemoval = true)` guarda y borra las líneas
+con la cabecera, y el alta es una sola transacción: si una línea falla, no se guarda nada.
+
+```bash
+curl -X POST http://localhost:8081/api/v1/solicitudes -H "Authorization: Bearer <token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"justificacion":"Reposición de tornillería para la línea 2.",
+       "detalles":[{"productoId":1,"cantidad":10},{"productoId":2,"cantidad":4}]}'
+# → 201 {"id":5,"estado":"PENDIENTE","solicitante":{"username":"ana"},"detalles":[…],"totalEstimado":13700}
+
+curl -X PATCH http://localhost:8081/api/v1/solicitudes/5/estado -H "Authorization: Bearer <token de gestor>" \
+  -H 'Content-Type: application/json' -d '{"estado":"RECHAZADA","comentario":"Hay stock en bodega."}'
+```
+
+- **El cliente no elige ni solicitante ni estado:** el servicio toma el usuario del
+  `SecurityContext` y fija `PENDIENTE`; esos campos del JSON se ignoran.
+- **Seguridad por fila:** `GET` filtra por `usuario_id` cuando el rol es USUARIO. Una solicitud
+  ajena responde `404` (no `403`) para no revelar que existe.
+- **Revisión:** solo `PENDIENTE → APROBADA | RECHAZADA` (`409` si ya estaba revisada), con
+  revisor, fecha y comentario; el comentario es obligatorio al rechazar. La fila se bloquea
+  (`SELECT … FOR NO KEY UPDATE`): si dos gestores revisan a la vez, el segundo recibe `409`.
+- **Validación:** justificación de 10 a 1000 caracteres; de 1 a 50 líneas; cantidades enteras de
+  1 a 999.999 (un `2.5` se rechaza, no se trunca); cada producto una sola vez y activo. Los
+  errores de línea llegan como `errors["detalles[1].productoId"]`.
+- **Integridad:** un producto incluido en solicitudes pendientes o aprobadas no se puede dar de
+  baja (`409`). Si solo está en rechazadas, sí; la solicitud lo sigue mostrando
+  (`producto.activo: false`) gracias a `ProductoReferencia`, que lee la tabla sin el filtro de
+  borrado lógico.
+- **Importes:** `subtotalEstimado` y `totalEstimado` usan el precio actual del catálogo; son
+  orientativos.
+- **Rendimiento:** solicitante y revisor llegan en la consulta de la página; las líneas y sus
+  productos, por lotes (`default_batch_fetch_size: 50`). Un test comprueba que el listado no
+  hace N+1.
+
+**Rol GERENTE:** mantiene catálogos y revisa solicitudes como ADMIN, pero no genera invitaciones.
+Aún no hay pantalla para asignar roles: `UPDATE usuarios SET rol = 'GERENTE' WHERE username = '…';`
+
 ## Fuera de alcance de este hito
 
 Órdenes de compra; reactivación de registros dados de baja; búsqueda en catálogos; refresh
-tokens; listado y revocación de invitaciones; gestión de usuarios vía API.
+tokens; listado y revocación de invitaciones; gestión de usuarios y roles vía API; edición o
+cancelación de solicitudes; órdenes de compra.

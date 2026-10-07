@@ -30,6 +30,9 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+        # Asociaciones LAZY (p. ej. líneas de solicitud y sus productos) cargadas en lotes de
+        # hasta 50 ids: evita N+1 en los listados sin paginar en memoria.
+        default_batch_fetch_size: 50
 
   flyway:
     enabled: true
@@ -45,6 +48,9 @@ spring:
 
   jackson:
     default-property-inclusion: non_null
+    deserialization:
+      # 2.5 en un campo entero (p. ej. una cantidad) es un error (400), no un 2 silencioso.
+      accept-float-as-int: false
     time-zone: UTC
 
   mvc:

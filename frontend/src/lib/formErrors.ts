@@ -23,7 +23,8 @@ export function applyApiErrors<T extends FieldValues>(
     const fieldErrors = error.response?.data?.errors ?? {}
     let applied = false
     for (const [field, message] of Object.entries(fieldErrors)) {
-      const path = fields.find((candidate) => candidate === field)
+      const normalizado = field.replace(/\[(\d+)\]/g, '.$1')
+      const path = fields.find((candidate) => candidate === normalizado)
       if (path) {
         setError(path, { type: 'server', message }, { shouldFocus: !applied })
         applied = true

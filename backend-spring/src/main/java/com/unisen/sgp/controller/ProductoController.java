@@ -55,7 +55,7 @@ public class ProductoController {
     }
 
     @PostMapping
-    @PreAuthorize(Permisos.ADMIN)
+    @PreAuthorize(Permisos.GESTION)
     @Operation(summary = "Crear producto")
     @ApiResponse(responseCode = "201", description = "Creado")
     @ApiResponse(responseCode = "400", description = "Datos inválidos o proveedor inexistente")
@@ -68,7 +68,7 @@ public class ProductoController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize(Permisos.ADMIN)
+    @PreAuthorize(Permisos.GESTION)
     @Operation(summary = "Actualizar producto")
     @ApiResponse(responseCode = "404", description = "No existe o fue dado de baja")
     @ApiResponse(responseCode = "409", description = "SKU duplicado")
@@ -77,7 +77,7 @@ public class ProductoController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize(Permisos.ADMIN)
+    @PreAuthorize(Permisos.GESTION)
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Dar de baja un producto (borrado lógico)")
     public void eliminar(@PathVariable Long id) {

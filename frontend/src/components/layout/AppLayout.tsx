@@ -1,4 +1,4 @@
-import { Building2, House, LogOut, Package, Ticket, type LucideIcon } from 'lucide-react'
+import { Building2, ClipboardList, House, LogOut, Package, Ticket, type LucideIcon } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { BrandLogo } from '@/components/BrandLogo'
 import { ETIQUETA_ROL } from '@/features/auth/permisos'
@@ -17,6 +17,7 @@ interface ItemNavegacion {
 
 const NAVEGACION: readonly ItemNavegacion[] = [
   { to: '/', label: 'Inicio', icon: House, end: true },
+  { to: '/solicitudes', label: 'Solicitudes', icon: ClipboardList, end: false },
   { to: '/proveedores', label: 'Proveedores', icon: Building2, end: false },
   { to: '/productos', label: 'Productos', icon: Package, end: false },
   { to: '/admin/invitaciones', label: 'Invitaciones', icon: Ticket, end: false, rol: 'ADMIN' },
@@ -31,10 +32,10 @@ export function AppLayout() {
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-10 border-b border-border bg-surface/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-5 sm:gap-6">
-          <BrandLogo className="h-7 w-auto shrink-0 sm:h-8" />
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-5 sm:gap-6">
+          <BrandLogo className="h-6 w-auto shrink-0 sm:h-8" />
 
-          <nav aria-label="Principal" className="-mx-1 flex flex-1 items-center gap-1 overflow-x-auto">
+          <nav aria-label="Principal" className="-mx-1 flex flex-1 items-center gap-0.5 overflow-x-auto sm:gap-1">
             {NAVEGACION.filter((item) => !item.rol || item.rol === rol).map(({ to, label, icon: Icon, end }) => (
               <NavLink
                 key={to}

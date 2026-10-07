@@ -17,12 +17,13 @@ interface ResourceState<T> {
  * Mientras llega la nueva página se conservan los datos anteriores (sin parpadeos)
  * y las peticiones obsoletas se cancelan.
  *
- * `fetcher` debe ser estable (p. ej. `proveedorService.listar`).
+ * `fetcher` debe ser estable (p. ej. `proveedorService.listar`). Si aplica filtros, pásalos
+ * también como `filtro` (p. ej. "estado=PENDIENTE") para que el cambio cuente como recarga.
  */
-export function usePaginatedResource<T>(fetcher: Fetcher<T>, page: number, size: number, sort: string) {
+export function usePaginatedResource<T>(fetcher: Fetcher<T>, page: number, size: number, sort: string, filtro = '') {
   const [reloadToken, setReloadToken] = useState(0)
   const [state, setState] = useState<ResourceState<T>>({ key: null, data: null, error: null })
-  const key = `${page}|${size}|${sort}|${reloadToken}`
+  const key = `${page}|${size}|${sort}|${filtro}|${reloadToken}`
 
   useEffect(() => {
     const controller = new AbortController()

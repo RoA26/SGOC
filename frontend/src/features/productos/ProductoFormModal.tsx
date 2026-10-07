@@ -25,7 +25,7 @@ interface ProductoFormModalProps {
 export function ProductoFormModal({ producto, onClose, onSaved }: ProductoFormModalProps) {
   const formId = useId()
   const editando = producto !== undefined
-  const proveedores = useProveedoresStore((state) => state.proveedores)
+  const proveedores = useProveedoresStore((state) => state.items)
   const estadoProveedores = useProveedoresStore((state) => state.estado)
   const errorProveedores = useProveedoresStore((state) => state.error)
   const cargarProveedores = useProveedoresStore((state) => state.cargar)

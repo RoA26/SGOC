@@ -1,4 +1,4 @@
-import { Building2, Package } from 'lucide-react'
+import { Building2, ClipboardList, Package } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Link } from 'react-router-dom'
@@ -61,7 +61,12 @@ export default function Inicio() {
         )}
       </section>
 
-      <section aria-label="Catálogos" className="mt-6 grid max-w-xl gap-4 sm:grid-cols-2">
+      <section aria-label="Accesos" className="mt-6 grid max-w-xl gap-4 sm:grid-cols-2">
+        <Link to="/solicitudes" className="u-card group p-5 transition-colors hover:border-border-strong sm:col-span-2">
+          <ClipboardList className="size-5 text-accent" aria-hidden="true" />
+          <p className="mt-3 font-medium text-foreground group-hover:underline">Solicitudes</p>
+          <p className="text-sm text-foreground-muted">Pide productos del catálogo y sigue su aprobación.</p>
+        </Link>
         <Link to="/proveedores" className="u-card group p-5 transition-colors hover:border-border-strong">
           <Building2 className="size-5 text-accent" aria-hidden="true" />
           <p className="mt-3 font-medium text-foreground group-hover:underline">Proveedores</p>

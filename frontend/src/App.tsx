@@ -8,6 +8,7 @@ import Inicio from '@/pages/Inicio'
 import Login from '@/pages/Login'
 import Productos from '@/pages/Productos'
 import Proveedores from '@/pages/Proveedores'
+import Solicitudes from '@/pages/Solicitudes'
 import Registro from '@/pages/Registro'
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
         <Route element={<RutaProtegida />}>
           <Route element={<AppLayout />}>
             <Route path="/" element={<Inicio />} />
+            <Route path="/solicitudes" element={<Solicitudes />} />
             <Route path="/proveedores" element={<Proveedores />} />
             <Route path="/productos" element={<Productos />} />
 

@@ -1,9 +1,6 @@
 /** Contratos de la API de autenticación (reflejan los DTO de Spring Boot). */
 
-/**
- * Roles de la interfaz. GERENTE se anticipa al rediseño del contexto de Compras: el backend
- * aún no lo emite (hoy solo ADMIN y USUARIO).
- */
+/** Roles del backend: GERENTE mantiene catálogos y revisa solicitudes, como ADMIN, sin gestionar invitaciones. */
 export type Rol = 'ADMIN' | 'GERENTE' | 'USUARIO'
 
 export interface LoginRequest {

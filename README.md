@@ -178,10 +178,12 @@ Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, si
 | GET · POST · PUT · DELETE | `/api/v1/proveedores[/{id}]` | Detalle, alta, edición y baja lógica |
 | GET | `/api/v1/productos?page=0&size=10&sort=nombre,asc` | Listado paginado (incluye el proveedor) |
 | GET · POST · PUT · DELETE | `/api/v1/productos[/{id}]` | Detalle, alta, edición y baja lógica |
+| GET · POST | `/api/v1/solicitudes[?estado=]` | Solicitudes internas: USUARIO ve y crea las suyas; ADMIN/GERENTE ven todas |
+| PATCH | `/api/v1/solicitudes/{id}/estado` | ADMIN/GERENTE: `{estado: APROBADA \| RECHAZADA, comentario}` |
 
-Lecturas: cualquier usuario autenticado. Altas, cambios y bajas: solo `ADMIN` (la interfaz oculta
-los botones al resto; ya contempla también el rol `GERENTE`, que el backend aún no emite). Detalle
-de reglas y errores en [backend-spring/README.md](backend-spring/README.md).
+Lecturas: cualquier usuario autenticado. Altas, cambios y bajas de catálogos: `ADMIN` o `GERENTE`
+(la interfaz oculta los botones al resto). Detalle de reglas y errores en
+[backend-spring/README.md](backend-spring/README.md).
 
 **Precios en COP:** la interfaz trabaja con pesos colombianos enteros (sin decimales) y los
 muestra como `$ 1.250.000`. "Nuevo producto" queda deshabilitado mientras no haya ningún
@@ -192,6 +194,11 @@ enlace `/registro?codigo=XXXX-XXXX-XXXX-XXXX`, que precarga el código) y entra 
 errores del servidor (código inválido, usado o caducado; usuario o correo en uso) aparecen junto
 al campo afectado.
 
+**Solicitudes internas (`/solicitudes`):** cualquier usuario pide productos del catálogo con una
+justificación y tantas líneas como necesite (producto + cantidad), y ve el total estimado en COP.
+La solicitud queda `PENDIENTE`; ADMIN o GERENTE la abren desde el mismo panel y la aprueban o la
+rechazan (con motivo). Un USUARIO solo ve las suyas.
+
 **Invitaciones (solo `ADMIN`):** en *Invitaciones* (`/admin/invitaciones`) el administrador genera
 un código con un clic y lo copia, o copia el enlace de registro. Cada código se muestra solo
 mientras no se sale de la página. La ruta y el enlace del menú se ocultan al resto de roles; el
@@ -200,6 +207,6 @@ backend lo impide igualmente (`403`).
 ## Calidad
 
 ```bash
-cd backend-spring && ./mvnw test                  # 84 tests
+cd backend-spring && ./mvnw test                  # 102 tests
 cd frontend && npm run lint && npm run build      # oxlint + TypeScript estricto
 ```

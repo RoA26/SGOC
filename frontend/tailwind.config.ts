@@ -46,7 +46,11 @@ export default {
           surface: token('color-danger-surface'),
           border: token('color-danger-border'),
         },
-        success: token('color-success'),
+        success: {
+          DEFAULT: token('color-success'),
+          surface: token('color-success-surface'),
+          border: token('color-success-border'),
+        },
         focus: token('color-focus'),
       },
       fontFamily: {

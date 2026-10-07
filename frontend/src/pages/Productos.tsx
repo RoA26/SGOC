@@ -11,6 +11,7 @@ import { usePaginatedResource } from '@/hooks/usePaginatedResource'
 import { getApiErrorMessage } from '@/lib/errors'
 import { formatearCOP } from '@/lib/moneda'
 import { productoService, type Producto } from '@/services/productoService'
+import { useProductosStore } from '@/store/productosStore'
 import { useProveedoresStore } from '@/store/proveedoresStore'
 
 const TAMANO_PAGINA = 10
@@ -33,9 +34,11 @@ export default function Productos() {
   const { aviso, mostrarAviso } = useAviso()
 
   // Un producto siempre pertenece a un proveedor: sin proveedores no se puede crear ninguno.
-  const proveedores = useProveedoresStore((state) => state.proveedores)
+  const proveedores = useProveedoresStore((state) => state.items)
   const estadoProveedores = useProveedoresStore((state) => state.estado)
   const cargarProveedores = useProveedoresStore((state) => state.cargar)
+  // Altas, cambios y bajas cambian las opciones del formulario de solicitudes.
+  const invalidarProductos = useProductosStore((state) => state.invalidar)
   useEffect(() => {
     if (puedeGestionar) void cargarProveedores({ forzar: true })
   }, [puedeGestionar, cargarProveedores])
@@ -47,6 +50,7 @@ export default function Productos() {
   function alGuardar(producto: Producto, modo: 'creado' | 'actualizado') {
     setEditor(null)
     mostrarAviso(`Producto «${producto.nombre}» ${modo}.`)
+    invalidarProductos()
     reload()
   }
 
@@ -57,6 +61,7 @@ export default function Productos() {
     try {
       await productoService.eliminar(porEliminar.id)
       mostrarAviso(`Producto «${porEliminar.nombre}» eliminado.`)
+      invalidarProductos()
       setPorEliminar(null)
       if (filas.length === 1 && pagina > 0) setPagina(pagina - 1)
       else reload()

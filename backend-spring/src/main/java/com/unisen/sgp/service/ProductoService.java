@@ -1,13 +1,18 @@
 package com.unisen.sgp.service;
 
 import com.unisen.sgp.exception.CampoInvalidoException;
+import com.unisen.sgp.exception.ConflictoException;
 import com.unisen.sgp.exception.RecursoNoEncontradoException;
 import com.unisen.sgp.model.dto.ProductoRequestDTO;
 import com.unisen.sgp.model.dto.ProductoResponseDTO;
+import com.unisen.sgp.model.entity.EstadoSolicitud;
 import com.unisen.sgp.model.entity.Producto;
 import com.unisen.sgp.model.entity.Proveedor;
+import com.unisen.sgp.repository.DetalleSolicitudRepository;
 import com.unisen.sgp.repository.ProductoRepository;
 import com.unisen.sgp.repository.ProveedorRepository;
+import java.util.EnumSet;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -17,12 +22,19 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class ProductoService {
 
+    /** Solicitudes que aún pueden convertirse en compra: sus productos no se pueden dar de baja. */
+    private static final Set<EstadoSolicitud> SOLICITUDES_ACTIVAS =
+            EnumSet.of(EstadoSolicitud.PENDIENTE, EstadoSolicitud.APROBADA);
+
     private final ProductoRepository productoRepository;
     private final ProveedorRepository proveedorRepository;
+    private final DetalleSolicitudRepository detalleSolicitudRepository;
 
-    public ProductoService(ProductoRepository productoRepository, ProveedorRepository proveedorRepository) {
+    public ProductoService(ProductoRepository productoRepository, ProveedorRepository proveedorRepository,
+                           DetalleSolicitudRepository detalleSolicitudRepository) {
         this.productoRepository = productoRepository;
         this.proveedorRepository = proveedorRepository;
+        this.detalleSolicitudRepository = detalleSolicitudRepository;
     }
 
     public Page<ProductoResponseDTO> listar(Pageable pageable) {
@@ -49,10 +61,20 @@ public class ProductoService {
         return ProductoResponseDTO.from(productoRepository.saveAndFlush(producto));
     }
 
-    /** Borrado lógico. */
+    /**
+     * Borrado lógico.
+     *
+     * @throws ConflictoException si el producto está en solicitudes pendientes o aprobadas
+     */
     @Transactional
     public void eliminar(Long id) {
-        productoRepository.delete(buscarActivo(id));
+        Producto producto = buscarActivo(id);
+        long solicitudes = detalleSolicitudRepository.countByProductoIdAndSolicitudEstadoIn(id, SOLICITUDES_ACTIVAS);
+        if (solicitudes > 0) {
+            throw new ConflictoException("No se puede eliminar el producto: está incluido en " + solicitudes
+                    + (solicitudes == 1 ? " solicitud pendiente o aprobada." : " solicitudes pendientes o aprobadas."));
+        }
+        productoRepository.delete(producto);
     }
 
     private Producto buscarActivo(Long id) {

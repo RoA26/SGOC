@@ -10,7 +10,7 @@ interface ModalProps {
   children: ReactNode
   /** Botones de acción. Para enviar un formulario del cuerpo usa <button form="id-del-form">. */
   footer?: ReactNode
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
   /** false mientras hay una operación en curso: bloquea Escape, el clic fuera y la X. */
   dismissible?: boolean
 }
@@ -19,6 +19,7 @@ const SIZES = {
   sm: 'max-w-md',
   md: 'max-w-xl',
   lg: 'max-w-2xl',
+  xl: 'max-w-3xl',
 } as const
 
 /**

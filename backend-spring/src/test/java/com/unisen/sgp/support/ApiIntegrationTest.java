@@ -2,6 +2,7 @@ package com.unisen.sgp.support;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
@@ -30,7 +31,7 @@ import org.springframework.test.web.servlet.ResultActions;
 @ActiveProfiles("test")
 public abstract class ApiIntegrationTest {
 
-    private static final String PASSWORD = "S3gura!Password";
+    protected static final String PASSWORD = "S3gura!Password";
 
     @Autowired
     protected MockMvc mockMvc;
@@ -39,7 +40,7 @@ public abstract class ApiIntegrationTest {
     @Autowired
     protected JdbcTemplate jdbcTemplate;
     @Autowired
-    private UsuarioService usuarioService;
+    protected UsuarioService usuarioService;
 
     protected String adminToken;
     protected String usuarioToken;
@@ -47,6 +48,8 @@ public abstract class ApiIntegrationTest {
     @BeforeEach
     void prepararBaseDeDatos() throws Exception {
         // SQL directo: repository.deleteAll() haría borrado lógico y dejaría las filas.
+        jdbcTemplate.update("DELETE FROM detalles_solicitud");
+        jdbcTemplate.update("DELETE FROM solicitudes");
         jdbcTemplate.update("DELETE FROM productos");
         jdbcTemplate.update("DELETE FROM proveedores");
         jdbcTemplate.update("DELETE FROM codigos_invitacion");
@@ -89,6 +92,11 @@ public abstract class ApiIntegrationTest {
 
     protected ResultActions putJson(String url, String token, String body) throws Exception {
         return mockMvc.perform(put(url).header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(body));
+    }
+
+    protected ResultActions patchJson(String url, String token, String body) throws Exception {
+        return mockMvc.perform(patch(url).header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON).content(body));
     }
 

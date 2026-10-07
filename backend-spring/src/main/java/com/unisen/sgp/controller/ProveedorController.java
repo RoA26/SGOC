@@ -54,7 +54,7 @@ public class ProveedorController {
     }
 
     @PostMapping
-    @PreAuthorize(Permisos.ADMIN)
+    @PreAuthorize(Permisos.GESTION)
     @Operation(summary = "Crear proveedor")
     @ApiResponse(responseCode = "201", description = "Creado")
     @ApiResponse(responseCode = "400", description = "Datos inválidos")
@@ -67,7 +67,7 @@ public class ProveedorController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize(Permisos.ADMIN)
+    @PreAuthorize(Permisos.GESTION)
     @Operation(summary = "Actualizar proveedor")
     @ApiResponse(responseCode = "404", description = "No existe o fue dado de baja")
     @ApiResponse(responseCode = "409", description = "NIT duplicado")
@@ -76,7 +76,7 @@ public class ProveedorController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize(Permisos.ADMIN)
+    @PreAuthorize(Permisos.GESTION)
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Dar de baja un proveedor (borrado lógico)")
     @ApiResponse(responseCode = "409", description = "Tiene productos activos")

@@ -67,6 +67,8 @@ class AuthControllerTest {
     void setUp() {
         // Las invitaciones que dejen otros tests referencian usuarios (FK).
         jdbcTemplate.update("DELETE FROM codigos_invitacion");
+        jdbcTemplate.update("DELETE FROM detalles_solicitud");
+        jdbcTemplate.update("DELETE FROM solicitudes");
         usuarioRepository.deleteAll();
         ana = usuarioService.crearUsuario("Ana.Compras", "Ana.Compras@Unisen.com", "Ana Compras", PASSWORD,
                 Rol.USUARIO);
