@@ -4,6 +4,7 @@ import type { LoginResponse, Rol } from '@/features/auth/types'
 
 interface SessionData {
   accessToken: string | null
+  username: string | null
   nombre: string | null
   email: string | null
   rol: Rol | null
@@ -18,6 +19,7 @@ interface AuthState extends SessionData {
 
 const EMPTY_SESSION: SessionData = {
   accessToken: null,
+  username: null,
   nombre: null,
   email: null,
   rol: null,
@@ -35,6 +37,7 @@ export const useAuthStore = create<AuthState>()(
       setSession: ({ accessToken, expiresIn, usuario }) =>
         set({
           accessToken,
+          username: usuario.username,
           nombre: usuario.nombre,
           email: usuario.email,
           rol: usuario.rol,
@@ -45,8 +48,9 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'sgp.session',
       storage: createJSONStorage(() => localStorage),
-      partialize: ({ accessToken, nombre, email, rol, expiresAt }): SessionData => ({
+      partialize: ({ accessToken, username, nombre, email, rol, expiresAt }): SessionData => ({
         accessToken,
+        username,
         nombre,
         email,
         rol,

@@ -7,8 +7,9 @@ interface ProblemDetailWithErrors {
 }
 
 /**
- * Lleva los errores por campo de un ProblemDetail (400 de validación o 409 por NIT/SKU
- * duplicado, ambos con `errors: { campo: mensaje }`) a los campos del formulario.
+ * Lleva los errores por campo de un ProblemDetail (400 de validación o de código de
+ * invitación; 409 por NIT, SKU, username o correo duplicado; todos con
+ * `errors: { campo: mensaje }`) a los campos del formulario con `setError`.
  *
  * @returns un mensaje general si el error no corresponde a ningún campo del formulario,
  *          o `null` si ya se mostró junto a los campos.

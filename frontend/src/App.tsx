@@ -6,6 +6,7 @@ import Inicio from '@/pages/Inicio'
 import Login from '@/pages/Login'
 import Productos from '@/pages/Productos'
 import Proveedores from '@/pages/Proveedores'
+import Registro from '@/pages/Registro'
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
       <Routes>
         <Route element={<RutaInvitado />}>
           <Route path="/login" element={<Login />} />
+          <Route path="/registro" element={<Registro />} />
         </Route>
 
         <Route element={<RutaProtegida />}>

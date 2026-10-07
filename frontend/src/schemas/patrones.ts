@@ -11,4 +11,6 @@ export const PATRONES = {
   sku: /^[A-Z0-9._-]{3,40}$/,
   /** Exige dominio con punto. */
   email: /^[^@\s]+@[^@\s]+\.[^@\s]+$/,
+  /** 3 a 50 caracteres en minúsculas: letras, números, punto, guion y guion bajo; empieza y termina con letra o número. */
+  username: /^[a-z0-9](?:[a-z0-9._-]{1,48})[a-z0-9]$/,
 } as const

@@ -33,11 +33,11 @@ absolutas en el código. PostgreSQL y Spring Boot no publican puertos hacia inte
         ├── brand/unisen/    tokens.css, componentes.css, logos SVG (marca Unisen)
         ├── lib/axios.ts     Instancia única de Axios (VITE_API_URL)
         ├── store/           Sesión con Zustand (accessToken, nombre…)
-        ├── schemas/         Esquemas Zod (proveedorSchema, productoSchema) = validaciones del backend
+        ├── schemas/         Esquemas Zod (authSchema, proveedorSchema, productoSchema) = validaciones del backend
         ├── services/        proveedorService, productoService (/api/v1/...)
         ├── components/ui/   DataTable, Modal, ConfirmDialog, FormField
-        ├── features/        auth (rutas), proveedores y productos (formularios en modal)
-        └── pages/           Login, Inicio, Proveedores, Productos
+        ├── features/        auth (rutas, authApi, AuthLayout), proveedores y productos (formularios en modal)
+        └── pages/           Login, Registro, Inicio, Proveedores, Productos
 ```
 
 ## Limpieza de deuda técnica
@@ -182,9 +182,10 @@ Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, si
 Lecturas: cualquier usuario autenticado. Altas, cambios y bajas: solo `ADMIN` (la interfaz oculta
 los botones al resto). Detalle de reglas y errores en [backend-spring/README.md](backend-spring/README.md).
 
-> **Pendiente (frontend):** la pantalla de login aún envía `{email, password}`. Con el backend
-> del Hito 4 responde `400` hasta adaptarla a `{username, password}`; tampoco hay todavía
-> pantallas de registro ni de generación de invitaciones (la API ya está disponible).
+**Registro:** quien recibe un código de invitación crea su cuenta en `/registro` (o con el
+enlace `/registro?codigo=XXXX-XXXX-XXXX-XXXX`, que precarga el código) y entra directamente. Los
+errores del servidor (código inválido, usado o caducado; usuario o correo en uso) aparecen junto
+al campo afectado. Generar códigos aún no tiene pantalla: se hace con la API como `ADMIN`.
 
 ## Calidad
 

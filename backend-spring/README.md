@@ -237,5 +237,4 @@ Los tests no se ejecutan dentro del build: van en `./mvnw test` (CI).
 ## Fuera de alcance de este hito
 
 Órdenes de compra; reactivación de registros dados de baja; búsqueda en catálogos; refresh
-tokens; listado y revocación de invitaciones; gestión de usuarios vía API. El frontend aún no
-está adaptado al Hito 4 (ver README de la raíz).
+tokens; listado y revocación de invitaciones; gestión de usuarios vía API.

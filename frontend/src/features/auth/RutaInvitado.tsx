@@ -1,11 +1,13 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { isSessionActive, useAuthStore } from '@/store/authStore'
 
+const RUTAS_INVITADO = new Set(['/login', '/registro'])
+
 function redirectTarget(state: unknown): string {
   if (typeof state === 'object' && state !== null && 'from' in state) {
     const { from } = state
     // Solo rutas internas: evita redirecciones abiertas a otros dominios.
-    if (typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') && from !== '/login') {
+    if (typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') && !RUTAS_INVITADO.has(from)) {
       return from
     }
   }
@@ -13,8 +15,8 @@ function redirectTarget(state: unknown): string {
 }
 
 /**
- * Rutas solo para invitados (/login). Al iniciar sesión el store cambia y esta ruta
- * redirige automáticamente a la página que el usuario intentaba abrir.
+ * Rutas solo para invitados (/login, /registro). Al iniciar sesión el store cambia y esta
+ * ruta redirige automáticamente a la página que el usuario intentaba abrir.
  */
 export function RutaInvitado() {
   const location = useLocation()

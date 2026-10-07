@@ -46,6 +46,8 @@ export default function Inicio() {
           <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
             <dt className="text-foreground-muted">Estado</dt>
             <dd className="font-medium text-success">Sesión verificada por la API</dd>
+            <dt className="text-foreground-muted">Usuario</dt>
+            <dd className="text-foreground">{apiCheck.usuario.username}</dd>
             <dt className="text-foreground-muted">Correo</dt>
             <dd className="text-foreground">{apiCheck.usuario.email}</dd>
             <dt className="text-foreground-muted">Rol</dt>
