@@ -30,3 +30,11 @@ export interface LoginResponse {
   expiresIn: number
   usuario: UsuarioResponse
 }
+
+/** InvitacionResponseDTO: el código solo se devuelve una vez, al generarlo. */
+export interface InvitacionResponse {
+  /** Formato XXXX-XXXX-XXXX-XXXX. */
+  codigo: string
+  /** Instante ISO-8601 (UTC) a partir del cual el código deja de valer. */
+  fechaExpiracion: string
+}

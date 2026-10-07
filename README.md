@@ -37,7 +37,7 @@ absolutas en el código. PostgreSQL y Spring Boot no publican puertos hacia inte
         ├── services/        proveedorService, productoService (/api/v1/...)
         ├── components/ui/   DataTable, Modal, ConfirmDialog, FormField
         ├── features/        auth (rutas, authApi, AuthLayout), proveedores y productos (formularios en modal)
-        └── pages/           Login, Registro, Inicio, Proveedores, Productos
+        └── pages/           Login, Registro, Inicio, Proveedores, Productos, admin/Invitaciones
 ```
 
 ## Limpieza de deuda técnica
@@ -185,7 +185,12 @@ los botones al resto). Detalle de reglas y errores en [backend-spring/README.md]
 **Registro:** quien recibe un código de invitación crea su cuenta en `/registro` (o con el
 enlace `/registro?codigo=XXXX-XXXX-XXXX-XXXX`, que precarga el código) y entra directamente. Los
 errores del servidor (código inválido, usado o caducado; usuario o correo en uso) aparecen junto
-al campo afectado. Generar códigos aún no tiene pantalla: se hace con la API como `ADMIN`.
+al campo afectado.
+
+**Invitaciones (solo `ADMIN`):** en *Invitaciones* (`/admin/invitaciones`) el administrador genera
+un código con un clic y lo copia, o copia el enlace de registro. Cada código se muestra solo
+mientras no se sale de la página. La ruta y el enlace del menú se ocultan al resto de roles; el
+backend lo impide igualmente (`403`).
 
 ## Calidad
 
