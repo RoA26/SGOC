@@ -12,8 +12,11 @@ import com.unisen.sgp.repository.EmpresaRepository;
 import com.unisen.sgp.security.CodigosInvitacion;
 import com.unisen.sgp.security.Permisos;
 import com.unisen.sgp.tenant.TenantContextHolder;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -70,10 +73,24 @@ public class EmpresaService {
             throw new DatoDuplicadoException(CAMPO_GERENTE + ex.getCampo(), ex.getMessage());
         } catch (CampoInvalidoException ex) {
             throw new CampoInvalidoException(CAMPO_GERENTE + ex.getCampo(), ex.getMessage());
+        } catch (DataIntegrityViolationException ex) {
+            // Alta simultánea con el mismo username o correo: la UNIQUE salta al insertar al gerente.
+            throw duplicadoDelGerente(ex);
         }
 
         log.info("Empresa {} creada con el gerente fundador {}.", empresa.getId(), gerente.getId());
         return EmpresaResponseDTO.from(empresa, gerente);
+    }
+
+    /** Asocia la restricción violada al campo del gerente; cualquier otra se propaga tal cual. */
+    private static RuntimeException duplicadoDelGerente(DataIntegrityViolationException ex) {
+        String causa = String.valueOf(NestedExceptionUtils.getMostSpecificCause(ex).getMessage())
+                .toLowerCase(Locale.ROOT);
+        DatoDuplicadoException duplicado = causa.contains("uq_usuarios_username") ? DatoDuplicadoException.username()
+                : causa.contains("uq_usuarios_email") ? DatoDuplicadoException.email()
+                : null;
+        return duplicado == null ? ex
+                : new DatoDuplicadoException(CAMPO_GERENTE + duplicado.getCampo(), duplicado.getMessage());
     }
 
     @PreAuthorize(Permisos.SUPER_ADMIN)

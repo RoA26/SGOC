@@ -6,11 +6,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 
+import com.unisen.sgp.exception.DatoDuplicadoException;
 import com.unisen.sgp.model.dto.EmpresaRequestDTO;
 import com.unisen.sgp.model.entity.Empresa;
 import com.unisen.sgp.model.entity.Rol;
 import com.unisen.sgp.model.entity.Usuario;
+import com.unisen.sgp.repository.UsuarioRepository;
 import com.unisen.sgp.support.BaseDeDatosDePrueba;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +40,8 @@ class AprovisionamientoTransaccionalTest {
     private JdbcTemplate jdbcTemplate;
     @MockitoSpyBean
     private UsuarioService usuarioService;
+    @MockitoSpyBean
+    private UsuarioRepository usuarioRepository;
 
     @BeforeEach
     void limpiar() {
@@ -74,6 +79,23 @@ class AprovisionamientoTransaccionalTest {
         assertThat(contar("SELECT COUNT(*) FROM usuarios WHERE username = 'gerente.andina'")).isZero();
         assertThat(contar("SELECT COUNT(*) FROM empresas")).isZero();
         assertThat(contar("SELECT COUNT(*) FROM usuarios")).isZero();
+    }
+
+    @Test
+    @WithMockUser(roles = "SUPER_ADMIN")
+    void unUsernameQueOtraAltaOcupaALaVezSeAsignaAlGerenteYNoQuedaEmpresa() {
+        usuarioService.crearUsuario("ocupado", "ocupado@x.com", "Ocupado", "ClaveGerente2026", Rol.SUPER_ADMIN, null);
+        // Ventana de la carrera: la comprobación previa no lo ve y la UNIQUE de la BD salta al insertar.
+        doReturn(false).when(usuarioRepository).existsByUsername("ocupado");
+
+        EmpresaRequestDTO request = new EmpresaRequestDTO("Ferretería Andina", "901234567-8",
+                new EmpresaRequestDTO.GerenteFundador("ocupado", "g@andina.com", "ClaveGerente2026", null));
+
+        assertThatThrownBy(() -> empresaService.crearConGerente(request))
+                .isInstanceOfSatisfying(DatoDuplicadoException.class,
+                        ex -> assertThat(ex.getCampo()).isEqualTo("gerente.username"));
+        assertThat(contar("SELECT COUNT(*) FROM empresas WHERE nit = '901234567-8'")).isZero();
+        assertThat(contar("SELECT COUNT(*) FROM usuarios")).isEqualTo(1);
     }
 
     @Test

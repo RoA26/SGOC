@@ -30,6 +30,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -58,7 +61,12 @@ public class SecurityConfig {
             ProblemDetailResponseWriter problemDetailResponseWriter) throws Exception {
 
         JwtAuthenticationFilter jwtFilter = new JwtAuthenticationFilter(jwtUtil, userDetailsService);
-        TenantFilter tenantFilter = new TenantFilter(empresaRepository, problemDetailResponseWriter);
+        // Login y registro son públicos: nunca dentro de una empresa, aunque la petición lleve un token.
+        PathPatternRequestMatcher.Builder rutas = PathPatternRequestMatcher.withDefaults();
+        RequestMatcher autenticacionPublica = new OrRequestMatcher(
+                rutas.matcher(HttpMethod.POST, LOGIN_PATH), rutas.matcher(HttpMethod.POST, REGISTRO_PATH));
+        TenantFilter tenantFilter = new TenantFilter(empresaRepository, problemDetailResponseWriter,
+                autenticacionPublica);
 
         return http
                 // API sin estado autenticada por header Bearer: sin cookies de sesión no hay vector CSRF.

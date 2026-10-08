@@ -262,6 +262,6 @@ muestra solo mientras no se sale de la página.
 ## Calidad
 
 ```bash
-cd backend-spring && ./mvnw test                  # 146 tests
+cd backend-spring && ./mvnw test                  # 148 tests
 cd frontend && npm run lint && npm run build      # oxlint + TypeScript estricto
 ```

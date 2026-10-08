@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -27,6 +28,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *   <li>SUPER_ADMIN: la empresa de {@value #HEADER_TENANT} si la envía (soporte,
  *       impersonación); si no, ninguna (modo global).</li>
  *   <li>Peticiones sin autenticar: ninguna.</li>
+ *   <li>Rutas públicas de autenticación (login y registro): ninguna, aunque lleven un token.
+ *       Se comportan siempre igual que una petición anónima: un código de invitación de otra
+ *       empresa no debe quedar oculto por el tenant del token que se adjunte.</li>
  * </ul>
  *
  * <p>El contexto se borra siempre al terminar. No es un bean: lo instancia
@@ -41,17 +45,21 @@ public class TenantFilter extends OncePerRequestFilter {
 
     private final EmpresaRepository empresaRepository;
     private final ProblemDetailResponseWriter responseWriter;
+    /** Rutas públicas de autenticación, que nunca trabajan dentro de una empresa. */
+    private final RequestMatcher rutasSinEmpresa;
 
-    public TenantFilter(EmpresaRepository empresaRepository, ProblemDetailResponseWriter responseWriter) {
+    public TenantFilter(EmpresaRepository empresaRepository, ProblemDetailResponseWriter responseWriter,
+                        RequestMatcher rutasSinEmpresa) {
         this.empresaRepository = empresaRepository;
         this.responseWriter = responseWriter;
+        this.rutasSinEmpresa = rutasSinEmpresa;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         try {
-            UsuarioPrincipal usuario = usuarioAutenticado();
+            UsuarioPrincipal usuario = rutasSinEmpresa.matches(request) ? null : usuarioAutenticado();
             if (usuario != null && !fijarEmpresa(usuario, request, response)) {
                 return;
             }

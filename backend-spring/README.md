@@ -232,7 +232,7 @@ volver a iniciar sesión.
 ## Tests
 
 ```bash
-./mvnw test        # 146 tests: H2 en modo PostgreSQL, sin dependencias externas
+./mvnw test        # 148 tests: H2 en modo PostgreSQL, sin dependencias externas
 
 # Contra PostgreSQL real (crea antes una BD vacía; Flyway aplica V1…V6 y quedan aplicadas):
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/sgp_test \
@@ -322,7 +322,8 @@ por ella de forma nativa con `@TenantId`.
 2. `TenantFilter` (justo después) guarda la empresa en `TenantContextHolder` (`ThreadLocal`):
    la del usuario para GERENTE y USUARIO (la cabecera `X-Tenant-ID` se ignora) y la de
    `X-Tenant-ID` para el SUPER_ADMIN, si la envía (`400` si no es un id de empresa existente).
-   El contexto se borra siempre al terminar la petición.
+   Login y registro nunca fijan empresa, aunque la petición lleve un token: se comportan como
+   una petición anónima. El contexto se borra siempre al terminar la petición.
 3. `TenantIdentifierResolver` entrega esa empresa a Hibernate al abrir cada sesión. Las
    entidades de `EntidadDeEmpresa` (proveedores, productos, solicitudes, códigos de invitación)
    reciben `empresa_id` al insertarse y todas sus consultas, también `findById`, añaden

@@ -86,6 +86,33 @@ class AislamientoTrabajadoresTest extends ApiIntegrationTest {
     }
 
     @Test
+    void elRegistroPublicoIgnoraElTokenDeOtraEmpresa() throws Exception {
+        // Invitación de A canjeada con una petición que, por descuido, lleva el token del gerente de B.
+        String invitacionA = leer(postJson("/api/auth/invitaciones", adminToken, "{}")).get("codigo").asText();
+        long invitado = leer(mockMvc.perform(post("/api/auth/registro")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + gerenteB)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("username", "invitado.a", "email", "invitado.a@correo.com",
+                                "password", "ClaveTrabajador2026", "codigoInvitacion", invitacionA))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.empresaId").value(empresa.getId()))).get("id").asLong();
+        // Con el código de empresa de A, igual: la empresa la decide el código, nunca el token.
+        long conCodigo = leer(mockMvc.perform(post("/api/auth/registro")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + gerenteB)
+                        .header(TenantFilter.HEADER_TENANT, empresaB.getId().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("username", "codigo.a", "email", "codigo.a@correo.com",
+                                "password", "ClaveTrabajador2026", "codigoEmpresa", empresa.getCodigoEmpresa()))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.empresaId").value(empresa.getId()))).get("id").asLong();
+
+        for (long id : new long[] {invitado, conCodigo}) {
+            assertThat(jdbcTemplate.queryForObject("SELECT empresa_id FROM usuarios WHERE id = ?", Long.class, id))
+                    .isEqualTo(empresa.getId());
+        }
+    }
+
+    @Test
     void laCabeceraXTenantIdNoCambiaLaEmpresaDeUnGerente() throws Exception {
         String tenantB = empresaB.getId().toString();
 
