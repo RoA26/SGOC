@@ -1,11 +1,13 @@
 package com.unisen.sgp.config;
 
 import com.unisen.sgp.repository.EmpresaRepository;
+import com.unisen.sgp.security.CuentaNoAutorizadaException;
 import com.unisen.sgp.security.JwtAuthenticationFilter;
 import com.unisen.sgp.security.JwtUtil;
 import com.unisen.sgp.security.RestAccessDeniedHandler;
 import com.unisen.sgp.security.ProblemDetailResponseWriter;
 import com.unisen.sgp.security.RestAuthenticationEntryPoint;
+import com.unisen.sgp.security.UsuarioPrincipal;
 import com.unisen.sgp.tenant.TenantFilter;
 import java.time.Duration;
 import java.util.List;
@@ -38,7 +40,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     public static final String LOGIN_PATH = "/api/auth/login";
-    /** Alta pública, pero solo prospera con un código de invitación válido. */
+    /** Alta pública, pero solo prospera con un código válido (de invitación o de empresa). */
     public static final String REGISTRO_PATH = "/api/auth/registro";
 
     private static final String[] SWAGGER_PATHS = {"/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"};
@@ -98,6 +100,9 @@ public class SecurityConfig {
      * inactiva. Aquí el estado se comprueba <em>después</em>: sin la contraseña correcta,
      * la respuesta es siempre "credenciales inválidas". Para usuarios inexistentes,
      * {@link DaoAuthenticationProvider} ya iguala los tiempos de respuesta.
+     *
+     * <p>Con la contraseña correcta, una cuenta PENDIENTE, RECHAZADA, INACTIVA o de una empresa
+     * desactivada recibe 403 con el motivo y ningún token: sin acceso operativo.
      */
     @Bean
     public AuthenticationManager authenticationManager(UserDetailsService userDetailsService,
@@ -105,7 +110,13 @@ public class SecurityConfig {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder);
         provider.setPreAuthenticationChecks(user -> { });
-        provider.setPostAuthenticationChecks(new AccountStatusUserDetailsChecker());
+        AccountStatusUserDetailsChecker comprobacionesEstandar = new AccountStatusUserDetailsChecker();
+        provider.setPostAuthenticationChecks(user -> {
+            if (user instanceof UsuarioPrincipal usuario) {
+                CuentaNoAutorizadaException.verificar(usuario);
+            }
+            comprobacionesEstandar.check(user);
+        });
         return new ProviderManager(provider);
     }
 

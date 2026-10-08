@@ -280,9 +280,11 @@ class AislamientoMultiEmpresaTest extends ApiIntegrationTest {
     void unaEmpresaDesactivadaBloqueaASusUsuarios() throws Exception {
         jdbcTemplate.update("UPDATE empresas SET activa = FALSE WHERE id = ?", norte.getId());
 
+        // Token válido, pero la BD ya no autoriza a la empresa: 403 con el motivo.
         getJson("/api/auth/me", gerenteNorte)
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.detail").value("La empresa del usuario está desactivada."));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.detail").value("La empresa del usuario está desactivada."))
+                .andExpect(jsonPath("$.motivo").value("EMPRESA_INACTIVA"));
         mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of("username", "gerente.norte", "password", PASSWORD))))
                 .andExpect(status().isForbidden());

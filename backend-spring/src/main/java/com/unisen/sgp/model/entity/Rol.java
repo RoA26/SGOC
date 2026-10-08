@@ -10,9 +10,14 @@ public enum Rol {
      * {@code X-Tenant-ID} actúa en modo global; con ella, dentro de esa empresa (soporte).
      */
     SUPER_ADMIN,
-    /** Administra su empresa: catálogos, revisión de solicitudes e invitaciones. */
+    /** Administra su empresa: trabajadores, catálogos, revisión de solicitudes e invitaciones. */
     GERENTE,
-    /** Crea solicitudes en su empresa y consulta las suyas y los catálogos. */
+    /**
+     * Trabajador de una empresa (el rol TRABAJADOR del modelo funcional; se conserva el
+     * nombre USUARIO por compatibilidad con la BD, los JWT emitidos y el frontend). Crea
+     * solicitudes en su empresa y consulta las suyas y los catálogos. Si se registra con el
+     * código de empresa, queda PENDIENTE hasta que un gestor lo apruebe.
+     */
     USUARIO;
 
     /** Gestiona catálogos y revisa solicitudes (en sintonía con {@code Permisos.GESTION}). */

@@ -92,10 +92,11 @@ docker compose ps                  # los tres servicios deben quedar "healthy"
 
 Abre http://rrtf.duckdns.org e inicia sesión con `ADMIN_USERNAME` / `ADMIN_PASSWORD`. Ese
 usuario es el `SUPER_ADMIN` de la plataforma: se crea en el primer arranque y los siguientes no lo
-modifican. El registro está cerrado: el resto de cuentas se crean con códigos de invitación que
-genera un GERENTE, o el SUPER_ADMIN tras entrar en una empresa (*Trabajar en una empresa*).
-Las cuentas invitadas entran como USUARIO; hoy no hay endpoint para ascender a GERENTE (ver
-*Pendiente en el backend*).
+modifican. El SUPER_ADMIN aprovisiona cada empresa con su GERENTE fundador
+(`POST /api/v1/empresas`, de momento solo por API). Los trabajadores entran con el código
+permanente de su empresa (quedan pendientes hasta que el gerente los aprueba) o con una
+invitación de un gestor (entran directamente). Detalle en
+[backend-spring/README.md](backend-spring/README.md#identidad-y-onboarding).
 
 **Al actualizar un despliegue anterior al Hito 4:** la migración V3 asigna a cada usuario
 existente un username a partir de su correo (`admin@unisen.com` → `admin`), las sesiones
@@ -174,7 +175,10 @@ Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, si
 | Método | Ruta | Descripción |
 | --- | --- | --- |
 | POST | `/api/auth/login` | `{username, password}` → `{accessToken, tokenType, expiresIn, usuario}` (`usuario.empresaId`, salvo SUPER_ADMIN) |
-| POST | `/api/auth/registro` | `{username, email, password, codigoInvitacion, nombre?}` → `201` usuario (rol USUARIO en la empresa del código) |
+| POST | `/api/auth/registro` | `{username, email, password, codigoInvitacion \| codigoEmpresa, nombre?}` → `201` usuario USUARIO de la empresa del código: ACTIVO con invitación, PENDIENTE con código de empresa |
+| POST · GET | `/api/v1/empresas[/{id}]` | SUPER_ADMIN: aprovisionar (empresa + `codigoEmpresa` + GERENTE fundador, todo o nada) y consultar |
+| GET | `/api/v1/empresas/actual` | GERENTE, o SUPER_ADMIN con `X-Tenant-ID`: empresa en la que se trabaja, con su código |
+| GET · PATCH | `/api/v1/trabajadores[?estado=]` · `/{id}/estado` | GERENTE, o SUPER_ADMIN con `X-Tenant-ID`: trabajadores de esa empresa; aprobar, rechazar, desactivar o reactivar |
 | POST | `/api/auth/invitaciones` | GERENTE, o SUPER_ADMIN con `X-Tenant-ID`: `{horasValidez?}` → `201` `{codigo, fechaExpiracion}` |
 | GET | `/api/auth/me` | Perfil del usuario autenticado (Bearer) |
 | GET | `/api/v1/proveedores?page=0&size=10&sort=razonSocial,asc` | Listado paginado |
@@ -210,6 +214,10 @@ El SGOC es multi-empresa: cada empresa cliente ve solo sus datos y el backend lo
   SUPER_ADMIN; el resto vuelve al inicio.
 - **Sesiones anteriores** (con el rol `ADMIN`, que ya no existe) se descartan y piden iniciar
   sesión de nuevo.
+- **Cuenta que pierde la autorización:** si el backend responde `401`, o `403` con `motivo`
+  (cuenta pendiente, rechazada, desactivada o empresa desactivada), la interfaz cierra la sesión;
+  al volver a entrar, el login muestra el motivo. Un `403` sin `motivo` (falta de permisos para
+  una acción) no la cierra.
 
 **Flujo de compra:** Necesidad → Solicitud → Aprobación → Orden de compra → Recepción. Hoy el
 backend cubre hasta la aprobación; *Órdenes de compra* y *Recepciones* aparecen como
@@ -241,18 +249,19 @@ muestra solo mientras no se sale de la página.
 
 | Necesidad del frontend | Endpoint que falta |
 | --- | --- |
-| Selector de empresas del SUPER_ADMIN (hoy se escribe el id) | `GET /api/v1/empresas` (id, nombre, NIT, activa) |
-| Nombre de la empresa en el panel (hoy "Empresa N.º X") | `GET /api/v1/empresas/{id}` o `empresaNombre` en `UsuarioResponse` |
+| Selector de empresas del SUPER_ADMIN (hoy se escribe el id) | Ya existe `GET /api/v1/empresas` (Hito 2); falta usarlo en la interfaz |
+| Nombre de la empresa en el panel (hoy "Empresa N.º X") | `GET /api/v1/empresas/actual` sirve a los gestores; para todos los roles falta `empresaNombre` en `UsuarioResponse` |
+| Pantallas de aprovisionamiento, registro con código de empresa y aprobación de trabajadores | Endpoints ya disponibles (Hito 2); falta la interfaz |
 | Empresa de cada solicitud en modo global | `empresaId`/`empresaNombre` en `SolicitudResponseDTO` |
 | Órdenes de compra y sus estados | `/api/v1/ordenes-compra` (crear desde una solicitud aprobada, listar, detalle, cambiar estado) |
 | Recepciones (también parciales) | `/api/v1/ordenes-compra/{id}/recepciones` |
-| Usuarios de la empresa | `GET /api/v1/usuarios` (y cambio de rol / baja) |
+| Gestión de gerentes (cambio de rol, baja) | Sin definir; los trabajadores ya se gestionan con `/api/v1/trabajadores` |
 | Ficha de la empresa | `GET · PUT /api/v1/empresa` |
 | Reportes | Sin definir |
 
 ## Calidad
 
 ```bash
-cd backend-spring && ./mvnw test                  # 118 tests
+cd backend-spring && ./mvnw test                  # 146 tests
 cd frontend && npm run lint && npm run build      # oxlint + TypeScript estricto
 ```

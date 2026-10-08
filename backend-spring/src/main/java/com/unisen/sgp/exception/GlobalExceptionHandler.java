@@ -1,5 +1,6 @@
 package com.unisen.sgp.exception;
 
+import com.unisen.sgp.security.CuentaNoAutorizadaException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -47,6 +48,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             new Restriccion("uq_productos_sku", "sku",
                     "Ya existe un producto con este SKU (también se cuentan los dados de baja)."),
             new Restriccion("uq_empresas_nit", "nit", "Ya existe una empresa con este NIT."),
+            new Restriccion("uq_empresas_codigo_empresa", "codigoEmpresa",
+                    "No se pudo asignar un código de empresa único. Inténtalo de nuevo."),
             new Restriccion("fk_productos_proveedor", "proveedorId",
                     "El proveedor seleccionado no existe."),
             new Restriccion("uq_detalles_solicitud_producto", "detalles",
@@ -67,9 +70,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(problem);
     }
 
-    /** Cuenta deshabilitada, bloqueada o expirada (solo tras validar la contraseña). */
+    /**
+     * Cuenta sin acceso operativo (solo tras validar la contraseña): pendiente de aprobación,
+     * rechazada, inactiva o de una empresa desactivada, con el {@code motivo}; o bloqueada o
+     * expirada en general.
+     */
     @ExceptionHandler(AccountStatusException.class)
     public ProblemDetail handleAccountStatus(AccountStatusException ex) {
+        if (ex instanceof CuentaNoAutorizadaException denegada) {
+            ProblemDetail problem = problem(HttpStatus.FORBIDDEN, CuentaNoAutorizadaException.TITULO,
+                    denegada.getMotivo().mensaje());
+            problem.setProperty(CuentaNoAutorizadaException.PROPIEDAD_MOTIVO, denegada.getMotivo().name());
+            return problem;
+        }
         return problem(HttpStatus.FORBIDDEN, "Cuenta no disponible", "La cuenta de usuario está deshabilitada.");
     }
 

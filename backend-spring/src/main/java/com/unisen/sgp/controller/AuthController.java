@@ -39,7 +39,8 @@ public class AuthController {
     @ApiResponse(responseCode = "200", description = "Login correcto")
     @ApiResponse(responseCode = "400", description = "Petición mal formada o datos inválidos")
     @ApiResponse(responseCode = "401", description = "Usuario o contraseña incorrectos")
-    @ApiResponse(responseCode = "403", description = "Cuenta deshabilitada")
+    @ApiResponse(responseCode = "403",
+            description = "Contraseña correcta pero la cuenta no está autorizada (motivo: PENDIENTE, RECHAZADO, INACTIVO o EMPRESA_INACTIVA)")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
     }
@@ -47,11 +48,13 @@ public class AuthController {
     @PostMapping("/registro")
     @ResponseStatus(HttpStatus.CREATED)
     @SecurityRequirements
-    @Operation(summary = "Registrarse con una invitación",
-            description = "Crea una cuenta con rol USUARIO canjeando un código de invitación de un solo uso.")
-    @ApiResponse(responseCode = "201", description = "Usuario creado; ya puede iniciar sesión")
-    @ApiResponse(responseCode = "400",
-            description = "Datos inválidos o código de invitación inexistente, usado o caducado (errors.codigoInvitacion)")
+    @Operation(summary = "Registrarse como trabajador",
+            description = "Crea una cuenta con rol USUARIO (trabajador). Con codigoEmpresa queda PENDIENTE hasta que un "
+                    + "gestor la apruebe; con un codigoInvitacion de un solo uso queda ACTIVA. Se envía uno de los dos.")
+    @ApiResponse(responseCode = "201",
+            description = "Usuario creado: estado ACTIVO (invitación, ya puede iniciar sesión) o PENDIENTE (código de empresa)")
+    @ApiResponse(responseCode = "400", description = "Datos inválidos; código de invitación inexistente, usado o caducado "
+            + "(errors.codigoInvitacion) o código de empresa inexistente o de una empresa desactivada (errors.codigoEmpresa)")
     @ApiResponse(responseCode = "409", description = "El username o el correo ya están en uso (errors.username / errors.email)")
     public UsuarioResponse registro(@Valid @RequestBody RegistroRequestDTO request) {
         return authService.registrar(request);
@@ -59,12 +62,12 @@ public class AuthController {
 
     @PostMapping("/invitaciones")
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Generar código de invitación (ADMIN)",
+    @Operation(summary = "Generar código de invitación (GERENTE, o SUPER_ADMIN con X-Tenant-ID)",
             description = "Devuelve un código de un solo uso. El cuerpo es opcional; por defecto caduca en 72 horas.")
     @ApiResponse(responseCode = "201", description = "Código generado")
     @ApiResponse(responseCode = "400", description = "horasValidez fuera de rango")
     @ApiResponse(responseCode = "401", description = "Token ausente, inválido o expirado")
-    @ApiResponse(responseCode = "403", description = "El usuario no es administrador")
+    @ApiResponse(responseCode = "403", description = "El usuario no es gestor")
     public InvitacionResponseDTO generarInvitacion(
             @AuthenticationPrincipal UsuarioPrincipal principal,
             @Valid @RequestBody(required = false) InvitacionRequestDTO request) {

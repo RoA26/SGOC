@@ -106,8 +106,9 @@ app:
       # Orígenes permitidos separados por comas: producción (DuckDNS) y Vite en desarrollo.
       allowed-origins: ${CORS_ALLOWED_ORIGINS:https://rrtf.duckdns.org,http://localhost:5173}
 
-  # Alta del primer administrador al arrancar (solo si su username y su correo aún no existen).
-  # Inicia sesión con ADMIN_USERNAME y es quien genera los códigos de invitación.
+  # Alta del SUPER_ADMIN inicial al arrancar (solo si su username y su correo aún no existen).
+  # Inicia sesión con ADMIN_USERNAME y aprovisiona las empresas con su gerente fundador
+  # (POST /api/v1/empresas).
   bootstrap:
     admin:
       username: ${ADMIN_USERNAME:admin}

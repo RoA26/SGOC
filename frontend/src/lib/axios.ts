@@ -34,13 +34,24 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Un 401 en una petición autenticada significa token expirado o revocado: se cierra la sesión.
+/**
+ * La sesión deja de servir si, en una petición autenticada, el backend responde:
+ * - 401: el token caducó o ya no identifica a nadie;
+ * - 403 con `motivo`: el token es válido, pero la cuenta ya no está autorizada (pendiente,
+ *   rechazada, desactivada o de una empresa desactivada). Un 403 sin `motivo` es solo falta
+ *   de permisos para esa acción y no cierra la sesión.
+ */
+function cuentaSinAcceso(status: number | undefined, data: unknown): boolean {
+  if (status === 401) return true
+  return status === 403 && typeof data === 'object' && data !== null && 'motivo' in data
+}
+
 api.interceptors.response.use(
   (response) => response,
   (error: unknown) => {
     if (
       axios.isAxiosError(error) &&
-      error.response?.status === 401 &&
+      cuentaSinAcceso(error.response?.status, error.response?.data) &&
       error.config?.headers.has('Authorization')
     ) {
       useAuthStore.getState().clearSession()

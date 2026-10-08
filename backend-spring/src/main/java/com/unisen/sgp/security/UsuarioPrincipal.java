@@ -1,6 +1,7 @@
 package com.unisen.sgp.security;
 
 import com.unisen.sgp.model.entity.Empresa;
+import com.unisen.sgp.model.entity.EstadoUsuario;
 import com.unisen.sgp.model.entity.Rol;
 import com.unisen.sgp.model.entity.Usuario;
 import java.util.Collection;
@@ -23,7 +24,8 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
     private final String email;
     private final String nombre;
     private final Rol rol;
-    private final boolean activo;
+    /** Estado leído de la BD al cargar el usuario (en cada petición, no del JWT). */
+    private final EstadoUsuario estado;
     /** Tenant del usuario; null para SUPER_ADMIN. */
     private final Long empresaId;
     private final boolean empresaActiva;
@@ -31,14 +33,14 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
     private String passwordHash;
 
     private UsuarioPrincipal(Long id, String username, String email, String passwordHash, String nombre, Rol rol,
-                             boolean activo, Long empresaId, boolean empresaActiva) {
+                             EstadoUsuario estado, Long empresaId, boolean empresaActiva) {
         this.id = id;
         this.username = username;
         this.email = email;
         this.passwordHash = passwordHash;
         this.nombre = nombre;
         this.rol = rol;
-        this.activo = activo;
+        this.estado = estado;
         this.empresaId = empresaId;
         this.empresaActiva = empresaActiva;
         this.authorities = List.of(new SimpleGrantedAuthority(rol.authority()));
@@ -54,7 +56,7 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
                 usuario.getPasswordHash(),
                 usuario.getNombre(),
                 usuario.getRol(),
-                usuario.isActivo(),
+                usuario.getEstado(),
                 empresa == null ? null : empresa.getId(),
                 empresa == null || empresa.isActiva());
     }
@@ -84,6 +86,10 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
         return rol;
     }
 
+    public EstadoUsuario getEstado() {
+        return estado;
+    }
+
     /** Identidad de Spring Security y "sub" del JWT. */
     @Override
     public String getUsername() {
@@ -100,9 +106,10 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
         return authorities;
     }
 
+    /** Solo una cuenta ACTIVA de una empresa activa (ver {@link CuentaNoAutorizadaException#motivoDe}). */
     @Override
     public boolean isEnabled() {
-        return activo && empresaActiva;
+        return estado.permiteAcceso() && empresaActiva;
     }
 
     /** Spring Security la invoca tras autenticar: el hash no sobrevive al login. */
@@ -114,6 +121,6 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
     @Override
     public String toString() {
         return "UsuarioPrincipal{id=" + id + ", username='" + username + "', rol=" + rol + ", empresaId=" + empresaId
-                + ", activo=" + activo + '}';
+                + ", estado=" + estado + '}';
     }
 }

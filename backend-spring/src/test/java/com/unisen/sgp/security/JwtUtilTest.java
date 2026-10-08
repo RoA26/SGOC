@@ -35,7 +35,7 @@ class JwtUtilTest {
     @BeforeEach
     void setUp() throws ReflectiveOperationException {
         jwtUtil = jwtUtilAt(NOW, SECRET, ISSUER);
-        Empresa empresa = new Empresa("Unisen", "900000001-1");
+        Empresa empresa = new Empresa("Unisen", "900000001-1", "AAAA-BBBB-CCCC-DDDD");
         asignarId(Empresa.class, empresa, 7L);
         Usuario entidad = new Usuario("Ana.Compras", "Ana@Unisen.com", "$2a$04$hash", "Ana Compras", Rol.USUARIO,
                 empresa);

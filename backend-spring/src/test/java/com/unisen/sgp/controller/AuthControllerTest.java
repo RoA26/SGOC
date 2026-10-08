@@ -13,10 +13,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.unisen.sgp.model.entity.Empresa;
+import com.unisen.sgp.model.entity.EstadoUsuario;
 import com.unisen.sgp.model.entity.Rol;
 import com.unisen.sgp.model.entity.Usuario;
 import com.unisen.sgp.repository.EmpresaRepository;
 import com.unisen.sgp.repository.UsuarioRepository;
+import com.unisen.sgp.security.CodigosInvitacion;
 import com.unisen.sgp.security.JwtProperties;
 import com.unisen.sgp.security.JwtUtil;
 import com.unisen.sgp.security.UsuarioPrincipal;
@@ -73,12 +75,12 @@ class AuthControllerTest {
     @BeforeEach
     void setUp() {
         BaseDeDatosDePrueba.vaciar(jdbcTemplate);
-        empresa = empresaRepository.save(new Empresa("Unisen", "900000001-1"));
+        empresa = empresaRepository.save(new Empresa("Unisen", "900000001-1", CodigosInvitacion.generar()));
         ana = usuarioService.crearUsuario("Ana.Compras", "Ana.Compras@Unisen.com", "Ana Compras", PASSWORD,
                 Rol.USUARIO, empresa);
         inactivo = usuarioService.crearUsuario("baja", "baja@unisen.com", "Usuario de Baja", PASSWORD, Rol.USUARIO,
                 empresa);
-        inactivo.setActivo(false);
+        inactivo.cambiarEstado(EstadoUsuario.INACTIVO);
         usuarioRepository.save(inactivo);
     }
 
@@ -278,14 +280,18 @@ class AuthControllerTest {
     }
 
     @Test
-    void desactivarUnUsuarioRevocaSusTokensAlInstante() throws Exception {
+    void desactivarUnUsuarioLeDeniegaElAccesoAunqueSuTokenSigaVigente() throws Exception {
         String token = tokenFor("ana.compras");
-        ana.setActivo(false);
+        ana.cambiarEstado(EstadoUsuario.INACTIVO);
         usuarioRepository.save(ana);
 
+        // El token sigue siendo válido (identidad conocida): no autorizado → 403, no 401.
         mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, bearer(token)))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.detail").value("La cuenta de usuario está deshabilitada."));
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist(HttpHeaders.WWW_AUTHENTICATE))
+                .andExpect(jsonPath("$.title").value("Cuenta no autorizada"))
+                .andExpect(jsonPath("$.detail").value("La cuenta de usuario está deshabilitada."))
+                .andExpect(jsonPath("$.motivo").value("INACTIVO"));
     }
 
     @Test

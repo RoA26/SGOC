@@ -29,7 +29,11 @@ export interface UsuarioResponse {
   rol: Rol
   /** Empresa del usuario; el backend la omite para SUPER_ADMIN. */
   empresaId?: number
+  /** PENDIENTE tras registrarse con el código de empresa, hasta que un gerente lo apruebe. */
+  estado?: EstadoUsuario
 }
+
+export type EstadoUsuario = 'PENDIENTE' | 'ACTIVO' | 'RECHAZADO' | 'INACTIVO'
 
 export interface LoginResponse {
   accessToken: string

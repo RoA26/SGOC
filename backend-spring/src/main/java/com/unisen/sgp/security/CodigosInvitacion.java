@@ -2,9 +2,11 @@ package com.unisen.sgp.security;
 
 import java.security.SecureRandom;
 import java.util.Locale;
+import java.util.function.Predicate;
 
 /**
- * Generación y normalización de códigos de invitación.
+ * Generación y normalización de códigos de acceso: los de invitación (un solo uso) y el
+ * código permanente de cada empresa ({@code empresas.codigo_empresa}), con el mismo formato.
  *
  * <p>Formato {@code XXXX-XXXX-XXXX-XXXX} con el alfabeto Base32 de Crockford (sin I, L, O
  * ni U, que se confunden al copiarlos): 16 caracteres × 5 bits = 80 bits de entropía, que
@@ -16,6 +18,8 @@ public final class CodigosInvitacion {
     private static final int LONGITUD = 16;
     private static final int GRUPO = 4;
     private static final SecureRandom RANDOM = new SecureRandom();
+    /** Con 80 bits de entropía una colisión es prácticamente imposible; el límite evita un bucle infinito. */
+    private static final int MAX_INTENTOS_GENERACION = 5;
 
     private CodigosInvitacion() {
     }
@@ -26,6 +30,22 @@ public final class CodigosInvitacion {
             codigo.append(ALFABETO[RANDOM.nextInt(ALFABETO.length)]);
         }
         return agrupar(codigo.toString());
+    }
+
+    /**
+     * Genera un código que no esté en uso. La restricción UNIQUE de la BD sigue siendo la
+     * garantía final ante altas simultáneas.
+     *
+     * @param enUso comprueba si un código ya existe
+     */
+    public static String generarUnico(Predicate<String> enUso) {
+        for (int intento = 0; intento < MAX_INTENTOS_GENERACION; intento++) {
+            String codigo = generar();
+            if (!enUso.test(codigo)) {
+                return codigo;
+            }
+        }
+        throw new IllegalStateException("No se pudo generar un código único.");
     }
 
     /**

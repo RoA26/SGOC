@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -35,6 +36,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     public static final String AUTH_ERROR_ATTRIBUTE = JwtAuthenticationFilter.class.getName() + ".ERROR";
+    /**
+     * Token válido de un usuario que la BD ya no autoriza ({@link CuentaNoAutorizadaException.Motivo}):
+     * en una ruta protegida, {@link RestAuthenticationEntryPoint} responde 403 en lugar de 401.
+     */
+    public static final String DENEGACION_ATTRIBUTE = JwtAuthenticationFilter.class.getName() + ".DENEGACION";
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
     private static final String BEARER_PREFIX = "Bearer ";
@@ -64,18 +70,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             Claims claims = jwtUtil.validateToken(token);
             // El "sub" del token es el username (Hito 4); los tokens antiguos con correo ya no resuelven.
-            // Se consulta la BD en cada petición: desactivar un usuario revoca sus tokens al instante.
+            // Se consulta la BD en cada petición: es la fuente de verdad de la autorización, no el token.
             UserDetails user = userDetailsService.loadUserByUsername(claims.getSubject());
             if (user instanceof UsuarioPrincipal usuario) {
-                if (!usuario.isEmpresaActiva()) {
-                    request.setAttribute(AUTH_ERROR_ATTRIBUTE, "La empresa del usuario está desactivada.");
-                    return;
-                }
                 // TenantFilter fija el tenant a partir de esta empresa: el claim debe coincidir con la
-                // de la BD. Si el usuario cambió de empresa, sus tokens anteriores dejan de valer.
+                // de la BD. Si el usuario cambió de empresa, sus tokens anteriores dejan de valer (401).
                 if (!Objects.equals(JwtUtil.extractEmpresaId(claims), usuario.getEmpresaId())) {
                     request.setAttribute(AUTH_ERROR_ATTRIBUTE,
                             "El token no corresponde a la empresa del usuario. Inicia sesión de nuevo.");
+                    return;
+                }
+                // Identidad verificada, pero la BD ya no la autoriza (pendiente, rechazada, inactiva o
+                // empresa desactivada): sin autenticar, y en una ruta protegida → 403 con el motivo.
+                Optional<CuentaNoAutorizadaException.Motivo> denegacion = CuentaNoAutorizadaException.motivoDe(usuario);
+                if (denegacion.isPresent()) {
+                    request.setAttribute(DENEGACION_ATTRIBUTE, denegacion.get());
                     return;
                 }
             }

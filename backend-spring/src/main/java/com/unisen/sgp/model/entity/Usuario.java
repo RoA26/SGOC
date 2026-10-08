@@ -1,5 +1,7 @@
 package com.unisen.sgp.model.entity;
 
+import com.unisen.sgp.exception.CampoInvalidoException;
+import com.unisen.sgp.exception.ConflictoException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -52,8 +54,20 @@ public class Usuario {
     @Column(nullable = false, length = 30)
     private Rol rol;
 
+    /**
+     * Fuente de verdad de la autorización (ver {@link EstadoUsuario}): el filtro JWT la lee de
+     * la BD en cada petición, así que un cambio surte efecto aunque el token siga vigente.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private EstadoUsuario estado = EstadoUsuario.PENDIENTE;
+
+    /**
+     * Reflejo de {@code estado == ACTIVO}, conservado del esquema anterior al Hito 2
+     * ({@code ck_usuarios_estado_activo} impide que diverjan). Solo lo escribe {@link #fijarEstado}.
+     */
     @Column(nullable = false)
-    private boolean activo = true;
+    private boolean activo = false;
 
     /** Empresa a la que pertenece; null solo para SUPER_ADMIN (ck_usuarios_empresa). */
     @ManyToOne(fetch = FetchType.LAZY)
@@ -72,10 +86,18 @@ public class Usuario {
     protected Usuario() {
     }
 
+    /** Cuenta sin acceso hasta que un gestor la apruebe (estado PENDIENTE). */
+    public Usuario(String username, String email, String passwordHash, String nombre, Rol rol, Empresa empresa) {
+        this(username, email, passwordHash, nombre, rol, empresa, EstadoUsuario.PENDIENTE);
+    }
+
     /**
      * @param empresa obligatoria para GERENTE y USUARIO; debe ser null para SUPER_ADMIN
+     * @param estado  estado inicial: PENDIENTE para un autorregistro, ACTIVO para un alta ya
+     *                autorizada (gerente fundador, invitación, administrador inicial)
      */
-    public Usuario(String username, String email, String passwordHash, String nombre, Rol rol, Empresa empresa) {
+    public Usuario(String username, String email, String passwordHash, String nombre, Rol rol, Empresa empresa,
+                   EstadoUsuario estado) {
         // Asignación directa: invocar setters sobrescribibles desde el constructor es inseguro.
         this.username = normalizarUsername(Objects.requireNonNull(username, "username"));
         this.email = normalizarEmail(Objects.requireNonNull(email, "email"));
@@ -83,6 +105,7 @@ public class Usuario {
         this.nombre = Objects.requireNonNull(nombre, "nombre").strip();
         this.rol = Objects.requireNonNull(rol, "rol");
         this.empresa = validarEmpresa(rol, empresa);
+        fijarEstado(Objects.requireNonNull(estado, "estado"));
     }
 
     private static Empresa validarEmpresa(Rol rol, Empresa empresa) {
@@ -156,12 +179,39 @@ public class Usuario {
         return empresa == null ? null : empresa.getId();
     }
 
-    public boolean isActivo() {
-        return activo;
+    public EstadoUsuario getEstado() {
+        return estado;
     }
 
-    public void setActivo(boolean activo) {
-        this.activo = activo;
+    /** Tiene acceso operativo (estado ACTIVO). */
+    public boolean isActivo() {
+        return estado.permiteAcceso();
+    }
+
+    /**
+     * Aprueba, rechaza, desactiva o reactiva la cuenta según las transiciones de
+     * {@link EstadoUsuario#puedePasarA}.
+     *
+     * @throws CampoInvalidoException si el destino es PENDIENTE (solo se llega registrándose)
+     * @throws ConflictoException     si la cuenta ya está en ese estado o la transición no existe
+     */
+    public void cambiarEstado(EstadoUsuario destino) {
+        Objects.requireNonNull(destino, "destino");
+        if (destino == EstadoUsuario.PENDIENTE) {
+            throw new CampoInvalidoException("estado", "El nuevo estado debe ser ACTIVO, RECHAZADO o INACTIVO.");
+        }
+        if (destino == estado) {
+            throw new ConflictoException("La cuenta ya está en estado " + estado + ".");
+        }
+        if (!estado.puedePasarA(destino)) {
+            throw new ConflictoException("Una cuenta en estado " + estado + " no puede pasar a " + destino + ".");
+        }
+        fijarEstado(destino);
+    }
+
+    private void fijarEstado(EstadoUsuario nuevo) {
+        this.estado = nuevo;
+        this.activo = nuevo.permiteAcceso();
     }
 
     public Instant getCreadoEn() {
@@ -191,6 +241,6 @@ public class Usuario {
 
     @Override
     public String toString() {
-        return "Usuario{id=" + id + ", username='" + username + "', rol=" + rol + ", activo=" + activo + '}';
+        return "Usuario{id=" + id + ", username='" + username + "', rol=" + rol + ", estado=" + estado + '}';
     }
 }

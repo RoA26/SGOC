@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.unisen.sgp.model.entity.Empresa;
 import com.unisen.sgp.model.entity.Rol;
 import com.unisen.sgp.repository.EmpresaRepository;
+import com.unisen.sgp.security.CodigosInvitacion;
 import com.unisen.sgp.service.UsuarioService;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,8 +26,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 /**
- * Base de los tests HTTP de catálogos: BD limpia, un ADMIN y un USUARIO con tokens reales
- * obtenidos vía /api/auth/login (se ejercita la cadena de seguridad completa).
+ * Base de los tests HTTP: BD limpia, la empresa "Unisen" con un GERENTE ({@code adminToken})
+ * y un USUARIO ({@code usuarioToken}) ACTIVOS, con tokens reales obtenidos vía /api/auth/login
+ * (se ejercita la cadena de seguridad completa).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -65,7 +67,7 @@ public abstract class ApiIntegrationTest {
     }
 
     protected Empresa crearEmpresa(String nombre, String nit) {
-        return empresaRepository.save(new Empresa(nombre, nit));
+        return empresaRepository.save(new Empresa(nombre, nit, CodigosInvitacion.generar()));
     }
 
     /** Crea un usuario y devuelve su token. Con {@code empresa} null, el rol debe ser SUPER_ADMIN. */

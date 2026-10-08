@@ -36,9 +36,13 @@ public class Empresa {
     @Column(nullable = false)
     private boolean activa = true;
 
-    /** Código para unirse a la empresa; reservado para el alta de usuarios por empresa. */
-    @Column(name = "codigo_invitacion_actual", unique = true, length = 32)
-    private String codigoInvitacionActual;
+    /**
+     * Código permanente con el que los trabajadores se registran en esta empresa (quedan
+     * PENDIENTES hasta que el gerente los apruebe). Único y estable: no caduca ni se consume,
+     * a diferencia de un {@link CodigoInvitacion}.
+     */
+    @Column(name = "codigo_empresa", nullable = false, unique = true, updatable = false, length = 32)
+    private String codigoEmpresa;
 
     @CreationTimestamp
     @Column(name = "creado_en", nullable = false, updatable = false)
@@ -52,9 +56,11 @@ public class Empresa {
     protected Empresa() {
     }
 
-    public Empresa(String nombre, String nit) {
+    /** @param codigoEmpresa ya normalizado (ver {@code CodigosInvitacion}) y único */
+    public Empresa(String nombre, String nit, String codigoEmpresa) {
         this.nombre = Objects.requireNonNull(nombre, "nombre").strip();
         this.nit = Objects.requireNonNull(nit, "nit").strip();
+        this.codigoEmpresa = Objects.requireNonNull(codigoEmpresa, "codigoEmpresa");
     }
 
     public Long getId() {
@@ -77,12 +83,8 @@ public class Empresa {
         this.activa = activa;
     }
 
-    public String getCodigoInvitacionActual() {
-        return codigoInvitacionActual;
-    }
-
-    public void setCodigoInvitacionActual(String codigoInvitacionActual) {
-        this.codigoInvitacionActual = codigoInvitacionActual;
+    public String getCodigoEmpresa() {
+        return codigoEmpresa;
     }
 
     public Instant getCreadoEn() {
