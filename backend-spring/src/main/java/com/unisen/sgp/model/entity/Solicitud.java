@@ -29,7 +29,7 @@ import java.util.Objects;
  */
 @Entity
 @Table(name = "solicitudes")
-public class Solicitud {
+public class Solicitud extends EntidadDeEmpresa {
 
     public static final int JUSTIFICACION_MAX_LENGTH = 1000;
     public static final int COMENTARIO_MAX_LENGTH = 500;

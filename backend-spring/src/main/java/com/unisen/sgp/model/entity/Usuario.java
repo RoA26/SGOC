@@ -4,9 +4,12 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.Locale;
@@ -14,6 +17,11 @@ import java.util.Objects;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+/**
+ * Identidad de acceso. No es una entidad con {@code @TenantId}: el login y la validación del
+ * JWT ocurren antes de conocer la empresa, y el SUPER_ADMIN no tiene ninguna. La empresa del
+ * usuario es la que fija su tenant en cada petición.
+ */
 @Entity
 @Table(name = "usuarios")
 public class Usuario {
@@ -47,6 +55,11 @@ public class Usuario {
     @Column(nullable = false)
     private boolean activo = true;
 
+    /** Empresa a la que pertenece; null solo para SUPER_ADMIN (ck_usuarios_empresa). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "empresa_id")
+    private Empresa empresa;
+
     @CreationTimestamp
     @Column(name = "creado_en", nullable = false, updatable = false)
     private Instant creadoEn;
@@ -59,13 +72,27 @@ public class Usuario {
     protected Usuario() {
     }
 
-    public Usuario(String username, String email, String passwordHash, String nombre, Rol rol) {
+    /**
+     * @param empresa obligatoria para GERENTE y USUARIO; debe ser null para SUPER_ADMIN
+     */
+    public Usuario(String username, String email, String passwordHash, String nombre, Rol rol, Empresa empresa) {
         // Asignación directa: invocar setters sobrescribibles desde el constructor es inseguro.
         this.username = normalizarUsername(Objects.requireNonNull(username, "username"));
         this.email = normalizarEmail(Objects.requireNonNull(email, "email"));
         this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash");
         this.nombre = Objects.requireNonNull(nombre, "nombre").strip();
         this.rol = Objects.requireNonNull(rol, "rol");
+        this.empresa = validarEmpresa(rol, empresa);
+    }
+
+    private static Empresa validarEmpresa(Rol rol, Empresa empresa) {
+        if (rol.perteneceAEmpresa() && empresa == null) {
+            throw new IllegalArgumentException("Un " + rol + " debe pertenecer a una empresa.");
+        }
+        if (!rol.perteneceAEmpresa() && empresa != null) {
+            throw new IllegalArgumentException("Un SUPER_ADMIN no pertenece a ninguna empresa.");
+        }
+        return empresa;
     }
 
     /** Normaliza un nombre de usuario: el login no distingue mayúsculas ni espacios accidentales. */
@@ -114,8 +141,19 @@ public class Usuario {
         return rol;
     }
 
+    /** Mantiene la regla rol/empresa: pasar a o desde SUPER_ADMIN exige cambiar también la empresa. */
     public void setRol(Rol rol) {
+        validarEmpresa(rol, empresa);
         this.rol = Objects.requireNonNull(rol, "rol");
+    }
+
+    public Empresa getEmpresa() {
+        return empresa;
+    }
+
+    /** Sin inicializar el proxy: el id de una asociación LAZY ya está cargado. */
+    public Long getEmpresaId() {
+        return empresa == null ? null : empresa.getId();
     }
 
     public boolean isActivo() {

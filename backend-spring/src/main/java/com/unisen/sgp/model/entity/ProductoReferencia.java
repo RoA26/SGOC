@@ -9,14 +9,15 @@ import org.hibernate.annotations.Immutable;
 
 /**
  * Vista de solo lectura de la tabla {@code productos} para los documentos que la referencian
- * (líneas de solicitud). A diferencia de {@link Producto}, no lleva {@code @SQLRestriction}:
+ * (líneas de solicitud). Como toda entidad de empresa, solo ve los productos del tenant
+ * actual; a diferencia de {@link Producto}, no lleva {@code @SQLRestriction}:
  * un producto dado de baja sigue apareciendo en las solicitudes históricas que lo incluyen.
  * Las altas, cambios y bajas se hacen siempre a través de {@link Producto}.
  */
 @Entity
 @Immutable
 @Table(name = "productos")
-public class ProductoReferencia {
+public class ProductoReferencia extends EntidadDeEmpresa {
 
     @Id
     private Long id;

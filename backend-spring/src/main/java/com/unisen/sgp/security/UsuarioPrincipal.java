@@ -1,5 +1,6 @@
 package com.unisen.sgp.security;
 
+import com.unisen.sgp.model.entity.Empresa;
 import com.unisen.sgp.model.entity.Rol;
 import com.unisen.sgp.model.entity.Usuario;
 import java.util.Collection;
@@ -23,11 +24,14 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
     private final String nombre;
     private final Rol rol;
     private final boolean activo;
+    /** Tenant del usuario; null para SUPER_ADMIN. */
+    private final Long empresaId;
+    private final boolean empresaActiva;
     private final List<GrantedAuthority> authorities;
     private String passwordHash;
 
     private UsuarioPrincipal(Long id, String username, String email, String passwordHash, String nombre, Rol rol,
-                             boolean activo) {
+                             boolean activo, Long empresaId, boolean empresaActiva) {
         this.id = id;
         this.username = username;
         this.email = email;
@@ -35,10 +39,14 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
         this.nombre = nombre;
         this.rol = rol;
         this.activo = activo;
+        this.empresaId = empresaId;
+        this.empresaActiva = empresaActiva;
         this.authorities = List.of(new SimpleGrantedAuthority(rol.authority()));
     }
 
+    /** La empresa del usuario debe estar cargada (UsuarioRepository.findByUsername la trae). */
     public static UsuarioPrincipal from(Usuario usuario) {
+        Empresa empresa = usuario.getEmpresa();
         return new UsuarioPrincipal(
                 usuario.getId(),
                 usuario.getUsername(),
@@ -46,7 +54,18 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
                 usuario.getPasswordHash(),
                 usuario.getNombre(),
                 usuario.getRol(),
-                usuario.isActivo());
+                usuario.isActivo(),
+                empresa == null ? null : empresa.getId(),
+                empresa == null || empresa.isActiva());
+    }
+
+    public Long getEmpresaId() {
+        return empresaId;
+    }
+
+    /** false si su empresa fue desactivada: ningún usuario de ella puede operar. */
+    public boolean isEmpresaActiva() {
+        return empresaActiva;
     }
 
     public Long getId() {
@@ -83,7 +102,7 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
 
     @Override
     public boolean isEnabled() {
-        return activo;
+        return activo && empresaActiva;
     }
 
     /** Spring Security la invoca tras autenticar: el hash no sobrevive al login. */
@@ -94,6 +113,7 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
 
     @Override
     public String toString() {
-        return "UsuarioPrincipal{id=" + id + ", username='" + username + "', rol=" + rol + ", activo=" + activo + '}';
+        return "UsuarioPrincipal{id=" + id + ", username='" + username + "', rol=" + rol + ", empresaId=" + empresaId
+                + ", activo=" + activo + '}';
     }
 }

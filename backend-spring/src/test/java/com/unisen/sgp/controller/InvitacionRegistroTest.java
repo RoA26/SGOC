@@ -145,6 +145,11 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.password").doesNotExist())
                 .andExpect(jsonPath("$.passwordHash").doesNotExist());
 
+        // Entra en la empresa de quien generó el código.
+        assertThat(jdbcTemplate.queryForObject("SELECT empresa_id FROM usuarios WHERE username = ?", Long.class,
+                "nuevo.usuario")).isEqualTo(empresa.getId());
+        assertThat(((Number) filaInvitacion(codigo).get("empresa_id")).longValue()).isEqualTo(empresa.getId());
+
         // Contraseña guardada con BCrypt, nunca en claro.
         String hash = jdbcTemplate.queryForObject("SELECT password_hash FROM usuarios WHERE username = ?",
                 String.class, "nuevo.usuario");

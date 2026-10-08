@@ -7,6 +7,7 @@ import com.unisen.sgp.model.dto.ProveedorResponseDTO;
 import com.unisen.sgp.model.entity.Proveedor;
 import com.unisen.sgp.repository.ProductoRepository;
 import com.unisen.sgp.repository.ProveedorRepository;
+import com.unisen.sgp.tenant.TenantContextHolder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -35,12 +36,14 @@ public class ProveedorService {
     /** Un NIT duplicado llega como DataIntegrityViolationException (uq_proveedores_nit) → 409. */
     @Transactional
     public ProveedorResponseDTO crear(ProveedorRequestDTO dto) {
+        TenantContextHolder.requerirEmpresa();
         Proveedor proveedor = new Proveedor(dto.nit(), dto.razonSocial(), dto.email(), dto.telefono(), dto.direccion());
         return ProveedorResponseDTO.from(proveedorRepository.saveAndFlush(proveedor));
     }
 
     @Transactional
     public ProveedorResponseDTO actualizar(Long id, ProveedorRequestDTO dto) {
+        TenantContextHolder.requerirEmpresa();
         Proveedor proveedor = buscarActivo(id);
         proveedor.actualizar(dto.nit(), dto.razonSocial(), dto.email(), dto.telefono(), dto.direccion());
         // saveAndFlush: un conflicto de NIT se detecta aquí y no al confirmar la transacción.
@@ -53,6 +56,7 @@ public class ProveedorService {
      */
     @Transactional
     public void eliminar(Long id) {
+        TenantContextHolder.requerirEmpresa();
         Proveedor proveedor = buscarActivo(id);
         long productosActivos = productoRepository.countByProveedorId(id);
         if (productosActivos > 0) {

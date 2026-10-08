@@ -181,8 +181,15 @@ Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, si
 | GET · POST | `/api/v1/solicitudes[?estado=]` | Solicitudes internas: USUARIO ve y crea las suyas; ADMIN/GERENTE ven todas |
 | PATCH | `/api/v1/solicitudes/{id}/estado` | ADMIN/GERENTE: `{estado: APROBADA \| RECHAZADA, comentario}` |
 
-Lecturas: cualquier usuario autenticado. Altas, cambios y bajas de catálogos: `ADMIN` o `GERENTE`
-(la interfaz oculta los botones al resto). Detalle de reglas y errores en
+Lecturas: cualquier usuario autenticado. Altas, cambios y bajas de catálogos: `GERENTE` o
+`SUPER_ADMIN` (la interfaz oculta los botones al resto).
+
+> **SaaS multi-empresa (backend):** cada empresa cliente ve solo sus datos. Roles: `SUPER_ADMIN`
+> (plataforma; elige empresa con la cabecera `X-Tenant-ID`), `GERENTE` y `USUARIO` (de una
+> empresa). La migración V5 asigna los datos actuales a "Empresa Base" y convierte al antiguo
+> ADMIN en SUPER_ADMIN. **La interfaz aún usa los roles anteriores** (`ADMIN`) y no envía
+> `X-Tenant-ID`: hasta adaptarla, el SUPER_ADMIN solo consulta y la gestión diaria la hace un
+> GERENTE. Detalle en [backend-spring/README.md](backend-spring/README.md#saas-multi-empresa-tenants). Detalle de reglas y errores en
 [backend-spring/README.md](backend-spring/README.md).
 
 **Precios en COP:** la interfaz trabaja con pesos colombianos enteros (sin decimales) y los
@@ -207,6 +214,6 @@ backend lo impide igualmente (`403`).
 ## Calidad
 
 ```bash
-cd backend-spring && ./mvnw test                  # 102 tests
+cd backend-spring && ./mvnw test                  # 118 tests
 cd frontend && npm run lint && npm run build      # oxlint + TypeScript estricto
 ```

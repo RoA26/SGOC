@@ -1,5 +1,6 @@
 package com.unisen.sgp.security;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -7,6 +8,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -60,10 +62,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private void authenticate(String token, HttpServletRequest request) {
         try {
+            Claims claims = jwtUtil.validateToken(token);
             // El "sub" del token es el username (Hito 4); los tokens antiguos con correo ya no resuelven.
-            String username = jwtUtil.extractUsername(token);
             // Se consulta la BD en cada petición: desactivar un usuario revoca sus tokens al instante.
-            UserDetails user = userDetailsService.loadUserByUsername(username);
+            UserDetails user = userDetailsService.loadUserByUsername(claims.getSubject());
+            if (user instanceof UsuarioPrincipal usuario) {
+                if (!usuario.isEmpresaActiva()) {
+                    request.setAttribute(AUTH_ERROR_ATTRIBUTE, "La empresa del usuario está desactivada.");
+                    return;
+                }
+                // TenantFilter fija el tenant a partir de esta empresa: el claim debe coincidir con la
+                // de la BD. Si el usuario cambió de empresa, sus tokens anteriores dejan de valer.
+                if (!Objects.equals(JwtUtil.extractEmpresaId(claims), usuario.getEmpresaId())) {
+                    request.setAttribute(AUTH_ERROR_ATTRIBUTE,
+                            "El token no corresponde a la empresa del usuario. Inicia sesión de nuevo.");
+                    return;
+                }
+            }
             if (!user.isEnabled() || !user.isAccountNonLocked()) {
                 request.setAttribute(AUTH_ERROR_ATTRIBUTE, "La cuenta de usuario está deshabilitada.");
                 return;

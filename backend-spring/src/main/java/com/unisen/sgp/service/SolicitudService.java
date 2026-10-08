@@ -18,6 +18,7 @@ import com.unisen.sgp.repository.UsuarioRepository;
 import com.unisen.sgp.security.Permisos;
 import com.unisen.sgp.security.UsuarioActual;
 import com.unisen.sgp.security.UsuarioPrincipal;
+import com.unisen.sgp.tenant.TenantContextHolder;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -57,13 +58,16 @@ public class SolicitudService {
 
     /**
      * Crea la solicitud con todas sus líneas en una sola transacción (todo o nada). El
-     * solicitante es siempre el usuario autenticado y el estado, PENDIENTE: el cliente no
-     * puede fijar ninguno de los dos.
+     * solicitante es siempre el usuario autenticado, la empresa la de su contexto (@TenantId) y
+     * el estado, PENDIENTE: el cliente no puede fijar ninguno. Solo personas de la empresa
+     * (GERENTE o USUARIO); el SUPER_ADMIN da soporte, no pide compras.
      *
      * @throws CampoInvalidoException si un producto no existe, está dado de baja o se repite
      */
+    @PreAuthorize(Permisos.MIEMBRO_EMPRESA)
     @Transactional
     public SolicitudResponseDTO crear(SolicitudRequestDTO dto) {
+        TenantContextHolder.requerirEmpresa();
         UsuarioPrincipal actual = UsuarioActual.obtener();
         Map<Long, ProductoReferencia> productos = productosActivos(dto.detalles());
 
@@ -113,6 +117,7 @@ public class SolicitudService {
     @PreAuthorize(Permisos.GESTION)
     @Transactional
     public SolicitudResponseDTO cambiarEstado(Long id, CambioEstadoSolicitudDTO dto) {
+        TenantContextHolder.requerirEmpresa();
         UsuarioPrincipal revisor = UsuarioActual.obtener();
         Solicitud solicitud = solicitudRepository.findWithLockById(id)
                 .orElseThrow(() -> RecursoNoEncontradoException.solicitud(id));

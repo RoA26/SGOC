@@ -34,7 +34,8 @@ class AdminBootstrapTest {
     void creaElAdministradorAlArrancarYEsIdempotente() {
         Usuario admin = usuarioRepository.findByUsername("admin").orElseThrow();
         assertThat(admin.getEmail()).isEqualTo("admin@unisen.com");
-        assertThat(admin.getRol()).isEqualTo(Rol.ADMIN);
+        assertThat(admin.getRol()).isEqualTo(Rol.SUPER_ADMIN);
+        assertThat(admin.getEmpresa()).as("el SUPER_ADMIN no pertenece a ninguna empresa").isNull();
         assertThat(admin.getNombre()).isEqualTo("Admin Unisen");
         assertThat(admin.isActivo()).isTrue();
         assertThat(passwordEncoder.matches("AdminInicial123", admin.getPasswordHash())).isTrue();

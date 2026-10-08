@@ -46,6 +46,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                     "Ya existe un proveedor con este NIT (también se cuentan los dados de baja)."),
             new Restriccion("uq_productos_sku", "sku",
                     "Ya existe un producto con este SKU (también se cuentan los dados de baja)."),
+            new Restriccion("uq_empresas_nit", "nit", "Ya existe una empresa con este NIT."),
             new Restriccion("fk_productos_proveedor", "proveedorId",
                     "El proveedor seleccionado no existe."),
             new Restriccion("uq_detalles_solicitud_producto", "detalles",
@@ -97,6 +98,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         log.warn("Conflicto de bloqueo: {}", ex.getMessage());
         return problem(HttpStatus.CONFLICT, "Conflicto de concurrencia",
                 "Otra operación está usando los mismos datos. Inténtalo de nuevo.");
+    }
+
+    /** Un SUPER_ADMIN en modo global intenta escribir datos de empresa sin elegir una. */
+    @ExceptionHandler(EmpresaNoSeleccionadaException.class)
+    public ProblemDetail handleEmpresaNoSeleccionada(EmpresaNoSeleccionadaException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Empresa no seleccionada", ex.getMessage());
     }
 
     @ExceptionHandler(RecursoNoEncontradoException.class)

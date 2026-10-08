@@ -1,9 +1,12 @@
 package com.unisen.sgp.config;
 
+import com.unisen.sgp.repository.EmpresaRepository;
 import com.unisen.sgp.security.JwtAuthenticationFilter;
 import com.unisen.sgp.security.JwtUtil;
 import com.unisen.sgp.security.RestAccessDeniedHandler;
+import com.unisen.sgp.security.ProblemDetailResponseWriter;
 import com.unisen.sgp.security.RestAuthenticationEntryPoint;
+import com.unisen.sgp.tenant.TenantFilter;
 import java.time.Duration;
 import java.util.List;
 import org.springframework.context.annotation.Bean;
@@ -48,9 +51,12 @@ public class SecurityConfig {
             UserDetailsService userDetailsService,
             AuthenticationManager authenticationManager,
             RestAuthenticationEntryPoint authenticationEntryPoint,
-            RestAccessDeniedHandler accessDeniedHandler) throws Exception {
+            RestAccessDeniedHandler accessDeniedHandler,
+            EmpresaRepository empresaRepository,
+            ProblemDetailResponseWriter problemDetailResponseWriter) throws Exception {
 
         JwtAuthenticationFilter jwtFilter = new JwtAuthenticationFilter(jwtUtil, userDetailsService);
+        TenantFilter tenantFilter = new TenantFilter(empresaRepository, problemDetailResponseWriter);
 
         return http
                 // API sin estado autenticada por header Bearer: sin cookies de sesión no hay vector CSRF.
@@ -74,6 +80,8 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                // Después del JWT: necesita saber quién llama para fijar la empresa (tenant).
+                .addFilterAfter(tenantFilter, JwtAuthenticationFilter.class)
                 .build();
     }
 
@@ -106,7 +114,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(securityProperties.cors().allowedOrigins());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE));
+        config.setAllowedHeaders(List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE, TenantFilter.HEADER_TENANT));
         // El token viaja en un header, no en cookies.
         config.setAllowCredentials(false);
         config.setMaxAge(Duration.ofHours(1));

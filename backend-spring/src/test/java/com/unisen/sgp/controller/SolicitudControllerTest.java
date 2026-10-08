@@ -66,8 +66,7 @@ class SolicitudControllerTest extends ApiIntegrationTest {
     }
 
     private String tokenDe(String username, Rol rol) throws Exception {
-        usuarioService.crearUsuario(username, username + "@unisen.com", username, PASSWORD, rol);
-        return login(username);
+        return crearUsuarioYEntrar(username, rol, empresa);
     }
 
     private int contar(String tabla) {
@@ -335,14 +334,16 @@ class SolicitudControllerTest extends ApiIntegrationTest {
     // ------------------------------------------------ GERENTE y catálogos
 
     @Test
-    void gerenteGestionaCatalogosPeroNoInvitaciones() throws Exception {
+    void gerenteGestionaCatalogosEInvitacionesDeSuEmpresa() throws Exception {
         String gerenteToken = tokenDe("gerente", Rol.GERENTE);
         postJson("/api/v1/proveedores", gerenteToken, """
                 {"nit": "800000001", "razonSocial": "Ferretería Central", "email": "ventas@ferre.com"}
                 """).andExpect(status().isCreated());
         mockMvc.perform(post("/api/auth/invitaciones").header("Authorization", "Bearer " + gerenteToken))
-                .andExpect(status().isForbidden());
-        getJson("/api/auth/me", gerenteToken).andExpect(jsonPath("$.rol").value("GERENTE"));
+                .andExpect(status().isCreated());
+        getJson("/api/auth/me", gerenteToken)
+                .andExpect(jsonPath("$.rol").value("GERENTE"))
+                .andExpect(jsonPath("$.empresaId").value(empresa.getId()));
     }
 
     // ---------------------------------------------- integridad referencial

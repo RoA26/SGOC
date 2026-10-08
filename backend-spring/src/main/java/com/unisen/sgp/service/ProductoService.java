@@ -11,6 +11,7 @@ import com.unisen.sgp.model.entity.Proveedor;
 import com.unisen.sgp.repository.DetalleSolicitudRepository;
 import com.unisen.sgp.repository.ProductoRepository;
 import com.unisen.sgp.repository.ProveedorRepository;
+import com.unisen.sgp.tenant.TenantContextHolder;
 import java.util.EnumSet;
 import java.util.Set;
 import org.springframework.data.domain.Page;
@@ -48,6 +49,7 @@ public class ProductoService {
     /** Un SKU duplicado llega como DataIntegrityViolationException (uq_productos_sku) → 409. */
     @Transactional
     public ProductoResponseDTO crear(ProductoRequestDTO dto) {
+        TenantContextHolder.requerirEmpresa();
         Producto producto = new Producto(dto.sku(), dto.nombre(), dto.descripcion(), dto.precio(),
                 proveedorAsignable(dto.proveedorId()));
         return ProductoResponseDTO.from(productoRepository.saveAndFlush(producto));
@@ -55,6 +57,7 @@ public class ProductoService {
 
     @Transactional
     public ProductoResponseDTO actualizar(Long id, ProductoRequestDTO dto) {
+        TenantContextHolder.requerirEmpresa();
         Producto producto = buscarActivo(id);
         producto.actualizar(dto.sku(), dto.nombre(), dto.descripcion(), dto.precio(),
                 proveedorAsignable(dto.proveedorId()));
@@ -68,6 +71,7 @@ public class ProductoService {
      */
     @Transactional
     public void eliminar(Long id) {
+        TenantContextHolder.requerirEmpresa();
         Producto producto = buscarActivo(id);
         long solicitudes = detalleSolicitudRepository.countByProductoIdAndSolicitudEstadoIn(id, SOLICITUDES_ACTIVAS);
         if (solicitudes > 0) {

@@ -12,13 +12,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.unisen.sgp.model.entity.Empresa;
 import com.unisen.sgp.model.entity.Rol;
 import com.unisen.sgp.model.entity.Usuario;
+import com.unisen.sgp.repository.EmpresaRepository;
 import com.unisen.sgp.repository.UsuarioRepository;
 import com.unisen.sgp.security.JwtProperties;
 import com.unisen.sgp.security.JwtUtil;
 import com.unisen.sgp.security.UsuarioPrincipal;
 import com.unisen.sgp.service.UsuarioService;
+import com.unisen.sgp.support.BaseDeDatosDePrueba;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -60,19 +63,21 @@ class AuthControllerTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private EmpresaRepository empresaRepository;
+
+    private Empresa empresa;
     private Usuario ana;
     private Usuario inactivo;
 
     @BeforeEach
     void setUp() {
-        // Las invitaciones que dejen otros tests referencian usuarios (FK).
-        jdbcTemplate.update("DELETE FROM codigos_invitacion");
-        jdbcTemplate.update("DELETE FROM detalles_solicitud");
-        jdbcTemplate.update("DELETE FROM solicitudes");
-        usuarioRepository.deleteAll();
+        BaseDeDatosDePrueba.vaciar(jdbcTemplate);
+        empresa = empresaRepository.save(new Empresa("Unisen", "900000001-1"));
         ana = usuarioService.crearUsuario("Ana.Compras", "Ana.Compras@Unisen.com", "Ana Compras", PASSWORD,
-                Rol.USUARIO);
-        inactivo = usuarioService.crearUsuario("baja", "baja@unisen.com", "Usuario de Baja", PASSWORD, Rol.USUARIO);
+                Rol.USUARIO, empresa);
+        inactivo = usuarioService.crearUsuario("baja", "baja@unisen.com", "Usuario de Baja", PASSWORD, Rol.USUARIO,
+                empresa);
         inactivo.setActivo(false);
         usuarioRepository.save(inactivo);
     }
@@ -106,6 +111,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.usuario.email").value("ana.compras@unisen.com"))
                 .andExpect(jsonPath("$.usuario.nombre").value("Ana Compras"))
                 .andExpect(jsonPath("$.usuario.rol").value("USUARIO"))
+                .andExpect(jsonPath("$.usuario.empresaId").value(empresa.getId()))
                 .andExpect(jsonPath("$.usuario.passwordHash").doesNotExist())
                 .andReturn().getResponse().getContentAsString();
 
@@ -263,7 +269,7 @@ class AuthControllerTest {
     @Test
     void tokenAntiguoConElCorreoComoSubjectDevuelve401() throws Exception {
         Usuario comoAntes = new Usuario("ana.compras@unisen.com", ana.getEmail(), ana.getPasswordHash(),
-                ana.getNombre(), ana.getRol());
+                ana.getNombre(), ana.getRol(), empresa);
         String tokenAntiguo = jwtUtil.generateToken(UsuarioPrincipal.from(comoAntes));
 
         mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, bearer(tokenAntiguo)))

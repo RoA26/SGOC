@@ -2,6 +2,7 @@ package com.unisen.sgp.service;
 
 import com.unisen.sgp.exception.CampoInvalidoException;
 import com.unisen.sgp.exception.DatoDuplicadoException;
+import com.unisen.sgp.model.entity.Empresa;
 import com.unisen.sgp.model.entity.Rol;
 import com.unisen.sgp.model.entity.Usuario;
 import com.unisen.sgp.repository.UsuarioRepository;
@@ -31,11 +32,16 @@ public class UsuarioService {
      * <p>Se une a la transacción del llamador: si algo falla después (p. ej. al marcar la
      * invitación), el alta se deshace.
      *
+     * <p>Username y correo son únicos en toda la plataforma (no por empresa): identifican a
+     * la persona en el login, antes de conocer su empresa.
+     *
+     * @param empresa empresa del usuario; null solo para SUPER_ADMIN
      * @throws DatoDuplicadoException si el username o el correo ya están en uso
      * @throws CampoInvalidoException si la contraseña no cumple la política
      */
     @Transactional
-    public Usuario crearUsuario(String username, String email, String nombre, String password, Rol rol) {
+    public Usuario crearUsuario(String username, String email, String nombre, String password, Rol rol,
+                                Empresa empresa) {
         validarPassword(password);
         String usernameNormalizado = Usuario.normalizarUsername(username);
         String emailNormalizado = Usuario.normalizarEmail(email);
@@ -46,7 +52,7 @@ public class UsuarioService {
             throw DatoDuplicadoException.email();
         }
         Usuario usuario = new Usuario(usernameNormalizado, emailNormalizado,
-                passwordEncoder.encode(password), nombre, rol);
+                passwordEncoder.encode(password), nombre, rol, empresa);
         // flush: si una alta concurrente se adelanta, la violación UNIQUE salta aquí
         // (→ 409 en GlobalExceptionHandler) y no al confirmar, fuera del servicio.
         return usuarioRepository.saveAndFlush(usuario);

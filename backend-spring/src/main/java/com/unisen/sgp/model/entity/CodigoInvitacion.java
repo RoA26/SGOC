@@ -16,11 +16,12 @@ import java.util.Objects;
 
 /**
  * Código de invitación de un solo uso y con caducidad. Es la única vía de alta de usuarios:
- * un ADMIN lo genera y la persona invitada lo canjea en {@code POST /api/auth/registro}.
+ * un gestor lo genera para su empresa y la persona invitada lo canjea en
+ * {@code POST /api/auth/registro}, quedando como USUARIO de esa empresa.
  */
 @Entity
 @Table(name = "codigos_invitacion")
-public class CodigoInvitacion {
+public class CodigoInvitacion extends EntidadDeEmpresa {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

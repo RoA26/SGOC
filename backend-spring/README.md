@@ -39,7 +39,7 @@ src/main/java/com/unisen/sgp
 src/main/resources
 ├── application.yml
 └── db/migration/      V1 usuarios · V2 proveedores y productos · V3 username e invitaciones ·
-                       V4 solicitudes internas y rol GERENTE
+                       V4 solicitudes internas y rol GERENTE · V5 multi-empresa y roles SaaS
 ```
 
 ## Puesta en marcha (local)
@@ -79,8 +79,8 @@ e indica qué variable falta.
 | `JWT_ISSUER` | `unisen-sgp` | Claim `iss` firmado y exigido |
 | `BCRYPT_STRENGTH` | `12` | Coste de BCrypt |
 | `CORS_ALLOWED_ORIGINS` | `https://rrtf.duckdns.org,http://localhost:5173` | Orígenes del frontend, separados por comas |
-| `ADMIN_USERNAME` | `admin` | Username del primer administrador (con él inicia sesión) |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NOMBRE` | vacío | Alta del primer administrador al arrancar (idempotente: no hace nada si su username o su correo ya existen) |
+| `ADMIN_USERNAME` | `admin` | Username del SUPER_ADMIN inicial (con él inicia sesión) |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NOMBRE` | vacío | Alta del SUPER_ADMIN inicial al arrancar, sin empresa (idempotente: no hace nada si su username o su correo ya existen) |
 | `SWAGGER_ENABLED` | `true` | Pon `false` en producción si no quieres exponer la documentación |
 | `SERVER_PORT` | `8081` | Puerto HTTP (Nginx reenvía `/api/` a `backend:8081`) |
 
@@ -90,22 +90,22 @@ e indica qué variable falta.
 | --- | --- | --- | --- |
 | POST | `/api/auth/login` | Pública | `{username, password}` → `200` `{accessToken, tokenType, expiresIn, usuario}` |
 | POST | `/api/auth/registro` | Pública (requiere invitación) | `201` `{id, username, email, nombre, rol}` · `400` · `409` username/correo en uso |
-| POST | `/api/auth/invitaciones` | Bearer **ADMIN** | `201` `{codigo, fechaExpiracion}` · `400` · `403` |
+| POST | `/api/auth/invitaciones` | Bearer **GERENTE / SUPER_ADMIN** | `201` `{codigo, fechaExpiracion}` para la empresa actual · `400` · `403` |
 | GET | `/api/auth/me` | Bearer | `200` `{id, username, email, nombre, rol}` |
 | GET | `/api/v1/proveedores` | Bearer | `200` página de proveedores activos |
 | GET | `/api/v1/proveedores/{id}` | Bearer | `200` proveedor · `404` |
-| POST | `/api/v1/proveedores` | Bearer **ADMIN/GERENTE** | `201` + `Location` · `400` · `409` NIT duplicado |
-| PUT | `/api/v1/proveedores/{id}` | Bearer **ADMIN/GERENTE** | `200` · `400` · `404` · `409` |
-| DELETE | `/api/v1/proveedores/{id}` | Bearer **ADMIN/GERENTE** | `204` baja lógica · `409` si tiene productos activos |
+| POST | `/api/v1/proveedores` | Bearer **GERENTE/SUPER_ADMIN** | `201` + `Location` · `400` · `409` NIT duplicado |
+| PUT | `/api/v1/proveedores/{id}` | Bearer **GERENTE/SUPER_ADMIN** | `200` · `400` · `404` · `409` |
+| DELETE | `/api/v1/proveedores/{id}` | Bearer **GERENTE/SUPER_ADMIN** | `204` baja lógica · `409` si tiene productos activos |
 | GET | `/api/v1/productos` | Bearer | `200` página de productos activos con su proveedor |
 | GET | `/api/v1/productos/{id}` | Bearer | `200` producto · `404` |
-| POST | `/api/v1/productos` | Bearer **ADMIN/GERENTE** | `201` · `400` (incluye proveedor inexistente) · `409` SKU duplicado |
-| PUT | `/api/v1/productos/{id}` | Bearer **ADMIN/GERENTE** | `200` · `400` · `404` · `409` |
-| DELETE | `/api/v1/productos/{id}` | Bearer **ADMIN/GERENTE** | `204` baja lógica · `409` si está en solicitudes pendientes o aprobadas |
-| GET | `/api/v1/solicitudes?estado=` | Bearer | `200` página: USUARIO solo las suyas, ADMIN/GERENTE todas |
+| POST | `/api/v1/productos` | Bearer **GERENTE/SUPER_ADMIN** | `201` · `400` (incluye proveedor inexistente) · `409` SKU duplicado |
+| PUT | `/api/v1/productos/{id}` | Bearer **GERENTE/SUPER_ADMIN** | `200` · `400` · `404` · `409` |
+| DELETE | `/api/v1/productos/{id}` | Bearer **GERENTE/SUPER_ADMIN** | `204` baja lógica · `409` si está en solicitudes pendientes o aprobadas |
+| GET | `/api/v1/solicitudes?estado=` | Bearer | `200` página: USUARIO solo las suyas, GERENTE/SUPER_ADMIN todas (de la empresa) |
 | GET | `/api/v1/solicitudes/{id}` | Bearer | `200` con sus líneas · `404` si no existe o es de otro USUARIO |
 | POST | `/api/v1/solicitudes` | Bearer | `201` PENDIENTE con el usuario autenticado · `400` |
-| PATCH | `/api/v1/solicitudes/{id}/estado` | Bearer **ADMIN/GERENTE** | `200` · `400` · `403` · `404` · `409` ya revisada |
+| PATCH | `/api/v1/solicitudes/{id}/estado` | Bearer **GERENTE/SUPER_ADMIN** | `200` · `400` · `403` · `404` · `409` ya revisada |
 | GET | `/actuator/health` | Pública | `200` `{status: "UP"}` |
 | * | cualquier otra | Bearer | `401` sin token válido |
 
@@ -149,12 +149,12 @@ Los errores siguen RFC 9457 (`application/problem+json`):
 ## Usuarios e invitaciones (Hito 4)
 
 El alta es **cerrada**: solo se puede crear una cuenta con un código de invitación que genera
-un ADMIN.
+un gestor (GERENTE de la empresa, o SUPER_ADMIN con `X-Tenant-ID`) para su empresa.
 
 ```bash
-# 1. El ADMIN genera un código (cuerpo opcional; por defecto caduca en 72 h, máximo 720 h)
+# 1. Un GERENTE genera un código para su empresa (cuerpo opcional; por defecto caduca en 72 h, máximo 720 h)
 curl -X POST http://localhost:8081/api/auth/invitaciones \
-  -H "Authorization: Bearer <token de ADMIN>" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <token de GERENTE>" -H 'Content-Type: application/json' \
   -d '{"horasValidez": 48}'
 # → 201 {"codigo":"7KQ2-M9XA-4HPR-T3VW","fechaExpiracion":"2026-10-09T10:00:00Z"}
 
@@ -215,7 +215,7 @@ volver a iniciar sesión.
 ## Tests
 
 ```bash
-./mvnw test        # 102 tests: H2 en modo PostgreSQL, sin dependencias externas
+./mvnw test        # 118 tests: H2 en modo PostgreSQL, sin dependencias externas
 
 # Contra PostgreSQL real (crea antes la BD sgp_test):
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/sgp_test \
@@ -282,11 +282,58 @@ curl -X PATCH http://localhost:8081/api/v1/solicitudes/5/estado -H "Authorizatio
   productos, por lotes (`default_batch_fetch_size: 50`). Un test comprueba que el listado no
   hace N+1.
 
-**Rol GERENTE:** mantiene catálogos y revisa solicitudes como ADMIN, pero no genera invitaciones.
-Aún no hay pantalla para asignar roles: `UPDATE usuarios SET rol = 'GERENTE' WHERE username = '…';`
+**Roles:** ver la sección *SaaS multi-empresa*. Aún no hay pantalla para asignar roles:
+`UPDATE usuarios SET rol = 'GERENTE' WHERE username = '…';`
+
+## SaaS multi-empresa (tenants)
+
+Base de datos y esquema compartidos: cada fila de negocio lleva `empresa_id` y Hibernate 6 filtra
+por ella de forma nativa con `@TenantId`.
+
+| Rol | Empresa | Puede |
+| --- | --- | --- |
+| `SUPER_ADMIN` | Ninguna | Operar la plataforma. Sin `X-Tenant-ID` ve los datos de todas las empresas (solo lectura); con `X-Tenant-ID: <id>` trabaja dentro de esa empresa (soporte) |
+| `GERENTE` | La suya | Catálogos, invitaciones y revisión de solicitudes de su empresa |
+| `USUARIO` | La suya | Crear solicitudes y ver las suyas; consultar catálogos |
+
+**Cómo se fija la empresa de cada petición:**
+
+1. `JwtAuthenticationFilter` valida el token y carga el usuario de la BD. El JWT lleva el claim
+   `empresaId` (ausente para SUPER_ADMIN); si no coincide con la empresa actual del usuario, el
+   token se rechaza (`401`). Si la empresa está desactivada, también.
+2. `TenantFilter` (justo después) guarda la empresa en `TenantContextHolder` (`ThreadLocal`):
+   la del usuario para GERENTE y USUARIO (la cabecera `X-Tenant-ID` se ignora) y la de
+   `X-Tenant-ID` para el SUPER_ADMIN, si la envía (`400` si no es un id de empresa existente).
+   El contexto se borra siempre al terminar la petición.
+3. `TenantIdentifierResolver` entrega esa empresa a Hibernate al abrir cada sesión. Las
+   entidades de `EntidadDeEmpresa` (proveedores, productos, solicitudes, códigos de invitación)
+   reciben `empresa_id` al insertarse y todas sus consultas, también `findById`, añaden
+   `empresa_id = ?`. Sin empresa en el contexto se usa el tenant raíz (`0`), que no filtra: login,
+   registro y SUPER_ADMIN en modo global.
+
+**Garantías:** los datos de otra empresa no existen para quien consulta (`404`); NIT y SKU son
+únicos por empresa; un producto solo puede usar proveedores de su empresa y una solicitud solo
+puede ser de un usuario de su empresa (FK compuestas en la BD); escribir datos de negocio sin
+empresa responde `400` ("Empresa no seleccionada"), y el SUPER_ADMIN no crea solicitudes (`403`).
+`Usuario` no lleva `@TenantId`: es la identidad global (username y correo únicos en toda la
+plataforma) y se necesita antes de conocer la empresa.
+
+**Invitaciones y registro:** un código pertenece a la empresa de quien lo genera; quien lo canjea
+entra como USUARIO de esa empresa (si sigue activa).
+
+**Migración V5 sobre una instalación existente:** crea "Empresa Base" (NIT provisional
+`000000000-0`: actualízalo) y le asigna todos los usuarios y datos; el antiguo ADMIN pasa a
+SUPER_ADMIN, sin empresa. Aún no hay API para dar de alta empresas:
+
+```sql
+INSERT INTO empresas (nombre, nit) VALUES ('Ferretería Norte', '900000002-2');
+-- Su primer GERENTE: genera una invitación como SUPER_ADMIN con X-Tenant-ID = id de la empresa,
+-- regístralo con ella y luego: UPDATE usuarios SET rol = 'GERENTE' WHERE username = '…';
+```
 
 ## Fuera de alcance de este hito
 
 Órdenes de compra; reactivación de registros dados de baja; búsqueda en catálogos; refresh
 tokens; listado y revocación de invitaciones; gestión de usuarios y roles vía API; edición o
-cancelación de solicitudes; órdenes de compra.
+cancelación de solicitudes; órdenes de compra; API de alta y gestión de empresas; uso de
+`codigo_invitacion_actual` (unirse a una empresa con un código fijo).

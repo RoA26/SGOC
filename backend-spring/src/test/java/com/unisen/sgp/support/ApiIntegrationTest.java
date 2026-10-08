@@ -8,7 +8,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.unisen.sgp.model.entity.Empresa;
 import com.unisen.sgp.model.entity.Rol;
+import com.unisen.sgp.repository.EmpresaRepository;
 import com.unisen.sgp.service.UsuarioService;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,24 +43,35 @@ public abstract class ApiIntegrationTest {
     protected JdbcTemplate jdbcTemplate;
     @Autowired
     protected UsuarioService usuarioService;
+    @Autowired
+    protected EmpresaRepository empresaRepository;
 
+    /** Empresa en la que trabajan {@link #adminToken} y {@link #usuarioToken}. */
+    protected Empresa empresa;
+    /** GERENTE de {@link #empresa} (administra su empresa: catálogos, invitaciones, revisiones). */
     protected String adminToken;
+    /** USUARIO de {@link #empresa}. */
     protected String usuarioToken;
 
     @BeforeEach
     void prepararBaseDeDatos() throws Exception {
-        // SQL directo: repository.deleteAll() haría borrado lógico y dejaría las filas.
-        jdbcTemplate.update("DELETE FROM detalles_solicitud");
-        jdbcTemplate.update("DELETE FROM solicitudes");
-        jdbcTemplate.update("DELETE FROM productos");
-        jdbcTemplate.update("DELETE FROM proveedores");
-        jdbcTemplate.update("DELETE FROM codigos_invitacion");
-        jdbcTemplate.update("DELETE FROM usuarios");
+        BaseDeDatosDePrueba.vaciar(jdbcTemplate);
 
-        usuarioService.crearUsuario("admin", "admin@unisen.com", "Admin", PASSWORD, Rol.ADMIN);
-        usuarioService.crearUsuario("compras", "compras@unisen.com", "Compras", PASSWORD, Rol.USUARIO);
+        empresa = crearEmpresa("Unisen", "900000001-1");
+        usuarioService.crearUsuario("admin", "admin@unisen.com", "Admin", PASSWORD, Rol.GERENTE, empresa);
+        usuarioService.crearUsuario("compras", "compras@unisen.com", "Compras", PASSWORD, Rol.USUARIO, empresa);
         adminToken = login("admin");
         usuarioToken = login("compras");
+    }
+
+    protected Empresa crearEmpresa(String nombre, String nit) {
+        return empresaRepository.save(new Empresa(nombre, nit));
+    }
+
+    /** Crea un usuario y devuelve su token. Con {@code empresa} null, el rol debe ser SUPER_ADMIN. */
+    protected String crearUsuarioYEntrar(String username, Rol rol, Empresa empresaDelUsuario) throws Exception {
+        usuarioService.crearUsuario(username, username + "@unisen.com", username, PASSWORD, rol, empresaDelUsuario);
+        return login(username);
     }
 
     protected String login(String username) throws Exception {

@@ -8,14 +8,17 @@ import com.unisen.sgp.model.dto.LoginResponse;
 import com.unisen.sgp.model.dto.RegistroRequestDTO;
 import com.unisen.sgp.model.dto.UsuarioResponse;
 import com.unisen.sgp.model.entity.CodigoInvitacion;
+import com.unisen.sgp.model.entity.Empresa;
 import com.unisen.sgp.model.entity.Rol;
 import com.unisen.sgp.model.entity.Usuario;
 import com.unisen.sgp.repository.CodigoInvitacionRepository;
+import com.unisen.sgp.repository.EmpresaRepository;
 import com.unisen.sgp.repository.UsuarioRepository;
 import com.unisen.sgp.security.CodigosInvitacion;
 import com.unisen.sgp.security.JwtUtil;
 import com.unisen.sgp.security.Permisos;
 import com.unisen.sgp.security.UsuarioPrincipal;
+import com.unisen.sgp.tenant.TenantContextHolder;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -43,16 +46,18 @@ public class AuthService {
     private final UsuarioService usuarioService;
     private final UsuarioRepository usuarioRepository;
     private final CodigoInvitacionRepository codigoInvitacionRepository;
+    private final EmpresaRepository empresaRepository;
     private final Clock clock;
 
     public AuthService(AuthenticationManager authenticationManager, JwtUtil jwtUtil, UsuarioService usuarioService,
                        UsuarioRepository usuarioRepository, CodigoInvitacionRepository codigoInvitacionRepository,
-                       Clock clock) {
+                       EmpresaRepository empresaRepository, Clock clock) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.usuarioService = usuarioService;
         this.usuarioRepository = usuarioRepository;
         this.codigoInvitacionRepository = codigoInvitacionRepository;
+        this.empresaRepository = empresaRepository;
         this.clock = clock;
     }
 
@@ -74,17 +79,19 @@ public class AuthService {
     }
 
     /**
-     * Genera un código de invitación de un solo uso. Solo para administradores: la
-     * comprobación vive aquí (y no solo en el controlador) para que ninguna otra vía de
-     * entrada pueda saltársela.
+     * Genera un código de invitación de un solo uso para la empresa actual: quien lo canjee
+     * será USUARIO de esa empresa. Solo para gestores (GERENTE de su empresa o SUPER_ADMIN con
+     * {@code X-Tenant-ID}); la comprobación vive aquí para que ninguna vía de entrada la salte.
      *
-     * @param creadorId    administrador que genera el código (queda registrado)
+     * @param creadorId    gestor que genera el código (queda registrado)
      * @param horasValidez horas hasta la caducidad; {@code null} = {@value #HORAS_VALIDEZ_POR_DEFECTO}
      * @return el código en claro y su fecha de caducidad
      */
-    @PreAuthorize(Permisos.ADMIN)
+    @PreAuthorize(Permisos.GESTION)
     @Transactional
     public InvitacionResponseDTO generarCodigoInvitacion(Long creadorId, Integer horasValidez) {
+        // La empresa del código la asigna Hibernate (@TenantId) desde el contexto.
+        Long empresaId = TenantContextHolder.requerirEmpresa();
         int horas = horasValidez != null ? horasValidez : HORAS_VALIDEZ_POR_DEFECTO;
         Instant ahora = clock.instant().truncatedTo(ChronoUnit.SECONDS);
         Instant expiracion = ahora.plus(Duration.ofHours(horas));
@@ -93,7 +100,8 @@ public class AuthService {
         CodigoInvitacion invitacion = codigoInvitacionRepository.save(
                 new CodigoInvitacion(generarCodigoUnico(), expiracion, creador, ahora));
 
-        log.info("Invitación {} generada por el usuario {} (caduca {}).", invitacion.getId(), creadorId, expiracion);
+        log.info("Invitación {} de la empresa {} generada por el usuario {} (caduca {}).", invitacion.getId(),
+                empresaId, creadorId, expiracion);
         return new InvitacionResponseDTO(invitacion.getCodigo(), invitacion.getFechaExpiracion());
     }
 
@@ -119,14 +127,20 @@ public class AuthService {
         Instant ahora = clock.instant().truncatedTo(ChronoUnit.MICROS);
         invitacion.validarCanjeable(ahora);
 
+        // El usuario entra en la empresa del código, que debe seguir activa.
+        Empresa empresa = empresaRepository.findById(invitacion.getEmpresaId())
+                .filter(Empresa::isActiva)
+                .orElseThrow(() -> new InvitacionInvalidaException(Motivo.EMPRESA_INACTIVA));
+
         // 3 y 4. Crear el usuario con la contraseña hasheada en BCrypt.
         Usuario usuario = usuarioService.crearUsuario(request.username(), request.email(),
-                request.nombreParaMostrar(), request.password(), Rol.USUARIO);
+                request.nombreParaMostrar(), request.password(), Rol.USUARIO, empresa);
 
         // 5. Consumir el código: se guarda al confirmar esta misma transacción.
         invitacion.marcarUsado(usuario, ahora);
 
-        log.info("Usuario {} registrado con la invitación {}.", usuario.getId(), invitacion.getId());
+        log.info("Usuario {} registrado en la empresa {} con la invitación {}.", usuario.getId(), empresa.getId(),
+                invitacion.getId());
         return UsuarioResponse.from(usuario);
     }
 

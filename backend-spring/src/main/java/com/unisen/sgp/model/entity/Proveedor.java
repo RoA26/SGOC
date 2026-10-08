@@ -27,7 +27,8 @@ public class Proveedor extends EntidadAuditable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 20)
+    /** Único por empresa (uq_proveedores_nit = empresa_id + nit). */
+    @Column(nullable = false, length = 20)
     private String nit;
 
     @Column(name = "razon_social", nullable = false, length = 200)

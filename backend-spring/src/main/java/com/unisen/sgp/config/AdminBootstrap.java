@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 /**
- * Crea el primer administrador al arrancar a partir de {@code ADMIN_USERNAME},
+ * Crea el primer SUPER_ADMIN (operador de la plataforma, sin empresa) al arrancar a partir de {@code ADMIN_USERNAME},
  * {@code ADMIN_EMAIL} y {@code ADMIN_PASSWORD}. Es idempotente: si el username o el correo
  * ya existen no modifica nada, de modo que puede quedarse configurado en el despliegue sin
  * sobrescribir cambios.
@@ -49,7 +49,8 @@ public class AdminBootstrap implements ApplicationRunner {
             return;
         }
         String nombre = StringUtils.hasText(admin.nombre()) ? admin.nombre() : "Administrador";
-        usuarioService.crearUsuario(username, email, nombre, admin.password(), Rol.ADMIN);
-        log.info("Administrador inicial {} creado.", username);
+        // Operador de la plataforma: no pertenece a ninguna empresa.
+        usuarioService.crearUsuario(username, email, nombre, admin.password(), Rol.SUPER_ADMIN, null);
+        log.info("Super administrador inicial {} creado.", username);
     }
 }

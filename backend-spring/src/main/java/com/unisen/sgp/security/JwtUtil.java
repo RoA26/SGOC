@@ -1,6 +1,7 @@
 package com.unisen.sgp.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
@@ -20,15 +21,17 @@ import org.springframework.util.StringUtils;
 /**
  * Emisión y validación de tokens JWT firmados con HMAC-SHA256.
  *
- * <p>Claims emitidos: {@code sub} (username), {@code uid}, {@code rol}, {@code iss},
- * {@code iat}, {@code exp} y {@code jti}. El rol viaja solo como información para el
- * cliente: la autorización del backend siempre se resuelve contra la base de datos.
+ * <p>Claims emitidos: {@code sub} (username), {@code uid}, {@code rol}, {@code empresaId}
+ * (tenant; ausente para SUPER_ADMIN), {@code iss}, {@code iat}, {@code exp} y {@code jti}.
+ * El rol viaja solo como información para el cliente: la autorización del backend siempre
+ * se resuelve contra la base de datos.
  */
 @Component
 public class JwtUtil {
 
     public static final String CLAIM_USER_ID = "uid";
     public static final String CLAIM_ROL = "rol";
+    public static final String CLAIM_EMPRESA_ID = "empresaId";
 
     /** Tolerancia ante pequeñas desincronizaciones de reloj entre servidores. */
     private static final long ALLOWED_CLOCK_SKEW_SECONDS = 30;
@@ -55,16 +58,26 @@ public class JwtUtil {
     /** Genera un token de acceso para el usuario autenticado. */
     public String generateToken(UsuarioPrincipal usuario) {
         Instant issuedAt = clock.instant();
-        return Jwts.builder()
+        JwtBuilder builder = Jwts.builder()
                 .id(UUID.randomUUID().toString())
                 .issuer(properties.issuer())
                 .subject(usuario.getUsername())
                 .claim(CLAIM_USER_ID, usuario.getId())
-                .claim(CLAIM_ROL, usuario.getRol().name())
+                .claim(CLAIM_ROL, usuario.getRol().name());
+        if (usuario.getEmpresaId() != null) {
+            // El SUPER_ADMIN no tiene empresa: su token no lleva el claim.
+            builder.claim(CLAIM_EMPRESA_ID, usuario.getEmpresaId());
+        }
+        return builder
                 .issuedAt(Date.from(issuedAt))
                 .expiration(Date.from(issuedAt.plus(properties.expiration())))
                 .signWith(signingKey, Jwts.SIG.HS256)
                 .compact();
+    }
+
+    /** Empresa del token, o null si no la lleva (SUPER_ADMIN). */
+    public static Long extractEmpresaId(Claims claims) {
+        return claims.get(CLAIM_EMPRESA_ID, Long.class);
     }
 
     /**

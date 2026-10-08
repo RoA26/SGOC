@@ -3,6 +3,7 @@ package com.unisen.sgp.security;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.unisen.sgp.model.entity.Empresa;
 import com.unisen.sgp.model.entity.Rol;
 import com.unisen.sgp.model.entity.Usuario;
 import io.jsonwebtoken.Claims;
@@ -34,11 +35,30 @@ class JwtUtilTest {
     @BeforeEach
     void setUp() throws ReflectiveOperationException {
         jwtUtil = jwtUtilAt(NOW, SECRET, ISSUER);
-        Usuario entidad = new Usuario("Ana.Compras", "Ana@Unisen.com", "$2a$04$hash", "Ana Compras", Rol.USUARIO);
-        Field id = Usuario.class.getDeclaredField("id");
-        id.setAccessible(true);
-        id.set(entidad, 42L);
+        Empresa empresa = new Empresa("Unisen", "900000001-1");
+        asignarId(Empresa.class, empresa, 7L);
+        Usuario entidad = new Usuario("Ana.Compras", "Ana@Unisen.com", "$2a$04$hash", "Ana Compras", Rol.USUARIO,
+                empresa);
+        asignarId(Usuario.class, entidad, 42L);
         usuario = UsuarioPrincipal.from(entidad);
+    }
+
+    private static <T> void asignarId(Class<T> tipo, T entidad, Long valor) throws ReflectiveOperationException {
+        Field id = tipo.getDeclaredField("id");
+        id.setAccessible(true);
+        id.set(entidad, valor);
+    }
+
+    @Test
+    void elTokenDeUnSuperAdminNoLlevaEmpresa() throws ReflectiveOperationException {
+        Usuario superAdmin = new Usuario("root", "root@unisen.com", "$2a$04$hash", "Plataforma", Rol.SUPER_ADMIN, null);
+        asignarId(Usuario.class, superAdmin, 1L);
+
+        Claims claims = jwtUtil.validateToken(jwtUtil.generateToken(UsuarioPrincipal.from(superAdmin)));
+
+        assertThat(claims.get(JwtUtil.CLAIM_ROL, String.class)).isEqualTo("SUPER_ADMIN");
+        assertThat(claims).doesNotContainKey(JwtUtil.CLAIM_EMPRESA_ID);
+        assertThat(JwtUtil.extractEmpresaId(claims)).isNull();
     }
 
     private static JwtUtil jwtUtilAt(Instant instant, String secret, String issuer) {
@@ -53,6 +73,7 @@ class JwtUtilTest {
         assertThat(claims.getIssuer()).isEqualTo(ISSUER);
         assertThat(claims.get(JwtUtil.CLAIM_USER_ID, Long.class)).isEqualTo(42L);
         assertThat(claims.get(JwtUtil.CLAIM_ROL, String.class)).isEqualTo("USUARIO");
+        assertThat(JwtUtil.extractEmpresaId(claims)).isEqualTo(7L);
         assertThat(claims.getId()).isNotBlank();
         assertThat(claims.getIssuedAt().toInstant()).isEqualTo(NOW);
         assertThat(claims.getExpiration().toInstant()).isEqualTo(NOW.plus(Duration.ofHours(1)));

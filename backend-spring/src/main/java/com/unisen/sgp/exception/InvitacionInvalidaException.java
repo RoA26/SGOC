@@ -11,7 +11,8 @@ public class InvitacionInvalidaException extends CampoInvalidoException {
     public enum Motivo {
         NO_EXISTE("El código de invitación no es válido."),
         USADO("El código de invitación ya fue utilizado."),
-        CADUCADO("El código de invitación ha caducado. Solicita uno nuevo al administrador.");
+        CADUCADO("El código de invitación ha caducado. Solicita uno nuevo al administrador."),
+        EMPRESA_INACTIVA("La empresa de esta invitación no está activa.");
 
         private final String mensaje;
 

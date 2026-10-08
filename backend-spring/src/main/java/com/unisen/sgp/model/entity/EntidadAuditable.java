@@ -7,9 +7,9 @@ import jakarta.persistence.PreUpdate;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
-/** Columnas de auditoría comunes a las entidades de catálogo. */
+/** Columnas de auditoría comunes a las entidades de catálogo, que siempre son de una empresa. */
 @MappedSuperclass
-public abstract class EntidadAuditable {
+public abstract class EntidadAuditable extends EntidadDeEmpresa {
 
     @Column(name = "creado_en", nullable = false, updatable = false)
     private Instant creadoEn;

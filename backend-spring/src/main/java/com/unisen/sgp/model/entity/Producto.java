@@ -31,7 +31,8 @@ public class Producto extends EntidadAuditable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 40)
+    /** Único por empresa (uq_productos_sku = empresa_id + sku). */
+    @Column(nullable = false, length = 40)
     private String sku;
 
     @Column(nullable = false, length = 150)
