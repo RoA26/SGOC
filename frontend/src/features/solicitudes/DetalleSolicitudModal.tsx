@@ -1,13 +1,14 @@
-import { Check, Loader2, X } from 'lucide-react'
+import { Check, FileText, Globe2, Loader2, X } from 'lucide-react'
 import { useId, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
-import { usePuedeRevisarSolicitudes } from '@/features/auth/permisos'
+import { useContextoEmpresa, usePermisos } from '@/features/auth/permisos'
 import { getApiErrorMessage } from '@/lib/errors'
 import { formatearFechaHora } from '@/lib/fechas'
 import { formatearCOP } from '@/lib/moneda'
 import { solicitudService, type CambioEstado, type Solicitud } from '@/services/solicitudService'
 import { EstadoBadge } from './EstadoBadge'
 import { ETIQUETA_ESTADO } from './estados'
+import { FlujoCompra } from './FlujoCompra'
 
 interface DetalleSolicitudModalProps {
   solicitud: Solicitud
@@ -17,12 +18,15 @@ interface DetalleSolicitudModalProps {
 }
 
 /**
- * Detalle de una solicitud. A ADMIN y GERENTE, si está pendiente, les permite aprobarla o
- * rechazarla (con motivo obligatorio al rechazar).
+ * Detalle de una solicitud y su punto en el flujo de compra. Al GERENTE (y al SUPER_ADMIN que
+ * trabaja dentro de una empresa), si está pendiente, le permite aprobarla o rechazarla (con
+ * motivo obligatorio al rechazar). Una solicitud aprobada no es todavía una orden de compra.
  */
 export function DetalleSolicitudModal({ solicitud, onClose, onRevisada }: DetalleSolicitudModalProps) {
-  const puedeRevisar = usePuedeRevisarSolicitudes()
-  const revisable = puedeRevisar && solicitud.estado === 'PENDIENTE'
+  const permisos = usePermisos()
+  const { modoGlobal } = useContextoEmpresa()
+  const pendiente = solicitud.estado === 'PENDIENTE'
+  const revisable = permisos.revisarSolicitudes && pendiente
   const comentarioId = useId()
 
   const [comentario, setComentario] = useState('')
@@ -99,6 +103,8 @@ export function DetalleSolicitudModal({ solicitud, onClose, onRevisada }: Detall
       }
     >
       <div className="space-y-6 text-sm">
+        <FlujoCompra compacto estado={solicitud.estado} />
+
         <div className="flex flex-wrap items-center gap-3">
           <EstadoBadge estado={solicitud.estado} />
           {solicitud.revisadoPor && solicitud.fechaRevision && (
@@ -172,6 +178,15 @@ export function DetalleSolicitudModal({ solicitud, onClose, onRevisada }: Detall
           <p className="mt-1 text-xs text-foreground-muted">Importes orientativos con los precios actuales del catálogo.</p>
         </section>
 
+        {solicitud.estado === 'APROBADA' && <SiguientePasoOrden gestor={permisos.verTodasLasSolicitudes} />}
+
+        {pendiente && modoGlobal && (
+          <p role="note" className="flex items-start gap-2 rounded-md border border-border bg-surface-muted/60 px-4 py-3 text-foreground-muted">
+            <Globe2 className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
+            Modo global: para aprobarla o rechazarla, entra en la empresa de la solicitud desde «Trabajar en una empresa».
+          </p>
+        )}
+
         {revisable && (
           <section className="space-y-1.5 border-t border-border pt-5">
             <label htmlFor={comentarioId} className="u-label">
@@ -203,5 +218,40 @@ export function DetalleSolicitudModal({ solicitud, onClose, onRevisada }: Detall
         )}
       </div>
     </Modal>
+  )
+}
+
+/**
+ * Transición de una solicitud aprobada a la orden de compra. El backend todavía no tiene el
+ * módulo de órdenes de compra, así que el paso se muestra pero no se puede ejecutar.
+ */
+function SiguientePasoOrden({ gestor }: { gestor: boolean }) {
+  return (
+    <section aria-labelledby="siguiente-paso" className="rounded-lg border border-border bg-surface-muted/50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h3 id="siguiente-paso" className="flex items-center gap-2 font-medium text-foreground">
+            <FileText className="size-4 shrink-0 text-accent" aria-hidden="true" />
+            Siguiente paso: orden de compra
+          </h3>
+          <p className="mt-1 text-foreground-muted">
+            {gestor
+              ? 'Con la solicitud aprobada, el siguiente paso es emitir la orden de compra al proveedor. El módulo de órdenes de compra estará disponible próximamente.'
+              : 'Tu solicitud está aprobada. Compras emitirá la orden de compra al proveedor; podrás seguirla aquí cuando el módulo esté disponible.'}
+          </p>
+        </div>
+        {gestor && (
+          <button
+            type="button"
+            className="u-btn u-btn--primary cursor-not-allowed opacity-50"
+            disabled
+            title="Próximamente: el módulo de órdenes de compra aún no está disponible"
+          >
+            <FileText className="size-4" aria-hidden="true" />
+            Generar orden de compra
+          </button>
+        )}
+      </div>
+    </section>
   )
 }

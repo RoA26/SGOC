@@ -90,9 +90,12 @@ docker compose up -d --build
 docker compose ps                  # los tres servicios deben quedar "healthy"
 ```
 
-Abre http://rrtf.duckdns.org e inicia sesión con `ADMIN_USERNAME` / `ADMIN_PASSWORD`. El
-administrador se crea en el primer arranque; los siguientes no lo modifican. El registro está
-cerrado: el resto de cuentas se crean con códigos de invitación que genera el administrador.
+Abre http://rrtf.duckdns.org e inicia sesión con `ADMIN_USERNAME` / `ADMIN_PASSWORD`. Ese
+usuario es el `SUPER_ADMIN` de la plataforma: se crea en el primer arranque y los siguientes no lo
+modifican. El registro está cerrado: el resto de cuentas se crean con códigos de invitación que
+genera un GERENTE, o el SUPER_ADMIN tras entrar en una empresa (*Trabajar en una empresa*).
+Las cuentas invitadas entran como USUARIO; hoy no hay endpoint para ascender a GERENTE (ver
+*Pendiente en el backend*).
 
 **Al actualizar un despliegue anterior al Hito 4:** la migración V3 asigna a cada usuario
 existente un username a partir de su correo (`admin@unisen.com` → `admin`), las sesiones
@@ -170,46 +173,82 @@ Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, si
 
 | Método | Ruta | Descripción |
 | --- | --- | --- |
-| POST | `/api/auth/login` | `{username, password}` → `{accessToken, tokenType, expiresIn, usuario}` |
-| POST | `/api/auth/registro` | `{username, email, password, codigoInvitacion, nombre?}` → `201` usuario |
-| POST | `/api/auth/invitaciones` | Solo `ADMIN`: `{horasValidez?}` → `201` `{codigo, fechaExpiracion}` |
+| POST | `/api/auth/login` | `{username, password}` → `{accessToken, tokenType, expiresIn, usuario}` (`usuario.empresaId`, salvo SUPER_ADMIN) |
+| POST | `/api/auth/registro` | `{username, email, password, codigoInvitacion, nombre?}` → `201` usuario (rol USUARIO en la empresa del código) |
+| POST | `/api/auth/invitaciones` | GERENTE, o SUPER_ADMIN con `X-Tenant-ID`: `{horasValidez?}` → `201` `{codigo, fechaExpiracion}` |
 | GET | `/api/auth/me` | Perfil del usuario autenticado (Bearer) |
 | GET | `/api/v1/proveedores?page=0&size=10&sort=razonSocial,asc` | Listado paginado |
 | GET · POST · PUT · DELETE | `/api/v1/proveedores[/{id}]` | Detalle, alta, edición y baja lógica |
 | GET | `/api/v1/productos?page=0&size=10&sort=nombre,asc` | Listado paginado (incluye el proveedor) |
 | GET · POST · PUT · DELETE | `/api/v1/productos[/{id}]` | Detalle, alta, edición y baja lógica |
-| GET · POST | `/api/v1/solicitudes[?estado=]` | Solicitudes internas: USUARIO ve y crea las suyas; ADMIN/GERENTE ven todas |
-| PATCH | `/api/v1/solicitudes/{id}/estado` | ADMIN/GERENTE: `{estado: APROBADA \| RECHAZADA, comentario}` |
+| GET · POST | `/api/v1/solicitudes[?estado=]` | USUARIO ve y crea las suyas; GERENTE ve las de su empresa; SUPER_ADMIN consulta |
+| PATCH | `/api/v1/solicitudes/{id}/estado` | GERENTE o SUPER_ADMIN con `X-Tenant-ID`: `{estado: APROBADA \| RECHAZADA, comentario}` |
 
-Lecturas: cualquier usuario autenticado. Altas, cambios y bajas de catálogos: `GERENTE` o
-`SUPER_ADMIN` (la interfaz oculta los botones al resto).
+Lecturas: cualquier usuario autenticado (de su empresa). Altas, cambios y bajas de catálogos:
+`GERENTE` o `SUPER_ADMIN` dentro de una empresa. Detalle de reglas y errores en
+[backend-spring/README.md](backend-spring/README.md#saas-multi-empresa-tenants).
 
-> **SaaS multi-empresa (backend):** cada empresa cliente ve solo sus datos. Roles: `SUPER_ADMIN`
-> (plataforma; elige empresa con la cabecera `X-Tenant-ID`), `GERENTE` y `USUARIO` (de una
-> empresa). La migración V5 asigna los datos actuales a "Empresa Base" y convierte al antiguo
-> ADMIN en SUPER_ADMIN. **La interfaz aún usa los roles anteriores** (`ADMIN`) y no envía
-> `X-Tenant-ID`: hasta adaptarla, el SUPER_ADMIN solo consulta y la gestión diaria la hace un
-> GERENTE. Detalle en [backend-spring/README.md](backend-spring/README.md#saas-multi-empresa-tenants). Detalle de reglas y errores en
-[backend-spring/README.md](backend-spring/README.md).
+## Roles, empresa y navegación (frontend)
+
+El SGOC es multi-empresa: cada empresa cliente ve solo sus datos y el backend lo impone.
+
+| Rol | Empresa de trabajo | Menú |
+| --- | --- | --- |
+| `USUARIO` | La suya (de la sesión) | Inicio · Mis solicitudes · Órdenes relacionadas (próximamente) |
+| `GERENTE` | La suya (de la sesión) | Inicio · Solicitudes · Órdenes de compra y Recepciones (próximamente) · Productos · Proveedores · Invitar usuarios |
+| `SUPER_ADMIN` | Ninguna (modo global) o la que elija | Como GERENTE |
+
+- **Panel lateral:** muestra la empresa, el usuario y su rol. GERENTE y USUARIO no pueden cambiar
+  de empresa.
+- **SUPER_ADMIN:** entra en **modo global** (consulta todas las empresas; el backend rechaza las
+  escrituras). Con *Trabajar en una empresa* escribe el id de la empresa; la interfaz lo valida
+  contra el backend (`GET /api/auth/me` con `X-Tenant-ID`) y desde entonces **solo sus
+  peticiones** llevan `X-Tenant-ID: <id>`. La elección dura la pestaña (sessionStorage), se
+  borra al cerrar sesión y *Volver al modo global* la quita. GERENTE y USUARIO nunca envían la
+  cabecera (el backend la ignoraría).
+- **Rutas protegidas:** `/productos`, `/proveedores` y `/admin/invitaciones` solo para GERENTE y
+  SUPER_ADMIN; el resto vuelve al inicio.
+- **Sesiones anteriores** (con el rol `ADMIN`, que ya no existe) se descartan y piden iniciar
+  sesión de nuevo.
+
+**Flujo de compra:** Necesidad → Solicitud → Aprobación → Orden de compra → Recepción. Hoy el
+backend cubre hasta la aprobación; *Órdenes de compra* y *Recepciones* aparecen como
+"Próximamente" y una solicitud aprobada muestra "Generar orden de compra" deshabilitado.
+
+**Inicio:** solicitudes pendientes, aprobadas y rechazadas (de la empresa, o las propias para un
+USUARIO), actividad reciente y accesos a *Nueva solicitud* y *Revisar pendientes*.
 
 **Precios en COP:** la interfaz trabaja con pesos colombianos enteros (sin decimales) y los
 muestra como `$ 1.250.000`. "Nuevo producto" queda deshabilitado mientras no haya ningún
 proveedor registrado.
 
 **Registro:** quien recibe un código de invitación crea su cuenta en `/registro` (o con el
-enlace `/registro?codigo=XXXX-XXXX-XXXX-XXXX`, que precarga el código) y entra directamente. Los
-errores del servidor (código inválido, usado o caducado; usuario o correo en uso) aparecen junto
-al campo afectado.
+enlace `/registro?codigo=XXXX-XXXX-XXXX-XXXX`, que precarga el código) y entra directamente en la
+empresa del código con rol USUARIO. Los errores del servidor (código inválido, usado o caducado;
+usuario o correo en uso) aparecen junto al campo afectado.
 
-**Solicitudes internas (`/solicitudes`):** cualquier usuario pide productos del catálogo con una
-justificación y tantas líneas como necesite (producto + cantidad), y ve el total estimado en COP.
-La solicitud queda `PENDIENTE`; ADMIN o GERENTE la abren desde el mismo panel y la aprueban o la
-rechazan (con motivo). Un USUARIO solo ve las suyas.
+**Solicitudes de compra (`/solicitudes`):** GERENTE y USUARIO piden productos del catálogo con un
+motivo y tantas líneas como necesiten (producto + cantidad), sin elegir proveedor, y ven el total
+estimado en COP. La solicitud queda `PENDIENTE`; el GERENTE (o el SUPER_ADMIN dentro de la
+empresa) la abre y la aprueba o la rechaza (con motivo). Un USUARIO solo ve las suyas. La URL
+admite `?estado=PENDIENTE`, `?ver=<id>` y `?nueva=1`.
 
-**Invitaciones (solo `ADMIN`):** en *Invitaciones* (`/admin/invitaciones`) el administrador genera
-un código con un clic y lo copia, o copia el enlace de registro. Cada código se muestra solo
-mientras no se sale de la página. La ruta y el enlace del menú se ocultan al resto de roles; el
-backend lo impide igualmente (`403`).
+**Invitar usuarios (`/admin/invitaciones`):** el GERENTE (o el SUPER_ADMIN dentro de una
+empresa) genera un código con un clic y lo copia, o copia el enlace de registro. Cada código se
+muestra solo mientras no se sale de la página.
+
+### Pendiente en el backend (la interfaz no lo simula)
+
+| Necesidad del frontend | Endpoint que falta |
+| --- | --- |
+| Selector de empresas del SUPER_ADMIN (hoy se escribe el id) | `GET /api/v1/empresas` (id, nombre, NIT, activa) |
+| Nombre de la empresa en el panel (hoy "Empresa N.º X") | `GET /api/v1/empresas/{id}` o `empresaNombre` en `UsuarioResponse` |
+| Empresa de cada solicitud en modo global | `empresaId`/`empresaNombre` en `SolicitudResponseDTO` |
+| Órdenes de compra y sus estados | `/api/v1/ordenes-compra` (crear desde una solicitud aprobada, listar, detalle, cambiar estado) |
+| Recepciones (también parciales) | `/api/v1/ordenes-compra/{id}/recepciones` |
+| Usuarios de la empresa | `GET /api/v1/usuarios` (y cambio de rol / baja) |
+| Ficha de la empresa | `GET · PUT /api/v1/empresa` |
+| Reportes | Sin definir |
 
 ## Calidad
 

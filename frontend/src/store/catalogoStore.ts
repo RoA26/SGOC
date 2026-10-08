@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { create } from 'zustand'
 import { getApiErrorMessage } from '@/lib/errors'
+import { useEmpresaSeleccionadaStore } from '@/features/empresa/empresaSeleccionadaStore'
 import { useAuthStore } from './authStore'
 
 /** Suficiente para los selectores del catálogo inicial (más adelante, búsqueda remota). */
@@ -21,7 +22,7 @@ export interface CatalogoState<T> {
 /**
  * Store de una lista de catálogo compartida entre páginas y formularios (opciones de un
  * selector, comprobar si hay elementos…). Una petición nueva cancela la anterior, y al
- * cerrar sesión la lista se descarta.
+ * cerrar sesión o cambiar de empresa la lista se descarta.
  */
 export function crearCatalogoStore<T>(pedir: (signal: AbortSignal) => Promise<T[]>) {
   let peticion: AbortController | null = null
@@ -55,12 +56,17 @@ export function crearCatalogoStore<T>(pedir: (signal: AbortSignal) => Promise<T[
     },
   }))
 
+  const descartar = () => {
+    peticion?.abort()
+    peticion = null
+    useStore.setState({ items: [], estado: 'inicial', error: null })
+  }
   useAuthStore.subscribe((actual, anterior) => {
-    if (anterior.accessToken && !actual.accessToken) {
-      peticion?.abort()
-      peticion = null
-      useStore.setState({ items: [], estado: 'inicial', error: null })
-    }
+    if (anterior.accessToken && !actual.accessToken) descartar()
+  })
+  // Otra empresa, otro catálogo: el SUPER_ADMIN que cambia de empresa no debe ver la lista anterior.
+  useEmpresaSeleccionadaStore.subscribe((actual, anterior) => {
+    if (actual.empresaId !== anterior.empresaId) descartar()
   })
 
   return useStore

@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { DataTable, type Column } from '@/components/ui/DataTable'
-import { usePuedeGestionarCatalogos } from '@/features/auth/permisos'
+import { usePermisos } from '@/features/auth/permisos'
+import { AvisoModoGlobal } from '@/features/empresa/AvisoModoGlobal'
 import { ProductoFormModal } from '@/features/productos/ProductoFormModal'
 import { useAviso } from '@/hooks/useAviso'
 import { usePaginatedResource } from '@/hooks/usePaginatedResource'
@@ -22,7 +23,8 @@ const ID_AYUDA_SIN_PROVEEDORES = 'productos-sin-proveedores'
 type Editor = { producto?: Producto } | null
 
 export default function Productos() {
-  const puedeGestionar = usePuedeGestionarCatalogos()
+  // GERENTE, o SUPER_ADMIN dentro de una empresa (en modo global el backend no admite escrituras).
+  const puedeGestionar = usePermisos().gestionarCatalogos
   const [pagina, setPagina] = useState(0)
   const { data, loading, error, reload } = usePaginatedResource(productoService.listar, pagina, TAMANO_PAGINA, ORDEN)
   const filas = data?.content ?? []
@@ -143,9 +145,9 @@ export default function Productos() {
   return (
     <>
       <PageHeader
-        eyebrow="Catálogos"
+        eyebrow="Catálogo"
         title="Productos"
-        description="Bienes y servicios que se pueden incluir en una orden de compra."
+        description="Bienes y servicios que la empresa compra habitualmente. Se eligen al crear una solicitud de compra."
         actions={
           puedeGestionar && (
             <button
@@ -163,6 +165,8 @@ export default function Productos() {
           )
         }
       />
+
+      <AvisoModoGlobal que="los productos" />
 
       {/* El title no se ve en pantallas táctiles ni lo leen todos los lectores: se explica también aquí. */}
       {puedeGestionar && sinProveedores && (

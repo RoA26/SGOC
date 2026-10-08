@@ -3,7 +3,9 @@ import { useState } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { BotonCopiar } from '@/components/ui/BotonCopiar'
 import { generarCodigoInvitacion } from '@/features/auth/authApi'
+import { usePermisos } from '@/features/auth/permisos'
 import type { InvitacionResponse } from '@/features/auth/types'
+import { AvisoModoGlobal } from '@/features/empresa/AvisoModoGlobal'
 import { getApiErrorMessage } from '@/lib/errors'
 
 const formatoFecha = new Intl.DateTimeFormat('es', { dateStyle: 'medium', timeStyle: 'short' })
@@ -14,10 +16,13 @@ function enlaceRegistro(codigo: string): string {
 }
 
 /**
- * Panel de administración: genera códigos de invitación de un solo uso. El backend solo
- * devuelve cada código al crearlo, así que la página conserva los de esta visita.
+ * Panel de administración: genera códigos de invitación de un solo uso para la empresa en la
+ * que se trabaja (la cuenta creada con el código entra en ella con rol USUARIO). El backend
+ * solo devuelve cada código al crearlo, así que la página conserva los de esta visita.
  */
 export default function Invitaciones() {
+  // GERENTE, o SUPER_ADMIN dentro de una empresa: en modo global no hay empresa a la que invitar.
+  const puedeInvitar = usePermisos().gestionarInvitaciones
   const [invitaciones, setInvitaciones] = useState<InvitacionResponse[]>([])
   const [generando, setGenerando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -41,10 +46,16 @@ export default function Invitaciones() {
     <>
       <PageHeader
         eyebrow="Administración"
-        title="Invitaciones"
-        description="Genera un código para cada persona que deba crear su cuenta. Es de un solo uso y caduca a las 72 horas."
+        title="Invitar usuarios"
+        description="Genera un código para cada persona de tu empresa que deba crear su cuenta. Entrará con el rol Usuario. El código es de un solo uso y caduca a las 72 horas."
         actions={
-          <button type="button" className="u-btn u-btn--primary" onClick={generar} disabled={generando} aria-busy={generando}>
+          <button
+            type="button"
+            className="u-btn u-btn--primary disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={generar}
+            disabled={generando || !puedeInvitar}
+            aria-busy={generando}
+          >
             {generando ? (
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             ) : (
@@ -54,6 +65,11 @@ export default function Invitaciones() {
           </button>
         }
       />
+
+      <AvisoModoGlobal>
+        cada invitación pertenece a una empresa. Para generar códigos, entra en una empresa desde el panel «Trabajar en
+        una empresa».
+      </AvisoModoGlobal>
 
       {/* Fuera de la tarjeta (que se vuelve a montar con cada código) para que se anuncie siempre. */}
       <p role="status" className="sr-only">

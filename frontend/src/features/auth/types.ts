@@ -1,7 +1,12 @@
 /** Contratos de la API de autenticación (reflejan los DTO de Spring Boot). */
 
-/** Roles del backend: GERENTE mantiene catálogos y revisa solicitudes, como ADMIN, sin gestionar invitaciones. */
-export type Rol = 'ADMIN' | 'GERENTE' | 'USUARIO'
+/**
+ * Roles del backend (enum Rol):
+ * - SUPER_ADMIN: operador de la plataforma, sin empresa. Elige empresa con X-Tenant-ID.
+ * - GERENTE: administra su empresa (catálogos, revisión de solicitudes, invitaciones).
+ * - USUARIO: crea solicitudes en su empresa y consulta las suyas.
+ */
+export type Rol = 'SUPER_ADMIN' | 'GERENTE' | 'USUARIO'
 
 export interface LoginRequest {
   username: string
@@ -22,6 +27,8 @@ export interface UsuarioResponse {
   email: string
   nombre: string
   rol: Rol
+  /** Empresa del usuario; el backend la omite para SUPER_ADMIN. */
+  empresaId?: number
 }
 
 export interface LoginResponse {

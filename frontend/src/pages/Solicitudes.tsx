@@ -1,15 +1,18 @@
 import { CheckCircle2, Eye, Info, Plus, SearchCheck } from 'lucide-react'
+import axios from 'axios'
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { DataTable, type Column } from '@/components/ui/DataTable'
-import { usePuedeGestionarCatalogos, usePuedeRevisarSolicitudes } from '@/features/auth/permisos'
+import { usePermisos } from '@/features/auth/permisos'
+import { AvisoModoGlobal } from '@/features/empresa/AvisoModoGlobal'
 import { DetalleSolicitudModal } from '@/features/solicitudes/DetalleSolicitudModal'
 import { EstadoBadge } from '@/features/solicitudes/EstadoBadge'
 import { ETIQUETA_ESTADO } from '@/features/solicitudes/estados'
 import { FormSolicitud } from '@/features/solicitudes/FormSolicitud'
 import { useAviso } from '@/hooks/useAviso'
 import { usePaginatedResource } from '@/hooks/usePaginatedResource'
+import { getApiErrorMessage } from '@/lib/errors'
 import { cn } from '@/lib/cn'
 import { formatearFecha } from '@/lib/fechas'
 import { formatearCOP } from '@/lib/moneda'
@@ -22,6 +25,7 @@ const TAMANO_PAGINA = 10
 const ORDEN = 'fecha,desc'
 const SIN_PRODUCTOS = 'Aún no hay productos en el catálogo'
 const ID_AYUDA_SIN_PRODUCTOS = 'solicitudes-sin-productos'
+const ESTADOS_VALIDOS: readonly EstadoSolicitud[] = ['PENDIENTE', 'APROBADA', 'RECHAZADA']
 const FILTROS: { valor: EstadoSolicitud | null; etiqueta: string }[] = [
   { valor: null, etiqueta: 'Todas' },
   { valor: 'PENDIENTE', etiqueta: 'Pendientes' },
@@ -29,15 +33,23 @@ const FILTROS: { valor: EstadoSolicitud | null; etiqueta: string }[] = [
   { valor: 'RECHAZADA', etiqueta: 'Rechazadas' },
 ]
 
+function estadoDeUrl(valor: string | null): EstadoSolicitud | null {
+  return ESTADOS_VALIDOS.find((estado) => estado === valor) ?? null
+}
+
 /**
- * Solicitudes internas de compra. USUARIO ve y crea las suyas; ADMIN y GERENTE ven las de
- * todos y las revisan desde el detalle. El filtrado por usuario lo hace el backend.
+ * Solicitudes de compra: la necesidad interna, antes de cualquier orden de compra. USUARIO ve
+ * y crea las suyas; GERENTE ve y revisa las de su empresa; SUPER_ADMIN las consulta (y las
+ * revisa dentro de una empresa). El filtrado por usuario y empresa lo hace el backend.
+ *
+ * La URL guarda el filtro (?estado=PENDIENTE) y permite abrir una solicitud (?ver=12) o el
+ * formulario (?nueva=1) desde otras páginas.
  */
 export default function Solicitudes() {
-  const puedeRevisar = usePuedeRevisarSolicitudes()
-  const puedeGestionarCatalogos = usePuedeGestionarCatalogos()
+  const permisos = usePermisos()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const estado = estadoDeUrl(searchParams.get('estado'))
   const [pagina, setPagina] = useState(0)
-  const [estado, setEstado] = useState<EstadoSolicitud | null>(null)
 
   const listar = useCallback(
     (params: PageParams, signal: AbortSignal) =>
@@ -47,22 +59,51 @@ export default function Solicitudes() {
   const { data, loading, error, reload } = usePaginatedResource(listar, pagina, TAMANO_PAGINA, ORDEN, estado ?? '')
   const filas = data?.content ?? []
 
-  const [creando, setCreando] = useState(false)
+  // Enlaces desde el inicio: ?nueva=1 abre el formulario y ?ver=12 abre esa solicitud.
+  const nueva = searchParams.get('nueva') === '1'
+  const ver = Number(searchParams.get('ver'))
+  const [creando, setCreando] = useState(() => nueva && permisos.crearSolicitudes)
   const [abierta, setAbierta] = useState<Solicitud | null>(null)
+  const [errorEnlace, setErrorEnlace] = useState<string | null>(null)
   const { aviso, mostrarAviso } = useAviso()
+
+  // Una vez leídos, los parámetros se quitan para que recargar o volver atrás no los repita.
+  useEffect(() => {
+    if (nueva) setSearchParams((actuales) => quitarParametro(actuales, 'nueva'), { replace: true })
+  }, [nueva, setSearchParams])
+  useEffect(() => {
+    if (!Number.isInteger(ver) || ver <= 0) return
+    const controller = new AbortController()
+    solicitudService
+      .obtener(ver, controller.signal)
+      .then(setAbierta)
+      .catch((err: unknown) => {
+        if (!axios.isCancel(err)) setErrorEnlace(getApiErrorMessage(err))
+      })
+      .finally(() => {
+        // Si se canceló (desmontaje, o el doble montaje de StrictMode), el parámetro se queda para el siguiente intento.
+        if (!controller.signal.aborted) setSearchParams((actuales) => quitarParametro(actuales, 'ver'), { replace: true })
+      })
+    return () => controller.abort()
+  }, [ver, setSearchParams])
 
   // Para pedir productos hace falta que exista al menos uno en el catálogo.
   const productos = useProductosStore((state) => state.items)
   const estadoProductos = useProductosStore((state) => state.estado)
   const cargarProductos = useProductosStore((state) => state.cargar)
   useEffect(() => {
-    void cargarProductos({ forzar: true })
-  }, [cargarProductos])
+    if (permisos.crearSolicitudes) void cargarProductos({ forzar: true })
+  }, [permisos.crearSolicitudes, cargarProductos])
   const sinProductos = estadoProductos === 'listo' && productos.length === 0
   const altaBloqueada = sinProductos || estadoProductos === 'inicial' || estadoProductos === 'cargando'
 
   function filtrar(valor: EstadoSolicitud | null) {
-    setEstado(valor)
+    setSearchParams((actuales) => {
+      const siguientes = new URLSearchParams(actuales)
+      if (valor) siguientes.set('estado', valor)
+      else siguientes.delete('estado')
+      return siguientes
+    })
     setPagina(0)
   }
 
@@ -90,7 +131,7 @@ export default function Solicitudes() {
       cell: (solicitud) => <span className="whitespace-nowrap">{formatearFecha(solicitud.fecha)}</span>,
     },
   ]
-  if (puedeRevisar) {
+  if (permisos.verTodasLasSolicitudes) {
     columnas.push({
       id: 'solicitante',
       header: 'Solicitante',
@@ -130,7 +171,7 @@ export default function Solicitudes() {
       header: <span className="sr-only">Acciones</span>,
       align: 'right',
       cell: (solicitud) => {
-        const revisar = puedeRevisar && solicitud.estado === 'PENDIENTE'
+        const revisar = permisos.revisarSolicitudes && solicitud.estado === 'PENDIENTE'
         const Icono = revisar ? SearchCheck : Eye
         return (
           <button
@@ -151,39 +192,48 @@ export default function Solicitudes() {
     <>
       <PageHeader
         eyebrow="Compras"
-        title="Solicitudes"
+        title={permisos.verTodasLasSolicitudes ? 'Solicitudes de compra' : 'Mis solicitudes'}
         description={
-          puedeRevisar
-            ? 'Solicitudes internas de todo el equipo. Revisa las pendientes para aprobarlas o rechazarlas.'
-            : 'Pide los productos que necesitas y sigue el estado de tus solicitudes.'
+          permisos.verTodasLasSolicitudes
+            ? 'Necesidades internas de compra del equipo. Revisa las pendientes para aprobarlas o rechazarlas; las aprobadas pasan a orden de compra.'
+            : 'Registra lo que necesitas comprar y sigue su aprobación. No hace falta elegir proveedor: eso llega con la orden de compra.'
         }
         actions={
-          <button
-            type="button"
-            className="u-btn u-btn--primary disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={() => setCreando(true)}
-            disabled={altaBloqueada}
-            aria-busy={estadoProductos === 'cargando'}
-            title={sinProductos ? SIN_PRODUCTOS : undefined}
-            aria-describedby={sinProductos ? ID_AYUDA_SIN_PRODUCTOS : undefined}
-          >
-            <Plus className="size-4" aria-hidden="true" />
-            Nueva solicitud
-          </button>
+          permisos.crearSolicitudes && (
+            <button
+              type="button"
+              className="u-btn u-btn--primary disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => setCreando(true)}
+              disabled={altaBloqueada}
+              aria-busy={estadoProductos === 'cargando'}
+              title={sinProductos ? SIN_PRODUCTOS : undefined}
+              aria-describedby={sinProductos ? ID_AYUDA_SIN_PRODUCTOS : undefined}
+            >
+              <Plus className="size-4" aria-hidden="true" />
+              Nueva solicitud
+            </button>
+          )
         }
       />
 
-      {sinProductos && (
+      <AvisoModoGlobal que="las solicitudes" />
+      {errorEnlace && (
+        <p role="alert" className="u-alert u-alert--error mb-4">
+          {errorEnlace}
+        </p>
+      )}
+
+      {permisos.crearSolicitudes && sinProductos && (
         <p id={ID_AYUDA_SIN_PRODUCTOS} className="mb-6 flex items-start gap-2 text-sm text-foreground-muted">
           <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <span>
             {SIN_PRODUCTOS}: las solicitudes se hacen sobre productos registrados.{' '}
-            {puedeGestionarCatalogos ? (
+            {permisos.gestionarCatalogos ? (
               <Link to="/productos" className="font-medium text-foreground underline-offset-4 hover:underline">
                 Ir a Productos
               </Link>
             ) : (
-              'Pide a un administrador que los registre.'
+              'Pide a un gerente que los registre.'
             )}
           </span>
         </p>
@@ -228,7 +278,7 @@ export default function Solicitudes() {
         emptyMessage={
           estado
             ? `No hay solicitudes ${ETIQUETA_ESTADO[estado].toLowerCase()}s.`
-            : puedeRevisar
+            : permisos.verTodasLasSolicitudes
               ? 'Aún no hay solicitudes.'
               : 'Aún no has hecho ninguna solicitud. Crea la primera con «Nueva solicitud».'
         }
@@ -242,4 +292,10 @@ export default function Solicitudes() {
       )}
     </>
   )
+}
+
+function quitarParametro(actuales: URLSearchParams, nombre: string): URLSearchParams {
+  const siguientes = new URLSearchParams(actuales)
+  siguientes.delete(nombre)
+  return siguientes
 }

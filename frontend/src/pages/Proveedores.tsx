@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { DataTable, type Column } from '@/components/ui/DataTable'
-import { usePuedeGestionarCatalogos } from '@/features/auth/permisos'
+import { usePermisos } from '@/features/auth/permisos'
+import { AvisoModoGlobal } from '@/features/empresa/AvisoModoGlobal'
 import { ProveedorFormModal } from '@/features/proveedores/ProveedorFormModal'
 import { useAviso } from '@/hooks/useAviso'
 import { usePaginatedResource } from '@/hooks/usePaginatedResource'
@@ -18,7 +19,8 @@ const ORDEN = 'razonSocial,asc'
 type Editor = { proveedor?: Proveedor } | null
 
 export default function Proveedores() {
-  const puedeGestionar = usePuedeGestionarCatalogos()
+  // GERENTE, o SUPER_ADMIN dentro de una empresa (en modo global el backend no admite escrituras).
+  const puedeGestionar = usePermisos().gestionarCatalogos
   // Crear o eliminar proveedores cambia lo que ve el catálogo de productos.
   const invalidarProveedores = useProveedoresStore((state) => state.invalidar)
   const [pagina, setPagina] = useState(0)
@@ -130,9 +132,9 @@ export default function Proveedores() {
   return (
     <>
       <PageHeader
-        eyebrow="Catálogos"
-        title="Proveedores"
-        description="Empresas a las que Unisen compra bienes y servicios."
+        eyebrow="Catálogo"
+        title="Proveedores de la empresa"
+        description="Terceros a los que tu empresa compra bienes y servicios. Son los destinatarios de las órdenes de compra."
         actions={
           puedeGestionar && (
             <button type="button" className="u-btn u-btn--primary" onClick={() => setEditor({})}>
@@ -142,6 +144,8 @@ export default function Proveedores() {
           )
         }
       />
+
+      <AvisoModoGlobal que="los proveedores" />
 
       <p role="status" aria-live="polite" className="min-h-0">
         {aviso && (

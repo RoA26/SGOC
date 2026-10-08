@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { ROLES_GESTION } from '@/features/auth/permisos'
 import { RutaConRol } from '@/features/auth/RutaConRol'
 import { RutaInvitado } from '@/features/auth/RutaInvitado'
 import { RutaProtegida } from '@/features/auth/RutaProtegida'
@@ -24,10 +25,11 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route path="/" element={<Inicio />} />
             <Route path="/solicitudes" element={<Solicitudes />} />
-            <Route path="/proveedores" element={<Proveedores />} />
-            <Route path="/productos" element={<Productos />} />
 
-            <Route element={<RutaConRol rol="ADMIN" />}>
+            {/* Catálogo y administración: gestores (GERENTE de su empresa, SUPER_ADMIN). */}
+            <Route element={<RutaConRol roles={ROLES_GESTION} />}>
+              <Route path="/productos" element={<Productos />} />
+              <Route path="/proveedores" element={<Proveedores />} />
               <Route path="/admin/invitaciones" element={<Invitaciones />} />
             </Route>
           </Route>

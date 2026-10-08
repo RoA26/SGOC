@@ -50,7 +50,7 @@ export interface CambioEstado {
 const BASE = '/v1/solicitudes'
 
 export const solicitudService = {
-  /** USUARIO recibe solo las suyas; ADMIN y GERENTE, todas. */
+  /** USUARIO recibe solo las suyas; GERENTE, todas las de su empresa; SUPER_ADMIN, las de la empresa elegida (o todas en modo global). */
   async listar(params: PageParams & { estado?: EstadoSolicitud }, signal?: AbortSignal): Promise<Page<Solicitud>> {
     const { data } = await api.get<Page<Solicitud>>(BASE, { params, signal })
     return data
@@ -67,7 +67,7 @@ export const solicitudService = {
     return data
   },
 
-  /** Solo ADMIN / GERENTE. 409 si ya estaba revisada. */
+  /** GERENTE o SUPER_ADMIN dentro de una empresa. 409 si ya estaba revisada. */
   async cambiarEstado(id: number, cambio: CambioEstado): Promise<Solicitud> {
     const { data } = await api.patch<Solicitud>(`${BASE}/${id}/estado`, cambio)
     return data
