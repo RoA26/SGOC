@@ -78,7 +78,12 @@ export default function Productos() {
     {
       id: 'sku',
       header: 'SKU',
-      cell: (producto) => <span className="font-mono text-xs whitespace-nowrap">{producto.sku}</span>,
+      cell: (producto) => (
+        <div className="font-mono text-xs whitespace-nowrap">
+          <p>{producto.sku}</p>
+          {producto.codigoBarras && <p className="text-foreground-muted">{producto.codigoBarras}</p>}
+        </div>
+      ),
     },
     {
       id: 'nombre',

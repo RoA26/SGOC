@@ -106,6 +106,11 @@ app:
       # Orígenes permitidos separados por comas: producción (DuckDNS) y Vite en desarrollo.
       allowed-origins: ${CORS_ALLOWED_ORIGINS:https://rrtf.duckdns.org,http://localhost:5173}
 
+  negocio:
+    # Zona en la que se cuentan los días de la analítica (los instantes se guardan en UTC).
+    # Debe tener desfases de horas completas (se comprueba al arrancar).
+    zona-horaria: ${APP_ZONA_HORARIA:America/Bogota}
+
   # Alta del SUPER_ADMIN inicial al arrancar (solo si su username y su correo aún no existen).
   # Inicia sesión con ADMIN_USERNAME y crea las empresas con su administrador principal desde
   # «Empresas» (POST /api/v1/empresas).

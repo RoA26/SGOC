@@ -9,7 +9,7 @@ import org.hibernate.annotations.Immutable;
 
 /**
  * Vista de solo lectura de la tabla {@code productos} para los documentos que la referencian
- * (líneas de solicitud). Como toda entidad de empresa, solo ve los productos del tenant
+ * (líneas de solicitud y de órdenes, existencias, movimientos). Como toda entidad de empresa, solo ve los productos del tenant
  * actual; a diferencia de {@link Producto}, no lleva {@code @SQLRestriction}:
  * un producto dado de baja sigue apareciendo en las solicitudes históricas que lo incluyen.
  * Las altas, cambios y bajas se hacen siempre a través de {@link Producto}.
@@ -34,6 +34,15 @@ public class ProductoReferencia extends EntidadDeEmpresa {
     @Column(nullable = false, insertable = false, updatable = false)
     private boolean activo;
 
+    @Column(name = "proveedor_id", nullable = false, insertable = false, updatable = false)
+    private Long proveedorId;
+
+    @Column(name = "codigo_barras", insertable = false, updatable = false)
+    private String codigoBarras;
+
+    @Column(name = "stock_minimo", nullable = false, insertable = false, updatable = false)
+    private int stockMinimo;
+
     /** Requerido por JPA. */
     protected ProductoReferencia() {
     }
@@ -56,6 +65,19 @@ public class ProductoReferencia extends EntidadDeEmpresa {
 
     public boolean isActivo() {
         return activo;
+    }
+
+    /** Proveedor actual del producto (las órdenes solo admiten productos de su proveedor). */
+    public Long getProveedorId() {
+        return proveedorId;
+    }
+
+    public String getCodigoBarras() {
+        return codigoBarras;
+    }
+
+    public int getStockMinimo() {
+        return stockMinimo;
     }
 
     @Override

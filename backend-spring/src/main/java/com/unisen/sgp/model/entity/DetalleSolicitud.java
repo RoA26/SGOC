@@ -12,10 +12,13 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.util.Objects;
 
-/** Línea de una solicitud: un producto del catálogo y la cantidad pedida. */
+/**
+ * Línea de una solicitud: un producto del catálogo y la cantidad pedida. Desde V11 guarda la
+ * empresa (la de la solicitud, por {@code @TenantId}) para que la BD impida cruzar empresas.
+ */
 @Entity
 @Table(name = "detalles_solicitud")
-public class DetalleSolicitud {
+public class DetalleSolicitud extends EntidadDeEmpresa {
 
     public static final int CANTIDAD_MAXIMA = 999_999;
 

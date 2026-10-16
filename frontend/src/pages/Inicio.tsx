@@ -1,26 +1,33 @@
-import { ArrowRight, Building, ClipboardList, FileText, Plus, SearchCheck, UserRound } from 'lucide-react'
+import { ArrowRight, Building, ClipboardList, FileText, Plus, ScanBarcode, SearchCheck, UserRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { DashboardEmpresa } from '@/features/analitica/DashboardEmpresa'
+import { DashboardGlobal } from '@/features/analitica/DashboardGlobal'
+import { DashboardPersonal } from '@/features/analitica/DashboardPersonal'
 import { ETIQUETA_ROL, useContextoEmpresa, usePermisos } from '@/features/auth/permisos'
-import { AvisoModoGlobal } from '@/features/empresa/AvisoModoGlobal'
 import { etiquetaEmpresa } from '@/features/empresa/etiquetas'
 import { EstadoBadge } from '@/features/solicitudes/EstadoBadge'
 import { FlujoCompra } from '@/features/solicitudes/FlujoCompra'
-import { useResumenSolicitudes } from '@/features/solicitudes/useResumenSolicitudes'
+import { useSolicitudesRecientes, type Recientes } from '@/features/solicitudes/useSolicitudesRecientes'
 import { cn } from '@/lib/cn'
 import { formatearFecha } from '@/lib/fechas'
 import { formatearCOP } from '@/lib/moneda'
-import type { EstadoSolicitud } from '@/services/solicitudService'
 import { nombreCorto, useAuthStore } from '@/store/authStore'
 
-/** Panel de inicio del SGOC: en qué punto del proceso de compra está la empresa (o el usuario). */
+/**
+ * Panel de inicio: un dashboard por contexto, con cifras que calcula el backend.
+ * - SUPER_ADMIN en modo global: la plataforma (empresas y órdenes de todas).
+ * - ADMIN_EMPRESA, o SUPER_ADMIN supervisando: la empresa.
+ * - TRABAJADOR: disponibilidad de productos y sus solicitudes (sin ventas: aún no existen).
+ */
 export default function Inicio() {
   const saludo = useAuthStore(nombreCorto)
   const empresaNombre = useAuthStore((state) => state.empresaNombre)
   const datosCompletos = useAuthStore((state) => state.datosPersonalesCompletos)
   const { rol, empresaId, modoGlobal, empresaSupervisada } = useContextoEmpresa()
   const permisos = usePermisos()
-  const resumen = useResumenSolicitudes()
+  const recientes = useSolicitudesRecientes()
   const propias = !permisos.verTodasLasSolicitudes
+  const vistaEmpresa = !modoGlobal && permisos.verTodasLasSolicitudes
 
   const contexto = modoGlobal
     ? 'Modo global · todas las empresas'
@@ -61,73 +68,29 @@ export default function Inicio() {
             Gestionar empresas
           </Link>
         )}
-        {permisos.verTodasLasSolicitudes && (
+        {vistaEmpresa && (
           <Link to="/solicitudes?estado=PENDIENTE" className="u-btn u-btn--ghost">
             <SearchCheck className="size-4" aria-hidden="true" />
             {permisos.revisarSolicitudes ? 'Revisar pendientes' : 'Ver pendientes'}
           </Link>
         )}
+        {permisos.gestionarCompras && (
+          <Link to="/ordenes-compra" className="u-btn u-btn--ghost">
+            <FileText className="size-4" aria-hidden="true" />
+            Órdenes de compra
+          </Link>
+        )}
+        {!modoGlobal && (
+          <Link to="/inventario" className="u-btn u-btn--ghost">
+            <ScanBarcode className="size-4" aria-hidden="true" />
+            Consultar existencias
+          </Link>
+        )}
       </div>
 
       <div className="mt-8">
-        <AvisoModoGlobal que="las solicitudes y los catálogos" />
+        {modoGlobal ? <DashboardGlobal /> : vistaEmpresa ? <DashboardEmpresa /> : <DashboardPersonal />}
       </div>
-
-      <section aria-labelledby="indicadores" className="mt-2">
-        <h2 id="indicadores" className="sr-only">
-          Indicadores
-        </h2>
-        {resumen.estado === 'error' ? (
-          <p role="alert" className="u-alert u-alert--error">
-            No se pudo cargar el resumen: {resumen.mensaje}
-          </p>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Indicador
-              estado="PENDIENTE"
-              titulo={propias ? 'Mis solicitudes pendientes' : 'Pendientes de aprobación'}
-              detalle="Esperan la revisión de un administrador."
-              valor={resumen.estado === 'listo' ? resumen.conteos.PENDIENTE : null}
-            />
-            <Indicador
-              estado="APROBADA"
-              titulo={propias ? 'Mis solicitudes aprobadas' : 'Aprobadas'}
-              detalle="Listas para convertirse en orden de compra."
-              valor={resumen.estado === 'listo' ? resumen.conteos.APROBADA : null}
-            />
-            <Indicador
-              estado="RECHAZADA"
-              titulo={propias ? 'Mis solicitudes rechazadas' : 'Rechazadas'}
-              detalle="Con el motivo indicado por el administrador."
-              valor={resumen.estado === 'listo' ? resumen.conteos.RECHAZADA : null}
-            />
-          </div>
-        )}
-      </section>
-
-      <section aria-labelledby="ordenes" className="u-card mt-4 p-5">
-        <div className="flex items-start gap-3">
-          <FileText className="mt-0.5 size-5 shrink-0 text-foreground-muted" aria-hidden="true" />
-          <div>
-            <h2 id="ordenes" className="font-medium text-foreground">
-              Órdenes de compra y recepción
-            </h2>
-            <p className="mt-1 text-sm text-foreground-muted">
-              Órdenes activas, pendientes de recepción y completadas aparecerán aquí cuando el sistema incorpore el
-              módulo de órdenes de compra (próximamente).
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section aria-labelledby="flujo" className="u-card mt-4 p-5 sm:p-6">
-        <h2 id="flujo" className="font-medium text-foreground">
-          Cómo funciona una compra
-        </h2>
-        <div className="mt-4">
-          <FlujoCompra />
-        </div>
-      </section>
 
       <section aria-labelledby="recientes" className="mt-8">
         <div className="flex items-end justify-between gap-4">
@@ -139,34 +102,20 @@ export default function Inicio() {
             <ArrowRight className="size-4" aria-hidden="true" />
           </Link>
         </div>
-        <ActividadReciente resumen={resumen} puedeCrear={permisos.crearSolicitudes} mostrarSolicitante={!propias} />
+        <ActividadReciente resumen={recientes} puedeCrear={permisos.crearSolicitudes} mostrarSolicitante={!propias} />
       </section>
-    </>
-  )
-}
 
-function Indicador({
-  estado,
-  titulo,
-  detalle,
-  valor,
-}: {
-  estado: EstadoSolicitud
-  titulo: string
-  detalle: string
-  valor: number | null
-}) {
-  return (
-    <Link
-      to={`/solicitudes?estado=${estado}`}
-      className="u-card group block p-5 transition-colors hover:border-border-strong"
-      aria-busy={valor === null}
-    >
-      <EstadoBadge estado={estado} />
-      <p className="mt-3 font-serif text-4xl text-foreground tabular-nums">{valor ?? '—'}</p>
-      <p className="mt-1 text-sm font-medium text-foreground group-hover:underline">{titulo}</p>
-      <p className="text-xs text-foreground-muted">{detalle}</p>
-    </Link>
+      {!modoGlobal && (
+        <section aria-labelledby="flujo" className="u-card mt-8 p-5 sm:p-6">
+          <h2 id="flujo" className="font-medium text-foreground">
+            Cómo funciona una compra
+          </h2>
+          <div className="mt-4">
+            <FlujoCompra />
+          </div>
+        </section>
+      )}
+    </>
   )
 }
 
@@ -175,7 +124,7 @@ function ActividadReciente({
   puedeCrear,
   mostrarSolicitante,
 }: {
-  resumen: ReturnType<typeof useResumenSolicitudes>
+  resumen: Recientes
   puedeCrear: boolean
   mostrarSolicitante: boolean
 }) {
@@ -183,7 +132,11 @@ function ActividadReciente({
     return <p className="mt-3 text-sm text-foreground-muted">Cargando…</p>
   }
   if (resumen.estado === 'error') {
-    return null
+    return (
+      <p role="alert" className="u-alert u-alert--error mt-3">
+        No se pudieron cargar las solicitudes: {resumen.mensaje}
+      </p>
+    )
   }
   if (resumen.recientes.length === 0) {
     return (

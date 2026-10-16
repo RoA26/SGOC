@@ -4,7 +4,9 @@ import com.unisen.sgp.exception.ConflictoException;
 import com.unisen.sgp.exception.RecursoNoEncontradoException;
 import com.unisen.sgp.model.dto.ProveedorRequestDTO;
 import com.unisen.sgp.model.dto.ProveedorResponseDTO;
+import com.unisen.sgp.model.entity.EstadoOrdenCompra;
 import com.unisen.sgp.model.entity.Proveedor;
+import com.unisen.sgp.repository.OrdenCompraRepository;
 import com.unisen.sgp.repository.ProductoRepository;
 import com.unisen.sgp.repository.ProveedorRepository;
 import com.unisen.sgp.tenant.TenantContextHolder;
@@ -19,10 +21,13 @@ public class ProveedorService {
 
     private final ProveedorRepository proveedorRepository;
     private final ProductoRepository productoRepository;
+    private final OrdenCompraRepository ordenCompraRepository;
 
-    public ProveedorService(ProveedorRepository proveedorRepository, ProductoRepository productoRepository) {
+    public ProveedorService(ProveedorRepository proveedorRepository, ProductoRepository productoRepository,
+                            OrdenCompraRepository ordenCompraRepository) {
         this.proveedorRepository = proveedorRepository;
         this.productoRepository = productoRepository;
+        this.ordenCompraRepository = ordenCompraRepository;
     }
 
     public Page<ProveedorResponseDTO> listar(Pageable pageable) {
@@ -51,8 +56,8 @@ public class ProveedorService {
     }
 
     /**
-     * Borrado lógico. Se rechaza si el proveedor tiene productos activos: quedarían
-     * apuntando a un proveedor oculto.
+     * Borrado lógico. Se rechaza si el proveedor tiene productos activos (quedarían apuntando a
+     * un proveedor oculto) u órdenes de compra abiertas (aún se le compra).
      */
     @Transactional
     public void eliminar(Long id) {
@@ -63,6 +68,12 @@ public class ProveedorService {
             throw new ConflictoException("No se puede eliminar el proveedor: tiene " + productosActivos
                     + (productosActivos == 1 ? " producto activo" : " productos activos")
                     + ". Elimínalos o reasígnalos primero.");
+        }
+        long ordenesAbiertas = ordenCompraRepository.countByProveedorIdAndEstadoIn(id, EstadoOrdenCompra.ABIERTAS);
+        if (ordenesAbiertas > 0) {
+            throw new ConflictoException("No se puede eliminar el proveedor: tiene " + ordenesAbiertas
+                    + (ordenesAbiertas == 1 ? " orden de compra abierta" : " órdenes de compra abiertas")
+                    + ". Recíbelas o cancélalas primero.");
         }
         proveedorRepository.delete(proveedor);
     }

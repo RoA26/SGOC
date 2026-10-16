@@ -12,6 +12,14 @@ export const productoSchema = z.object({
     .toUpperCase()
     .min(1, 'El SKU es obligatorio.')
     .regex(PATRONES.sku, 'El SKU admite de 3 a 40 letras, números, puntos, guiones o guiones bajos.'),
+  // Texto, nunca número: "0070330506220" conserva sus ceros. Vacío = sin código.
+  codigoBarras: z
+    .string()
+    .trim()
+    .refine((valor) => valor === '' || PATRONES.codigoBarras.test(valor), {
+      message: 'El código de barras admite de 3 a 64 letras, números o los signos . _ / + - (sin espacios).',
+    })
+    .transform((valor) => valor || null),
   nombre: z
     .string()
     .trim()
@@ -29,6 +37,17 @@ export const productoSchema = z.object({
     .int('El precio debe ser un número entero.')
     .positive('El precio debe ser mayor que 0.')
     .max(PRECIO_MAXIMO, 'El precio admite hasta 12 dígitos.'),
+  // Vacío (NaN) = sin mínimo (0).
+  stockMinimo: z
+    .number()
+    .transform((valor) => (Number.isNaN(valor) ? 0 : valor))
+    .pipe(
+      z
+        .number()
+        .int('El stock mínimo debe ser un número entero.')
+        .min(0, 'El stock mínimo no puede ser negativo.')
+        .max(999_999, 'El stock mínimo no puede superar 999.999.'),
+    ),
   proveedorId: z
     .number({ error: 'El proveedor es obligatorio.' })
     .int()

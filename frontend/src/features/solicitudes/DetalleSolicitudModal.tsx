@@ -1,10 +1,14 @@
 import { Check, Eye, FileText, Loader2, X } from 'lucide-react'
-import { useId, useState } from 'react'
+import { useCallback, useId, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Modal } from '@/components/ui/Modal'
 import { useContextoEmpresa, usePermisos } from '@/features/auth/permisos'
+import { EstadoOrdenBadge } from '@/features/ordenes/EstadoOrdenBadge'
+import { useRecurso } from '@/hooks/useRecurso'
 import { getApiErrorMessage } from '@/lib/errors'
 import { formatearFechaHora } from '@/lib/fechas'
 import { formatearCOP } from '@/lib/moneda'
+import { numeroOrden, ordenCompraService } from '@/services/ordenCompraService'
 import { solicitudService, type CambioEstado, type Solicitud } from '@/services/solicitudService'
 import { EstadoBadge } from './EstadoBadge'
 import { ETIQUETA_ESTADO } from './estados'
@@ -178,7 +182,7 @@ export function DetalleSolicitudModal({ solicitud, onClose, onRevisada }: Detall
           <p className="mt-1 text-xs text-foreground-muted">Importes orientativos con los precios actuales del catálogo.</p>
         </section>
 
-        {solicitud.estado === 'APROBADA' && <SiguientePasoOrden gestor={permisos.verTodasLasSolicitudes} />}
+        {solicitud.estado === 'APROBADA' && <SiguientePasoOrden solicitudId={solicitud.id} />}
 
         {pendiente && esSuperAdmin && (
           <p role="note" className="flex items-start gap-2 rounded-md border border-border bg-surface-muted/60 px-4 py-3 text-foreground-muted">
@@ -222,10 +226,41 @@ export function DetalleSolicitudModal({ solicitud, onClose, onRevisada }: Detall
 }
 
 /**
- * Transición de una solicitud aprobada a la orden de compra. El backend todavía no tiene el
- * módulo de órdenes de compra, así que el paso se muestra pero no se puede ejecutar.
+ * Una solicitud aprobada pasa a orden de compra: el ADMIN_EMPRESA genera los borradores (uno por
+ * proveedor) y los revisa antes de emitirlos. La gestión ve las órdenes ya generadas; el
+ * trabajador, que Compras se encarga.
  */
-function SiguientePasoOrden({ gestor }: { gestor: boolean }) {
+function SiguientePasoOrden({ solicitudId }: { solicitudId: number }) {
+  const permisos = usePermisos()
+  const navigate = useNavigate()
+  const [generando, setGenerando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const pedir = useCallback(
+    (signal: AbortSignal) =>
+      permisos.verCompras
+        ? ordenCompraService.listar({ page: 0, size: 10, sort: 'numero,asc', solicitudId }, signal).then((p) => p.content)
+        : Promise.resolve([]),
+    [permisos.verCompras, solicitudId],
+  )
+  const { datos: ordenes } = useRecurso(pedir, `ordenes-solicitud-${solicitudId}`)
+  const activas = (ordenes ?? []).filter((orden) => orden.estado !== 'CANCELADA')
+
+  async function generar() {
+    setGenerando(true)
+    setError(null)
+    try {
+      const creadas = await ordenCompraService.crearDesdeSolicitud(solicitudId)
+      const [primera] = creadas
+      const aviso = `${creadas.length === 1 ? 'Se generó 1 orden' : `Se generaron ${creadas.length} órdenes`} en borrador desde la solicitud #${solicitudId}.`
+      if (creadas.length === 1 && primera) navigate(`/ordenes-compra/${primera.id}`, { state: { aviso } })
+      else navigate(`/ordenes-compra?solicitudId=${solicitudId}`)
+    } catch (err) {
+      // 409: ya tiene órdenes, o hay productos o proveedores dados de baja.
+      setError(getApiErrorMessage(err))
+      setGenerando(false)
+    }
+  }
+
   return (
     <section aria-labelledby="siguiente-paso" className="rounded-lg border border-border bg-surface-muted/50 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -235,23 +270,40 @@ function SiguientePasoOrden({ gestor }: { gestor: boolean }) {
             Siguiente paso: orden de compra
           </h3>
           <p className="mt-1 text-foreground-muted">
-            {gestor
-              ? 'Con la solicitud aprobada, el siguiente paso es emitir la orden de compra al proveedor. El módulo de órdenes de compra estará disponible próximamente.'
-              : 'Tu solicitud está aprobada. Compras emitirá la orden de compra al proveedor; podrás seguirla aquí cuando el módulo esté disponible.'}
+            {!permisos.verCompras
+              ? 'Tu solicitud está aprobada. Compras emitirá la orden de compra al proveedor.'
+              : activas.length > 0
+                ? 'La solicitud ya tiene órdenes de compra:'
+                : permisos.gestionarCompras
+                  ? 'Genera las órdenes en borrador (una por proveedor), revisa cantidades y costos, y emítelas.'
+                  : 'Aún no tiene órdenes de compra; las genera el administrador de la empresa.'}
           </p>
         </div>
-        {gestor && (
-          <button
-            type="button"
-            className="u-btn u-btn--primary cursor-not-allowed opacity-50"
-            disabled
-            title="Próximamente: el módulo de órdenes de compra aún no está disponible"
-          >
-            <FileText className="size-4" aria-hidden="true" />
-            Generar orden de compra
+        {permisos.gestionarCompras && ordenes !== null && activas.length === 0 && (
+          <button type="button" className="u-btn u-btn--primary" onClick={() => void generar()} disabled={generando} aria-busy={generando}>
+            {generando ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <FileText className="size-4" aria-hidden="true" />}
+            Generar órdenes de compra
           </button>
         )}
       </div>
+      {ordenes && ordenes.length > 0 && (
+        <ul className="mt-3 space-y-1">
+          {ordenes.map((orden) => (
+            <li key={orden.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <Link to={`/ordenes-compra/${orden.id}`} className="font-mono text-sm font-medium text-foreground hover:underline">
+                {numeroOrden(orden.numero)}
+              </Link>
+              <span className="text-foreground-muted">{orden.proveedor.razonSocial}</span>
+              <EstadoOrdenBadge estado={orden.estado} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && (
+        <p role="alert" className="u-alert u-alert--error mt-3">
+          {error}
+        </p>
+      )}
     </section>
   )
 }

@@ -1,0 +1,43 @@
+package com.unisen.sgp.model.dto;
+
+import com.unisen.sgp.model.entity.DetalleRecepcion;
+import com.unisen.sgp.model.entity.MovimientoInventario;
+import com.unisen.sgp.model.entity.TipoMovimiento;
+import java.math.BigDecimal;
+import java.time.Instant;
+
+/** Fila del kárdex. En las recepciones incluye la orden de origen. */
+public record MovimientoInventarioDTO(
+        Long id,
+        OrdenCompraResponseDTO.Producto producto,
+        TipoMovimiento tipo,
+        int cantidad,
+        int saldoResultante,
+        BigDecimal costoUnitario,
+        String motivo,
+        Long recepcionId,
+        Long ordenId,
+        Long ordenNumero,
+        UsuarioResumenDTO usuario,
+        Instant fecha) {
+
+    /** Debe invocarse dentro de la transacción: recorre asociaciones LAZY (cargadas por lotes). */
+    public static MovimientoInventarioDTO from(MovimientoInventario movimiento) {
+        DetalleRecepcion linea = movimiento.getDetalleRecepcion();
+        var recepcion = linea == null ? null : linea.getRecepcion();
+        var orden = recepcion == null ? null : recepcion.getOrden();
+        return new MovimientoInventarioDTO(
+                movimiento.getId(),
+                OrdenCompraResponseDTO.Producto.from(movimiento.getProducto()),
+                movimiento.getTipo(),
+                movimiento.getCantidad(),
+                movimiento.getSaldoResultante(),
+                movimiento.getCostoUnitario(),
+                movimiento.getMotivo(),
+                recepcion == null ? null : recepcion.getId(),
+                orden == null ? null : orden.getId(),
+                orden == null ? null : orden.getNumero(),
+                UsuarioResumenDTO.from(movimiento.getUsuario()),
+                movimiento.getFecha());
+    }
+}

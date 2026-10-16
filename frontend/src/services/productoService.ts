@@ -13,9 +13,13 @@ export interface ProveedorResumen {
 export interface Producto {
   id: number
   sku: string
+  /** Texto: conserva los ceros a la izquierda. */
+  codigoBarras?: string | null
   nombre: string
   descripcion?: string | null
   precio: number
+  /** Con existencias iguales o inferiores, stock crítico (0 = sin mínimo). */
+  stockMinimo: number
   proveedor: ProveedorResumen
   creadoEn: string
   actualizadoEn: string

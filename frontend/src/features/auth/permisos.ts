@@ -64,6 +64,12 @@ export interface Permisos {
   gestionarInvitaciones: boolean
   /** Consulta, crea, supervisa y activa o desactiva empresas (cuenta raíz). */
   gestionarEmpresas: boolean
+  /** Consulta órdenes de compra, recepciones y el kárdex (con costos). */
+  verCompras: boolean
+  /** Crea, edita, emite y cancela órdenes y registra recepciones (Permisos.ADMIN_EMPRESA en el backend). */
+  gestionarCompras: boolean
+  /** Ajustes manuales de inventario (Permisos.ADMIN_EMPRESA en el backend). */
+  ajustarInventario: boolean
 }
 
 /**
@@ -82,6 +88,9 @@ export function calcularPermisos({ rol }: ContextoEmpresa): Permisos {
     gestionarCatalogos: adminEmpresa,
     gestionarInvitaciones: adminEmpresa,
     gestionarEmpresas: rol === 'SUPER_ADMIN',
+    verCompras: gestor,
+    gestionarCompras: adminEmpresa,
+    ajustarInventario: adminEmpresa,
   }
 }
 

@@ -13,6 +13,14 @@ public final class Permisos {
      */
     public static final String GESTION = "hasAnyRole('SUPER_ADMIN', 'ADMIN_EMPRESA')";
 
+    /**
+     * Operaciones de compras e inventario que mueven mercancía o compromisos con proveedores
+     * (órdenes, recepciones, ajustes): solo el administrador de la empresa. El SUPER_ADMIN las
+     * consulta en supervisión, pero no las ejecuta (las FK compuestas de autoría lo exigen
+     * también en la BD).
+     */
+    public static final String ADMIN_EMPRESA = "hasRole('ADMIN_EMPRESA')";
+
     /** Personas de una empresa (no el SUPER_ADMIN): p. ej. crear solicitudes. */
     public static final String MIEMBRO_EMPRESA = "hasAnyRole('ADMIN_EMPRESA', 'TRABAJADOR')";
 

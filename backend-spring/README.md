@@ -38,20 +38,24 @@ src/main/java/com/unisen/sgp
 │                      DetalleSolicitud…DTO, CambioEstadoSolicitudDTO), Patrones
 ├── repository/        UsuarioRepository, EmpresaRepository, CodigoInvitacionRepository, ProveedorRepository,
 │                      ProductoRepository, SolicitudRepository, DetalleSolicitudRepository,
-│                      ProductoReferenciaRepository
+│                      ProductoReferenciaRepository, ProveedorReferenciaRepository,
+│                      OrdenCompraRepository, RecepcionRepository, ExistenciaRepository,
+│                      MovimientoInventarioRepository, AnaliticaRepository (consultas agregadas)
 ├── security/          JwtUtil, JwtAuthenticationFilter, UsuarioPrincipal (UserDetails),
 │                      UsuarioDetailsService, UsuarioActual, CodigosInvitacion, Permisos,
 │                      CuentaNoAutorizadaException, entry point 401/403 y handler 403
 ├── tenant/            TenantContextHolder, TenantFilter, TenantIdentifierResolver
 └── service/           AuthService, UsuarioService, EmpresaService, ProveedorService,
-                       ProductoService, SolicitudService
+                       ProductoService, SolicitudService, OrdenCompraService, RecepcionService,
+                       InventarioService, AnaliticaService, CalendarioNegocio
 src/main/resources
 ├── application.yml
 └── db/migration/      V1 usuarios · V2 proveedores y productos · V3 username e invitaciones ·
                        V4 solicitudes internas y rol GERENTE · V5 multi-empresa y roles SaaS ·
                        V6 estado de usuario y código de empresa · V7 código empresarial ·
                        V8 roles ADMIN_EMPRESA y TRABAJADOR · V9 nombres y apellidos ·
-                       V10 revocación de invitaciones
+                       V10 revocación de invitaciones · V11 compras e inventario ·
+                       V12 código de barras
 ```
 
 ## Puesta en marcha (local)
@@ -93,6 +97,7 @@ e indica qué variable falta.
 | `CORS_ALLOWED_ORIGINS` | `https://rrtf.duckdns.org,http://localhost:5173` | Orígenes del frontend, separados por comas |
 | `ADMIN_USERNAME` | `admin` | Username del SUPER_ADMIN inicial (con él inicia sesión) |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NOMBRE` | vacío | Alta del SUPER_ADMIN inicial al arrancar, sin empresa (idempotente: no hace nada si su username o su correo ya existen) |
+| `APP_ZONA_HORARIA` | `America/Bogota` | Zona en la que la analítica cuenta los días (desfases de horas completas; se comprueba al arrancar) |
 | `SWAGGER_ENABLED` | `true` | Pon `false` en producción si no quieres exponer la documentación |
 | `SERVER_PORT` | `8081` | Puerto HTTP (Nginx reenvía `/api/` a `backend:8081`) |
 
@@ -120,16 +125,30 @@ e indica qué variable falta.
 | GET | `/api/v1/proveedores/{id}` | Bearer | `200` proveedor · `404` |
 | POST | `/api/v1/proveedores` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `201` + `Location` · `400` · `409` NIT duplicado |
 | PUT | `/api/v1/proveedores/{id}` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `200` · `400` · `404` · `409` |
-| DELETE | `/api/v1/proveedores/{id}` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `204` baja lógica · `409` si tiene productos activos |
+| DELETE | `/api/v1/proveedores/{id}` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `204` baja lógica · `409` si tiene productos activos u órdenes de compra abiertas |
 | GET | `/api/v1/productos` | Bearer | `200` página de productos activos con su proveedor |
 | GET | `/api/v1/productos/{id}` | Bearer | `200` producto · `404` |
-| POST | `/api/v1/productos` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `201` · `400` (incluye proveedor inexistente) · `409` SKU duplicado |
+| GET | `/api/v1/productos/buscar?codigo=` | Bearer (con empresa en el contexto) | `200` `{producto, existencias, estadoStock, coincidePor}` (código de barras exacto y, si no, SKU) · `400` sin empresa o código vacío · `404` · `409` solo coincide uno dado de baja |
+| POST | `/api/v1/productos` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `201` (con su fila de existencias a 0; `codigoBarras` y `stockMinimo` opcionales) · `400` (incluye proveedor inexistente) · `409` SKU o código de barras duplicado |
 | PUT | `/api/v1/productos/{id}` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `200` · `400` · `404` · `409` |
-| DELETE | `/api/v1/productos/{id}` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `204` baja lógica · `409` si está en solicitudes pendientes o aprobadas |
+| DELETE | `/api/v1/productos/{id}` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `204` baja lógica · `409` si está en solicitudes pendientes o aprobadas, en órdenes abiertas o le quedan existencias |
 | GET | `/api/v1/solicitudes?estado=` | Bearer | `200` página: TRABAJADOR solo las suyas, ADMIN_EMPRESA/SUPER_ADMIN todas (de la empresa) |
 | GET | `/api/v1/solicitudes/{id}` | Bearer | `200` con sus líneas · `404` si no existe o es de otro TRABAJADOR |
 | POST | `/api/v1/solicitudes` | Bearer | `201` PENDIENTE con el usuario autenticado · `400` |
 | PATCH | `/api/v1/solicitudes/{id}/estado` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `200` · `400` · `403` · `404` · `409` ya revisada |
+| GET | `/api/v1/analitica/global?desde=&hasta=` · `/global/empresas` | Bearer **SUPER_ADMIN con `X-Tenant-ID: global`** | `200` indicadores de la plataforma / página de órdenes por empresa · `400` período no válido o petición dentro de una empresa · `403` |
+| GET | `/api/v1/analitica/empresa?desde=&hasta=` | Bearer **ADMIN_EMPRESA / SUPER_ADMIN con `X-Tenant-ID: <id>`** | `200` inventario, compras, recepciones y estados de la empresa · `400` · `403` |
+| GET | `/api/v1/analitica/personal` | Bearer **ADMIN_EMPRESA / TRABAJADOR** | `200` disponibilidad de productos y solicitudes propias (sin ventas) |
+| GET | `/api/v1/ordenes-compra?estado=&proveedorId=&solicitudId=` · `/{id}` | Bearer **ADMIN_EMPRESA / SUPER_ADMIN con `X-Tenant-ID`** | `200` página / orden con líneas, total, recibido y pendiente · `404` |
+| POST | `/api/v1/ordenes-compra` | Bearer **ADMIN_EMPRESA** | `201` BORRADOR numerado · `400` proveedor o productos inválidos, de otro proveedor o repetidos |
+| PUT | `/api/v1/ordenes-compra/{id}` | Bearer **ADMIN_EMPRESA** | `200` · `409` si ya no es borrador |
+| POST | `/api/v1/ordenes-compra/{id}/emitir` · `/cancelar` | Bearer **ADMIN_EMPRESA** | `200` · `409` transición no permitida o catálogo cambiado |
+| POST | `/api/v1/ordenes-compra/desde-solicitud/{solicitudId}` | Bearer **ADMIN_EMPRESA** | `201` un borrador por proveedor · `404` · `409` no aprobada, ya tiene órdenes o productos dados de baja |
+| GET · POST | `/api/v1/ordenes-compra/{id}/recepciones` | GET gestión · POST **ADMIN_EMPRESA** | `201` registrada · `200` misma clave y mismos datos · `400` línea ajena, repetida o mayor que lo pendiente · `409` orden sin recepciones posibles o clave con otros datos |
+| GET | `/api/v1/recepciones` | Bearer **ADMIN_EMPRESA / SUPER_ADMIN con `X-Tenant-ID`** | `200` página |
+| GET | `/api/v1/inventario?estado=&q=` | Bearer (de la empresa) | `200` existencias de los productos activos (sin costos) |
+| GET | `/api/v1/inventario/movimientos?productoId=` | Bearer **ADMIN_EMPRESA / SUPER_ADMIN con `X-Tenant-ID`** | `200` kárdex |
+| POST | `/api/v1/inventario/ajustes` | Bearer **ADMIN_EMPRESA** | `201` · `200` misma clave · `400` · `409` existencias insuficientes |
 | GET | `/actuator/health` | Pública | `200` `{status: "UP"}` |
 | * | cualquier otra | Bearer | `401` sin token válido · `403` con token válido de una cuenta no autorizada |
 
@@ -243,9 +262,9 @@ volver a iniciar sesión.
 ## Tests
 
 ```bash
-./mvnw test        # 185 tests: H2 en modo PostgreSQL, sin dependencias externas
+./mvnw test        # 220 tests: H2 en modo PostgreSQL, sin dependencias externas
 
-# Contra PostgreSQL real (crea antes una BD vacía; Flyway aplica V1…V10 y quedan aplicadas):
+# Contra PostgreSQL real (crea antes una BD vacía; Flyway aplica V1…V12 y quedan aplicadas):
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/sgp_test \
 SPRING_DATASOURCE_USERNAME=sgp SPRING_DATASOURCE_PASSWORD=sgp ./mvnw test
 ```
@@ -253,7 +272,9 @@ SPRING_DATASOURCE_USERNAME=sgp SPRING_DATASOURCE_PASSWORD=sgp ./mvnw test
 Cubren `JwtUtil` (expiración, manipulación, otra clave, otro emisor, `alg: none`, claves
 débiles) y el flujo HTTP completo: login por username, validación, cuentas deshabilitadas,
 tokens antiguos, rutas protegidas, CORS, Swagger, health, el alta del administrador, las
-migraciones V3, V5, V6, V7 y V8–V10 sobre datos existentes, el ciclo de invitaciones (permisos, caducidad,
+migraciones V3, V5, V6, V7, V8–V10 y V11–V12 sobre datos existentes, la analítica, las órdenes de
+compra, las recepciones y el inventario (incluidas carreras simultáneas e idempotencia), el
+código de barras, el ciclo de invitaciones (permisos, caducidad,
 reutilización, duplicados sin consumir el código y dos canjes simultáneos), el aislamiento
 entre empresas, el onboarding del Hito 2 (ver [Identidad y onboarding](#identidad-y-onboarding))
 y la gestión centralizada de empresas (ver
@@ -574,12 +595,34 @@ requerido`: una ruta nueva (p. ej. ventas) nunca pierde el filtro de empresa por
 petición en modo global o en supervisión queda registrada (`Modo global: …`, `Supervisión: …`).
 La cabecera sigue ignorándose para ADMIN_EMPRESA y TRABAJADOR (`global` incluido).
 
+## Fase 2: analítica, compras, inventario y código de barras
+
+Informe por entregas en [`docs/auditoria-sgp.md`](../docs/auditoria-sgp.md) y diseño del POS
+(sin implementar) en [`docs/pos-diseno.md`](../docs/pos-diseno.md).
+
+```
+Solicitud APROBADA ── desde-solicitud ──→ OrdenCompra BORRADOR (una por proveedor)
+BORRADOR ── emitir ──→ EMITIDA ── recepciones ──→ RECIBIDA_PARCIALMENTE ──→ RECIBIDA
+BORRADOR | EMITIDA (sin mercancía) ── cancelar (motivo) ──→ CANCELADA
+Recepción ──→ existencias (+) y un movimiento RECEPCION por línea, en una transacción
+Ajuste (motivo) ──→ existencias (±, nunca < 0) y un movimiento AJUSTE
+```
+
+- **Aislamiento:** todas las tablas nuevas llevan `empresa_id` (`@TenantId`) y FK compuestas
+  `(empresa_id, x_id)` hacia proveedores, productos, solicitudes, usuarios y entre sí.
+- **Concurrencia:** la orden se bloquea en cada transición o recepción; las existencias, siempre
+  en orden de producto; la numeración, con la fila de la empresa bloqueada.
+- **Idempotencia:** recepciones y ajustes llevan `claveIdempotencia` (única por empresa).
+- **Analítica:** consultas agregadas en la BD; días de Colombia calculados desde horas UTC
+  (`floor(extract(epoch) / 3600)`), porque H2 no aplica bien `AT TIME ZONE`.
+- **Valoración:** cada movimiento guarda su costo factual; el costo promedio es una decisión pendiente.
+
 ## Fuera de alcance de este hito
 
-Órdenes de compra y recepciones; reactivación de registros dados de baja; búsqueda en catálogos
-y en el listado de empresas; refresh tokens; listado y revocación de invitaciones; cambio de rol
+Ventas/POS (solo diseño); impuestos y descuentos en órdenes; valoración del inventario; reactivación de registros dados de baja; búsqueda en catálogos
+y en el listado de empresas; refresh tokens; cambio de rol
 de un usuario (p. ej. ascender a ADMIN_EMPRESA) y alta de administradores adicionales; cambio y recuperación de
 contraseña (también la inicial del administrador); edición de los datos de una empresa y
-regeneración de su código de registro; supervisión de solo lectura impuesta por el backend (hoy
-lo es en la interfaz); tabla de auditoría (hoy, registro en el log); nombre de la empresa en el
+regeneración de su código de registro; supervisión de solo lectura impuesta por el backend en los
+módulos anteriores a la Fase 2 (en compras e inventario ya la impone); tabla de auditoría (hoy, registro en el log); nombre de la empresa en el
 login; límite de intentos de registro y de login; edición o cancelación de solicitudes.

@@ -16,6 +16,15 @@ public final class Patrones {
     public static final String SKU = "^[A-Z0-9._-]{3,40}$";
 
     /**
+     * Código de barras: de 3 a 64 caracteres sin espacios (dígitos de EAN/UPC con sus ceros a la
+     * izquierda, o alfanuméricos de Code 128/39). Coincide con {@code ck_productos_codigo_barras}.
+     */
+    public static final String CODIGO_BARRAS = "^[0-9A-Za-z._/+-]{3,64}$";
+
+    /** Clave de idempotencia generada por el cliente (p. ej. un UUID): 8 a 64 letras, dígitos o guiones. */
+    public static final String CLAVE_IDEMPOTENCIA = "^[A-Za-z0-9-]{8,64}$";
+
+    /**
      * 3 a 50 caracteres en minúsculas: letras, números, punto, guion y guion bajo; empieza y
      * termina con letra o número. Se valida tras normalizar a minúsculas.
      */

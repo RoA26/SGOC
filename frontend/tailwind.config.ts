@@ -51,6 +51,14 @@ export default {
           surface: token('color-success-surface'),
           border: token('color-success-border'),
         },
+        warning: {
+          DEFAULT: token('color-warning'),
+          surface: token('color-warning-surface'),
+          border: token('color-warning-border'),
+        },
+        viz: {
+          1: token('viz-series-1'),
+        },
         focus: token('color-focus'),
       },
       fontFamily: {

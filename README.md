@@ -100,6 +100,12 @@ directamente) o con el código de registro secreto de su empresa (quedan pendien
 administrador los aprueba). Detalle en
 [backend-spring/README.md](backend-spring/README.md#gestión-centralizada-de-empresas).
 
+**Al actualizar a la Fase 2 (V11–V12):** nada se borra. V11 crea órdenes de compra,
+recepciones, existencias y movimientos de inventario; cada producto existente recibe su fila de
+existencias con 0 unidades (regístralas con un ajuste de *Inventario inicial*) y `stock_minimo`
+0; las líneas de solicitud guardan su empresa. V12 añade el código de barras (opcional). Los días
+de la analítica se cuentan en `APP_ZONA_HORARIA` (por defecto `America/Bogota`).
+
 **Al actualizar a la Fase 1 (V8–V10):** ninguna cuenta pierde el acceso ni hay que volver a
 iniciar sesión. V8 renombra los roles (`GERENTE` → `ADMIN_EMPRESA`, `USUARIO` → `TRABAJADOR`);
 los tokens emitidos siguen valiendo (el rol se lee de la BD) y la interfaz traduce la sesión
@@ -205,6 +211,14 @@ Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, si
 | GET · POST · PUT · DELETE | `/api/v1/productos[/{id}]` | Detalle, alta, edición y baja lógica |
 | GET · POST | `/api/v1/solicitudes[?estado=]` | TRABAJADOR ve y crea las suyas; ADMIN_EMPRESA ve las de su empresa; SUPER_ADMIN consulta |
 | PATCH | `/api/v1/solicitudes/{id}/estado` | ADMIN_EMPRESA, o SUPER_ADMIN con `X-Tenant-ID: <id>`: `{estado: APROBADA \| RECHAZADA, comentario}` |
+| GET | `/api/v1/analitica/global[/empresas]?desde=&hasta=` | SUPER_ADMIN con `X-Tenant-ID: global`: empresas, órdenes emitidas, top 5, evolución por día/mes y órdenes por empresa |
+| GET | `/api/v1/analitica/empresa?desde=&hasta=` · `/personal` | Indicadores de la empresa (gestión) y personales (sin ventas) |
+| GET · POST · PUT | `/api/v1/ordenes-compra[/{id}]` | Gestión consulta; ADMIN_EMPRESA crea y edita borradores (un proveedor por orden) |
+| POST | `/api/v1/ordenes-compra/{id}/emitir` · `/cancelar` · `/desde-solicitud/{solicitudId}` | ADMIN_EMPRESA: transiciones validadas y borradores desde una solicitud aprobada |
+| GET · POST | `/api/v1/ordenes-compra/{id}/recepciones` · `GET /api/v1/recepciones` | Recepciones parciales o totales, idempotentes (`claveIdempotencia`) |
+| GET | `/api/v1/inventario[?estado=&q=]` · `/movimientos` | Existencias (toda la empresa) y kárdex (gestión) |
+| POST | `/api/v1/inventario/ajustes` | ADMIN_EMPRESA: ajuste con motivo, sin existencias negativas, idempotente |
+| GET | `/api/v1/productos/buscar?codigo=` | Escáner: código de barras exacto y, si no, SKU, en la empresa del contexto |
 
 Lecturas: cualquier usuario autenticado (de su empresa). Altas, cambios y bajas de catálogos:
 `ADMIN_EMPRESA` o `SUPER_ADMIN` dentro de una empresa. El SUPER_ADMIN debe elegir siempre el
@@ -218,9 +232,9 @@ El SGOC es multi-empresa: cada empresa cliente ve solo sus datos y el backend lo
 
 | Rol | Empresa de trabajo | Menú |
 | --- | --- | --- |
-| `TRABAJADOR` («Trabajador») | La suya (de la sesión) | Inicio · Mis solicitudes · Órdenes relacionadas (próximamente) |
-| `ADMIN_EMPRESA` («Administrador») | La suya (de la sesión) | Inicio · Solicitudes · Órdenes de compra y Recepciones (próximamente) · Productos · Proveedores · Invitar usuarios |
-| `SUPER_ADMIN` | Ninguna (modo global) o la que supervisa | Inicio · Solicitudes · Productos · Proveedores (consulta) · Empresas |
+| `TRABAJADOR` («Trabajador») | La suya (de la sesión) | Inicio · Mis solicitudes · Existencias |
+| `ADMIN_EMPRESA` («Administrador») | La suya (de la sesión) | Inicio · Solicitudes · Órdenes de compra · Recepciones · Existencias · Productos · Proveedores · Invitar usuarios |
+| `SUPER_ADMIN` | Ninguna (modo global) o la que supervisa | Inicio · Solicitudes · Órdenes de compra · Recepciones · Existencias · Productos · Proveedores (consulta) · Empresas |
 
 - **Panel lateral:** muestra el nombre comercial y el código de la empresa, el nombre real del
   usuario (enlace a *Mi perfil*) y su rol, según `GET /api/auth/me`, que la interfaz consulta al
@@ -233,7 +247,7 @@ El SGOC es multi-empresa: cada empresa cliente ve solo sus datos y el backend lo
   **solo lectura** (sigue siendo SUPER_ADMIN: no hay suplantación de ningún usuario). La elección
   dura la pestaña (sessionStorage), se borra al cerrar sesión y *Volver al modo global* la quita.
   ADMIN_EMPRESA y TRABAJADOR nunca envían la cabecera (el backend la ignoraría).
-- **Rutas protegidas:** `/productos` y `/proveedores` para ADMIN_EMPRESA y SUPER_ADMIN;
+- **Rutas protegidas:** `/productos`, `/proveedores`, `/ordenes-compra[/:id]` y `/recepciones` para ADMIN_EMPRESA y SUPER_ADMIN; `/inventario` para todos;
   `/admin/invitaciones` solo para ADMIN_EMPRESA; `/perfil` para todos; `/admin/empresas[/:id]` solo para SUPER_ADMIN; el
   resto vuelve al inicio.
 - **Sesiones anteriores** (con el rol `ADMIN`, que ya no existe) se descartan y piden iniciar
@@ -243,14 +257,28 @@ El SGOC es multi-empresa: cada empresa cliente ve solo sus datos y el backend lo
   al volver a entrar, el login muestra el motivo. Un `403` sin `motivo` (falta de permisos para
   una acción) no la cierra.
 
-**Flujo de compra:** Necesidad → Solicitud → Aprobación → Orden de compra → Recepción. Hoy el
-backend cubre hasta la aprobación; *Órdenes de compra* y *Recepciones* aparecen como
-"Próximamente" y una solicitud aprobada muestra "Generar orden de compra" deshabilitado.
+**Flujo de compra:** Necesidad → Solicitud → Aprobación → Orden de compra → Recepción, completo.
+Una solicitud aprobada ofrece al administrador *Generar órdenes de compra* (un borrador por
+proveedor); la orden se edita, se emite y recibe mercancía en una o varias entregas, que suman
+existencias y quedan en el kárdex.
 
-**Inicio:** solicitudes pendientes, aprobadas y rechazadas (de la empresa, o las propias para un
-TRABAJADOR), actividad reciente y accesos a *Nueva solicitud* y *Revisar pendientes*. Saluda con
-los nombres de la persona («Hola, Light») y, si su cuenta es anterior a V9, la invita a completar
-sus nombres y apellidos.
+**Inicio:** un dashboard por contexto con cifras que calcula el backend (nunca inventadas):
+plataforma para el SUPER_ADMIN en modo global (empresas, órdenes emitidas, evolución, top 5 y
+órdenes por empresa), empresa para el administrador o el SUPER_ADMIN que la supervisa (inventario,
+compras del período, recepciones, órdenes y solicitudes por estado, productos que requieren
+atención) y personal para el trabajador (disponibilidad y sus solicitudes; sin ventas hasta que
+exista el POS). Filtro de período (7/30/90 días, 12 meses o personalizado), vista de tabla de
+cada gráfica y estados de carga, error y "sin datos". Saluda con los nombres de la persona y, si
+su cuenta es anterior a V9, la invita a completar sus nombres y apellidos.
+
+**Órdenes de compra (`/ordenes-compra`):** listado con filtros por estado y por solicitud de
+origen; ficha con líneas (pedido, recibido, pendiente), historial de recepciones y las acciones
+que admite su estado (editar, emitir, registrar recepción, cancelar con motivo). El SUPER_ADMIN
+las consulta en solo lectura.
+
+**Existencias (`/inventario`):** buscador por código de barras o SKU (los lectores USB/Bluetooth
+funcionan como teclado: código + Enter), existencias con su estado frente al stock mínimo,
+ajustes con motivo (ADMIN_EMPRESA) y kárdex (gestión). El trabajador consulta sin costos.
 
 **Mi perfil (`/perfil`):** nombre real, usuario de acceso (no es el nombre visible), correo, rol
 («Administrador de empresa», «Trabajador»…) y empresa; formulario para completar o corregir los
@@ -294,8 +322,9 @@ revocar una vigente, con confirmación.
 | Registro con código de empresa y aprobación de trabajadores | Endpoints ya disponibles (Hito 2); falta la interfaz |
 | Cambio de contraseña (también la inicial del administrador) y recuperación | Sin definir: hoy no hay ningún mecanismo |
 | Empresa de cada solicitud en modo global | `empresaId`/`empresaNombre` en `SolicitudResponseDTO` |
-| Órdenes de compra y sus estados | `/api/v1/ordenes-compra` (crear desde una solicitud aprobada, listar, detalle, cambiar estado) |
-| Recepciones (también parciales) | `/api/v1/ordenes-compra/{id}/recepciones` |
+| Impuestos y descuentos en las órdenes; cierre de una orden con saldo pendiente | Pendiente de decisión |
+| Valoración del inventario (costo promedio) | Propuesta documentada en `docs/pos-diseno.md`, pendiente de validación contable |
+| Ventas (POS) | Solo diseño: `docs/pos-diseno.md` |
 | Gestión de administradores (alta de más administradores, cambio de rol) | Sin definir; el SUPER_ADMIN ya desactiva o reactiva sus cuentas y los trabajadores se gestionan con `/api/v1/trabajadores` |
 | Edición de la ficha de la empresa (nombre, NIT) | `PUT /api/v1/empresas/{id}`; el código empresarial es estable y no se edita |
 | Reportes | Sin definir |
@@ -303,6 +332,6 @@ revocar una vigente, con confirmación.
 ## Calidad
 
 ```bash
-cd backend-spring && ./mvnw test                  # 170 tests
+cd backend-spring && ./mvnw test                  # 220 tests
 cd frontend && npm run lint && npm run build      # oxlint + TypeScript estricto
 ```

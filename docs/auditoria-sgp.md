@@ -194,3 +194,188 @@ cambio de contraseña; gestión de varios administradores por empresa.
 Fase 2: auditar con la otra sesión el modelo de órdenes de compra y definir el de recepciones e
 inventario (movimientos con bloqueo por producto), incluida la FK compuesta de
 `detalles_solicitud`. Después, el diseño de ventas de la Fase 3 para revisión.
+
+## Fase 2: analítica, compras, inventario y preparación del POS
+
+### 2.0 Diagnóstico (Fase 0)
+
+**Git.** Rama de trabajo = `main` = `6fc198c`, sin cambios pendientes. La rama
+`claude/purchase-order-hito-1-7jpnkw` sigue en `c8886f3` sin commits propios: no existe un modelo
+previo de órdenes que reutilizar ni con el que pueda haber duplicados.
+
+| Área | Estado real | Evidencia |
+| --- | --- | --- |
+| Dashboard del SUPER_ADMIN | Pendiente | `Inicio` solo muestra conteos de solicitudes; no hay ningún endpoint de métricas |
+| Dashboard del ADMIN_EMPRESA | Parcial | Conteos de solicitudes calculados en el cliente (tres peticiones `size=1` al listado); nada de productos, stock ni órdenes |
+| Dashboard del TRABAJADOR | Parcial | Las mismas tarjetas, con sus solicitudes |
+| Biblioteca de gráficas | No existe | `package.json` no incluye ninguna |
+| Órdenes de compra | Pendiente (solo avisos en la interfaz) | Menú «Próximamente» y botón deshabilitado «Generar orden de compra»; sin tablas ni endpoints |
+| Recepciones | Pendiente | Ídem |
+| Existencias y movimientos | Pendiente | Sin tabla de stock, de movimientos ni stock mínimo |
+| Código de barras | Pendiente | Los productos solo tienen SKU (único por empresa) |
+| Precio de venta | Pendiente | `productos.precio` es único: hoy actúa como precio de referencia de compra (estimado de las solicitudes) |
+| POS | Pendiente (fuera del alcance de esta fase) | — |
+
+Dependencias y limitaciones técnicas que condicionan el diseño:
+
+1. `productos` y `solicitudes` no tienen `UNIQUE (empresa_id, id)`: no pueden ser destino de las FK
+   compuestas que impiden cruzar empresas en la BD. `detalles_solicitud` no tiene `empresa_id`
+   (riesgo 6 de la Fase 1).
+2. Proveedores y productos usan borrado lógico con `@SQLRestriction`: los documentos históricos
+   (órdenes, recepciones, movimientos) necesitan vistas de solo lectura, como `ProductoReferencia`.
+3. **Zona horaria.** Los instantes se guardan en UTC; los «días» del negocio son de Colombia
+   (UTC−5, sin horario de verano). H2, la BD de los tests, no aplica bien `AT TIME ZONE`
+   (comprobado: `03:00Z` del 16/10 da 16/10 en vez de 15/10), así que agrupar por día no puede
+   depender de las funciones de zona de la BD.
+4. La analítica de compras depende de las Entregas B y C: primero se crea el modelo (V11) y la
+   analítica se calcula sobre él; mientras no haya órdenes responde «sin datos», no ceros inventados.
+5. El modo soporte del SUPER_ADMIN (escrituras con `X-Tenant-ID: <id>`) sigue sin decidir: en los
+   módulos nuevos las escrituras quedan reservadas al ADMIN_EMPRESA y el SUPER_ADMIN solo consulta.
+
+Orden de trabajo: modelo (V11, V12) → A → B → C → D → interfaz → diseño del POS (E).
+
+### 2.1 Modelo de datos común (V11 y V12)
+
+- **V11 — compras e inventario** (no destructiva): `UNIQUE (empresa_id, id)` en productos y
+  solicitudes; `detalles_solicitud.empresa_id` rellenada desde su solicitud, con FK compuestas
+  (cierra el riesgo 6 de la Fase 1); `productos.stock_minimo` (0 por defecto); tablas
+  `ordenes_compra`, `detalles_orden_compra`, `recepciones`, `detalles_recepcion`, `existencias`
+  (una fila por producto, rellenada a 0 para los existentes) y `movimientos_inventario`. Todas con
+  `empresa_id`, FK compuestas `(empresa_id, x_id)` —también la de autoría hacia `usuarios`— y
+  CHECK de estados, cantidades y coherencia (emitida ⇒ quién y cuándo; cancelada ⇒ motivo;
+  recibido ≤ pedido; existencias ≥ 0).
+- **V12 — código de barras:** `productos.codigo_barras VARCHAR(64)` opcional, `UNIQUE
+  (empresa_id, codigo_barras)` y CHECK de formato.
+- **Verificado:** prueba de migración V10 → V12 en H2 con datos de dos empresas; en PostgreSQL,
+  actualización real de la BD de la Fase 1 (V10 con usuarios, invitaciones, proveedor, productos y
+  una solicitud): 2 migraciones aplicadas en 0,16 s, existencias creadas a 0 y líneas de solicitud
+  con la empresa correcta. Ningún dato se perdió.
+
+### 2.2 Matriz de permisos de los módulos nuevos (verificada en el backend)
+
+| Recurso | SUPER_ADMIN | ADMIN_EMPRESA | TRABAJADOR |
+| --- | --- | --- | --- |
+| `GET /analitica/global[/empresas]` | Sí, solo con `X-Tenant-ID: global` (con `<id>` → 400) | 403 | 403 |
+| `GET /analitica/empresa` | Supervisando (`<id>`) | Su empresa | 403 |
+| `GET /analitica/personal` | 403 | Sí | Sí (sus solicitudes) |
+| Órdenes y recepciones: consultar | Supervisión o global | Su empresa | 403 |
+| Órdenes: crear, editar, emitir, cancelar; registrar recepciones | 403 | Su empresa | 403 |
+| Existencias: consultar | Supervisión o global | Su empresa | Su empresa (sin costos) |
+| Kárdex | Supervisión o global | Su empresa | 403 |
+| Ajustes de inventario | 403 | Su empresa | 403 |
+| `GET /productos/buscar?codigo=` | Solo supervisando (global → 400) | Su empresa | Su empresa |
+
+Las escrituras de compras e inventario quedan reservadas al ADMIN_EMPRESA (nuevo
+`Permisos.ADMIN_EMPRESA`); las FK de autoría lo impiden también en la BD. El modo soporte de
+escritura del SUPER_ADMIN en los módulos antiguos sigue pendiente de decisión.
+
+### 2.3 Entrega A — analítica
+
+1. **Implementado:** `/api/v1/analitica/global`, `/global/empresas` (paginado), `/empresa` y
+   `/personal`, con agregaciones COUNT/SUM/GROUP BY en la BD (número fijo de consultas,
+   comprobado con estadísticas de Hibernate), período `desde`/`hasta` validado (por defecto 30
+   días, máx. 366, nunca futuro), días contados en hora de Colombia y `totalHistorico` para
+   distinguir "sin datos" de "cero". Dashboards por rol en *Inicio* con indicadores, columnas por
+   día/mes, barras horizontales, lista de productos en alerta, vista de tabla, teclado y estados
+   de carga, error y vacío. Sin indicadores de ventas.
+2. **Reutilizado:** filtro de empresa (`@TenantId`), `TenantFilter` (modo global explícito),
+   `Permisos`, `DataTable`, `usePaginatedResource`, tokens de la marca.
+3. **Archivos:** `AnaliticaController`, `AnaliticaService`, `AnaliticaRepository`,
+   `CalendarioNegocio`, `NegocioProperties`, `AnaliticaDTO`, `ModoGlobalRequeridoException`;
+   frontend `features/analitica/*`, `components/charts/*`, `StatTile`, `useRecurso`,
+   `lib/periodo.ts`, `lib/numeros.ts`, `pages/Inicio.tsx`.
+4. **Migraciones:** ninguna propia (usa V11).
+5. **Pruebas:** `AnaliticaTest` (8): autorización global/empresa/personal, modo global
+   obligatorio, validación del período y granularidad, ceros reales vs. sin datos, aislamiento
+   entre dos empresas con valores conocidos, días de Colombia (22:00 en Bogotá cuenta en su día) y
+   consultas constantes con más datos.
+6. **Limitaciones:** el agrupamiento por hora UTC exige zonas con desfases de horas completas (se
+   valida al arrancar); sin caché (evaluado: consultas indexadas y acotadas a 366 días). No existe
+   estado "pendiente" de empresa en el modelo, así que no se muestra.
+7. **Pendiente:** ventas del día (requiere el POS).
+8. **Siguiente paso:** medir los tiempos de las consultas con volumen real antes de plantear caché.
+
+Gráficas sin dependencias nuevas (SVG propio). Color de la serie validado con el validador de
+paletas contra la superficie clara y oscura de la marca (banda, croma, contraste ≥ 3:1).
+
+### 2.4 Entrega B — órdenes de compra
+
+1. **Implementado:** CRUD de borradores, número correlativo por empresa (fila de la empresa
+   bloqueada), emisión, cancelación con motivo, transiciones validadas en la entidad con la orden
+   bloqueada, generación desde una solicitud APROBADA (un borrador por proveedor, sin duplicados
+   aunque se pida a la vez), proveedor y productos validados en la empresa y del mismo proveedor,
+   re-validación del catálogo al emitir, bajas de productos y proveedores bloqueadas con órdenes
+   abiertas. Interfaz: listado con filtros, ficha, formulario, emisión y cancelación; botón
+   "Generar órdenes de compra" en la solicitud aprobada.
+2. **Reutilizado:** patrón de `ProductoReferencia` (nuevo `ProveedorReferencia` para órdenes
+   históricas), bloqueo pesimista de `SolicitudRepository`, `EntidadAuditable`.
+3. **Archivos:** `OrdenCompra`, `DetalleOrdenCompra`, `EstadoOrdenCompra`, `OrdenCompraService`,
+   `OrdenCompraController`, DTO de orden, repositorios; `ProductoService`/`ProveedorService`
+   (bajas); frontend `features/ordenes/*`, `pages/OrdenesCompra.tsx`, `OrdenCompraDetalle.tsx`.
+4. **Migraciones:** V11.
+5. **Pruebas:** `OrdenCompraTest` (11), incluidas la carrera de 4 generaciones simultáneas de la
+   misma solicitud (una sola orden) y 6 altas simultáneas (números 1–6 sin huecos ni repetidos),
+   e ids manipulados de otra empresa en cada endpoint (404 o campo inválido, sin efectos).
+6. **Limitaciones:** sin descuentos ni impuestos en las líneas (costo unitario pactado); la
+   cantidad solicitada no se duplica en la orden (está en la solicitud enlazada); una orden
+   recibida en parte no se puede cerrar con saldo pendiente (decisión pendiente: estado de cierre).
+7. **Pendiente:** impuestos/descuentos, envío de la orden al proveedor (PDF/correo).
+8. **Siguiente paso:** decidir la política de cierre de saldos y la de impuestos.
+
+### 2.5 Entrega C — recepciones e inventario
+
+1. **Implementado:** recepciones parciales y totales (solo lo efectivamente recibido; nunca más
+   de lo pendiente), existencias por producto, kárdex inmutable con saldo resultante, usuario,
+   fecha, origen y costo factual, ajustes manuales con motivo (inventario inicial, conteo, merma),
+   idempotencia por clave del cliente (mismos datos → 200 con lo ya registrado; otros → 409) y
+   todo en una transacción. Interfaz: registro de recepción, historial, página de existencias con
+   filtros, ajustes y kárdex.
+2. **Reutilizado:** bloqueo pesimista, `GlobalExceptionHandler` (nuevas restricciones mapeadas).
+3. **Archivos:** `Recepcion`, `DetalleRecepcion`, `Existencia`, `MovimientoInventario`,
+   `TipoMovimiento`, `EstadoStock`, `RecepcionService`, `InventarioService`, controladores y DTO;
+   frontend `features/inventario/*`, `RecepcionModal`, `pages/Inventario.tsx`, `Recepciones.tsx`.
+4. **Migraciones:** V11.
+5. **Pruebas:** `RecepcionInventarioTest` (10): 4 recepciones simultáneas sobre lo pendiente
+   (solo una entra, 3 rondas), la misma clave enviada 4 veces a la vez (una sola recepción), 5
+   retiros simultáneos sobre 10 unidades (3 entran, saldos 10→7→4→1), todo o nada ante errores,
+   aislamiento y permisos. En PostgreSQL con bloqueos reales.
+6. **Valoración (decisión documentada, sin cálculos financieros nuevos):** el costo del catálogo
+   no se usa como costo de las existencias. Cada entrada guarda su costo factual (el de la orden o
+   el del ajuste). Propuesta pendiente de validación contable: costo promedio ponderado
+   (`costo_promedio` en existencias, recalculado en cada entrada). Detalle en `docs/pos-diseno.md` §8.
+7. **Pendiente:** cantidades reservadas (POS), unidades de medida y cantidades fraccionarias,
+   entregas excedentes (hoy rechazadas de forma explícita), devoluciones a proveedor.
+8. **Siguiente paso:** aprobar la estrategia de valoración.
+
+### 2.6 Entrega D — código de barras
+
+1. **Implementado:** campo opcional (vacío = sin código), texto que conserva ceros a la
+   izquierda, único por empresa (repetible entre empresas), `GET /productos/buscar?codigo=` con la
+   empresa del contexto (nunca un `empresa_id` del cliente; en modo global, 400), coincidencia
+   exacta por código de barras y después por SKU, preferencia por productos activos, 409 si solo
+   coincide uno dado de baja, 404 si no existe. Interfaz: campo en el formulario (el Enter del
+   lector pasa al campo siguiente) y buscador por escáner en *Existencias*.
+2. **Reutilizado:** `ProductoReferencia`, convención de restricciones únicas del SKU.
+3. **Archivos:** `Producto`, `ProductoRequestDTO`/`ResponseDTO`, `ProductoService`,
+   `ProductoController`, `Patrones`; frontend `BuscadorCodigo`, `ProductoFormModal`, esquemas.
+4. **Migraciones:** V12.
+5. **Pruebas:** `CodigoBarrasTest` (5) y la prueba de migración.
+6. **Limitaciones:** un código por producto; no se normalizan mayúsculas (Code 128 distingue).
+7. **Pendiente:** varios códigos por producto (presentaciones, códigos del proveedor) en una tabla propia.
+8. **Siguiente paso:** decidirlo junto con el POS.
+
+### 2.7 Entrega E — diseño del POS
+
+Solo diseño, en `docs/pos-diseno.md`: entidades, contratos, flujo, permisos, concurrencia,
+comprobante interno sin valor fiscal (la facturación electrónica no está implementada ni se
+afirma su cumplimiento) y diez decisiones pendientes.
+
+### 2.8 Validación ejecutada (resultados reales)
+
+| Verificación | Resultado |
+| --- | --- |
+| Backend en H2 (`mvn test`) | 220 tests, 0 fallos (185 anteriores + 35 nuevos) |
+| Misma suite contra PostgreSQL 16 | 220 tests, 0 fallos |
+| Actualización V10 → V12 en PostgreSQL con los datos de la Fase 1 | Correcta |
+| Frontend `npm run lint`, `tsc -b` y `npm run build` | Sin avisos ni errores |
+| Recorrido en navegador (Playwright) sobre los datos migrados | 12/12 comprobaciones, sin errores de consola (modo oscuro, claro y móvil de 390 px) |

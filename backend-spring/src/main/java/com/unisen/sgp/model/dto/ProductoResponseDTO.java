@@ -7,9 +7,11 @@ import java.time.Instant;
 public record ProductoResponseDTO(
         Long id,
         String sku,
+        String codigoBarras,
         String nombre,
         String descripcion,
         BigDecimal precio,
+        int stockMinimo,
         ProveedorResumenDTO proveedor,
         Instant creadoEn,
         Instant actualizadoEn) {
@@ -19,9 +21,11 @@ public record ProductoResponseDTO(
         return new ProductoResponseDTO(
                 producto.getId(),
                 producto.getSku(),
+                producto.getCodigoBarras(),
                 producto.getNombre(),
                 producto.getDescripcion(),
                 producto.getPrecio(),
+                producto.getStockMinimo(),
                 ProveedorResumenDTO.from(producto.getProveedor()),
                 producto.getCreadoEn(),
                 producto.getActualizadoEn());

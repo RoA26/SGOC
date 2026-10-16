@@ -10,7 +10,7 @@ import { productoSchema, type ProductoFormValues, type ProductoPayload } from '@
 import { productoService, type Producto } from '@/services/productoService'
 import { useProveedoresStore } from '@/store/proveedoresStore'
 
-const CAMPOS = ['sku', 'nombre', 'descripcion', 'precio', 'proveedorId'] as const
+const CAMPOS = ['sku', 'codigoBarras', 'nombre', 'descripcion', 'precio', 'stockMinimo', 'proveedorId'] as const
 
 /** Oculta las flechas nativas del input numérico (Chrome/Safari/Edge y Firefox). */
 const SIN_FLECHAS =
@@ -46,14 +46,17 @@ export function ProductoFormModal({ producto, onClose, onSaved }: ProductoFormMo
     control,
     handleSubmit,
     setError,
+    setFocus,
     formState: { errors, isSubmitting },
   } = useForm<ProductoFormValues, unknown, ProductoPayload>({
     resolver: zodResolver(productoSchema),
     defaultValues: {
       sku: producto?.sku ?? '',
+      codigoBarras: producto?.codigoBarras ?? '',
       nombre: producto?.nombre ?? '',
       descripcion: producto?.descripcion ?? '',
       precio: producto?.precio ?? Number.NaN,
+      stockMinimo: producto?.stockMinimo ?? 0,
       proveedorId: producto?.proveedor.id ?? Number.NaN,
     },
   })
@@ -120,6 +123,45 @@ export function ProductoFormModal({ producto, onClose, onSaved }: ProductoFormMo
               step="500"
               min="0"
               // La rueda del ratón cambiaría el valor sin querer al desplazar el modal.
+              onWheel={(event) => event.currentTarget.blur()}
+              className={`u-input tabular-nums ${SIN_FLECHAS}`}
+            />
+          )}
+        </FormField>
+
+        <FormField
+          label="Código de barras"
+          error={errors.codigoBarras?.message}
+          hint="Opcional. Escanéalo o escríbelo; se conservan los ceros a la izquierda."
+        >
+          {(fieldControl) => (
+            <input
+              {...fieldControl}
+              {...register('codigoBarras')}
+              className="u-input font-mono"
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              maxLength={64}
+              // El lector termina cada lectura con Enter: aquí pasa al campo siguiente en vez de guardar.
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  setFocus('nombre')
+                }
+              }}
+            />
+          )}
+        </FormField>
+
+        <FormField label="Stock mínimo" error={errors.stockMinimo?.message} hint="Con estas unidades o menos, stock crítico. 0 = sin mínimo.">
+          {(fieldControl) => (
+            <input
+              {...fieldControl}
+              {...register('stockMinimo', { valueAsNumber: true })}
+              type="number"
+              inputMode="numeric"
+              min="0"
               onWheel={(event) => event.currentTarget.blur()}
               className={`u-input tabular-nums ${SIN_FLECHAS}`}
             />

@@ -18,8 +18,8 @@ import org.hibernate.annotations.SQLRestriction;
 /**
  * Producto del catálogo, suministrado por un único proveedor.
  *
- * <p>También usa borrado lógico: las futuras órdenes de compra lo referenciarán y un borrado
- * físico rompería ese histórico.
+ * <p>También usa borrado lógico: órdenes de compra, recepciones y movimientos de inventario lo
+ * referencian y un borrado físico rompería ese histórico.
  */
 @Entity
 @Table(name = "productos")
@@ -35,6 +35,13 @@ public class Producto extends EntidadAuditable {
     @Column(nullable = false, length = 40)
     private String sku;
 
+    /**
+     * Opcional y único por empresa (uq_productos_codigo_barras). Texto: conserva los ceros a la
+     * izquierda de EAN/UPC.
+     */
+    @Column(name = "codigo_barras", length = 64)
+    private String codigoBarras;
+
     @Column(nullable = false, length = 150)
     private String nombre;
 
@@ -43,6 +50,10 @@ public class Producto extends EntidadAuditable {
 
     @Column(nullable = false, precision = 14, scale = 2)
     private BigDecimal precio;
+
+    /** Con existencias iguales o inferiores, el producto está en stock crítico. 0 = sin mínimo. */
+    @Column(name = "stock_minimo", nullable = false)
+    private int stockMinimo;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "proveedor_id", nullable = false)
@@ -55,21 +66,31 @@ public class Producto extends EntidadAuditable {
     protected Producto() {
     }
 
-    public Producto(String sku, String nombre, String descripcion, BigDecimal precio, Proveedor proveedor) {
-        asignarDatos(sku, nombre, descripcion, precio, proveedor);
+    public Producto(Datos datos, Proveedor proveedor) {
+        asignarDatos(datos, proveedor);
     }
 
-    public void actualizar(String sku, String nombre, String descripcion, BigDecimal precio, Proveedor proveedor) {
-        asignarDatos(sku, nombre, descripcion, precio, proveedor);
+    public void actualizar(Datos datos, Proveedor proveedor) {
+        asignarDatos(datos, proveedor);
     }
 
-    private void asignarDatos(String sku, String nombre, String descripcion, BigDecimal precio, Proveedor proveedor) {
-        this.sku = Objects.requireNonNull(sku, "sku");
-        this.nombre = Objects.requireNonNull(nombre, "nombre");
-        this.descripcion = descripcion;
+    private void asignarDatos(Datos datos, Proveedor proveedor) {
+        this.sku = Objects.requireNonNull(datos.sku(), "sku");
+        this.codigoBarras = datos.codigoBarras();
+        this.nombre = Objects.requireNonNull(datos.nombre(), "nombre");
+        this.descripcion = datos.descripcion();
         // Escala fija de 2 decimales (la validación ya garantiza que no hay más).
-        this.precio = Objects.requireNonNull(precio, "precio").setScale(2, RoundingMode.HALF_UP);
+        this.precio = Objects.requireNonNull(datos.precio(), "precio").setScale(2, RoundingMode.HALF_UP);
+        if (datos.stockMinimo() < 0) {
+            throw new IllegalArgumentException("El stock mínimo no puede ser negativo.");
+        }
+        this.stockMinimo = datos.stockMinimo();
         this.proveedor = Objects.requireNonNull(proveedor, "proveedor");
+    }
+
+    /** Datos editables del producto (ya validados y normalizados por el DTO). */
+    public record Datos(String sku, String codigoBarras, String nombre, String descripcion, BigDecimal precio,
+                        int stockMinimo) {
     }
 
     public Long getId() {
@@ -78,6 +99,10 @@ public class Producto extends EntidadAuditable {
 
     public String getSku() {
         return sku;
+    }
+
+    public String getCodigoBarras() {
+        return codigoBarras;
     }
 
     public String getNombre() {
@@ -90,6 +115,10 @@ public class Producto extends EntidadAuditable {
 
     public BigDecimal getPrecio() {
         return precio;
+    }
+
+    public int getStockMinimo() {
+        return stockMinimo;
     }
 
     public Proveedor getProveedor() {

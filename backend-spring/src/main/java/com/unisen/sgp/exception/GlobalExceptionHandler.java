@@ -47,6 +47,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                     "Ya existe un proveedor con este NIT (también se cuentan los dados de baja)."),
             new Restriccion("uq_productos_sku", "sku",
                     "Ya existe un producto con este SKU (también se cuentan los dados de baja)."),
+            new Restriccion("uq_productos_codigo_barras", "codigoBarras",
+                    "Ya existe un producto con este código de barras (también se cuentan los dados de baja)."),
+            new Restriccion("uq_recepciones_clave", "claveIdempotencia",
+                    "La clave de idempotencia ya se usó en otra recepción."),
+            new Restriccion("uq_movimientos_inventario_clave", "claveIdempotencia",
+                    "La clave de idempotencia ya se usó en otro ajuste."),
+            new Restriccion("uq_ordenes_compra_numero", "numero",
+                    "No se pudo asignar el número de la orden. Inténtalo de nuevo."),
+            new Restriccion("uq_detalles_orden_compra_producto", "detalles",
+                    "Un producto solo puede aparecer una vez en la orden."),
+            new Restriccion("ck_existencias_cantidad", "cantidad",
+                    "Las existencias no pueden quedar negativas."),
+            new Restriccion("ck_detalles_orden_compra_recibida", "detalles",
+                    "No se puede recibir más de lo pedido."),
             new Restriccion("uq_empresas_nit", "nit", "Ya existe una empresa con este NIT."),
             // Antes que uq_empresas_codigo: se busca por subcadena y aquel nombre es prefijo de este.
             new Restriccion("uq_empresas_codigo_empresa", "codigoEmpresa",
@@ -121,6 +135,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(EmpresaNoSeleccionadaException.class)
     public ProblemDetail handleEmpresaNoSeleccionada(EmpresaNoSeleccionadaException ex) {
         return problem(HttpStatus.BAD_REQUEST, "Empresa no seleccionada", ex.getMessage());
+    }
+
+    /** Analítica global pedida dentro de una empresa: nunca se responde con los datos de una sola. */
+    @ExceptionHandler(ModoGlobalRequeridoException.class)
+    public ProblemDetail handleModoGlobalRequerido(ModoGlobalRequeridoException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Modo global requerido", ex.getMessage());
     }
 
     @ExceptionHandler(RecursoNoEncontradoException.class)

@@ -9,6 +9,8 @@ export const PATRONES = {
   telefono: /^[+(\d][\d ()+-]{6,19}$/,
   /** 3 a 40 caracteres: letras, números, punto, guion y guion bajo (en mayúsculas). */
   sku: /^[A-Z0-9._-]{3,40}$/,
+  /** Código de barras: de 3 a 64 caracteres sin espacios (conserva ceros a la izquierda). */
+  codigoBarras: /^[0-9A-Za-z._/+-]{3,64}$/,
   /** Código empresarial (p. ej. NASC01): de 3 a 12 letras mayúsculas o números, empezando por letra. */
   codigoEmpresarial: /^[A-Z][A-Z0-9]{2,11}$/,
   /** Exige dominio con punto. */

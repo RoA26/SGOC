@@ -13,6 +13,12 @@ public final class BaseDeDatosDePrueba {
      * {@code repository.deleteAll()} el borrado lógico dejaría las filas.
      */
     public static void vaciar(JdbcTemplate jdbcTemplate) {
+        jdbcTemplate.update("DELETE FROM movimientos_inventario");
+        jdbcTemplate.update("DELETE FROM detalles_recepcion");
+        jdbcTemplate.update("DELETE FROM recepciones");
+        jdbcTemplate.update("DELETE FROM existencias");
+        jdbcTemplate.update("DELETE FROM detalles_orden_compra");
+        jdbcTemplate.update("DELETE FROM ordenes_compra");
         jdbcTemplate.update("DELETE FROM detalles_solicitud");
         jdbcTemplate.update("DELETE FROM solicitudes");
         jdbcTemplate.update("DELETE FROM productos");

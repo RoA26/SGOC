@@ -1,10 +1,12 @@
 package com.unisen.sgp.controller;
 
+import com.unisen.sgp.model.dto.ProductoEncontradoDTO;
 import com.unisen.sgp.model.dto.ProductoRequestDTO;
 import com.unisen.sgp.model.dto.ProductoResponseDTO;
 import com.unisen.sgp.security.Permisos;
 import com.unisen.sgp.service.ProductoService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -45,6 +48,18 @@ public class ProductoController {
     public Page<ProductoResponseDTO> listar(
             @ParameterObject @PageableDefault(size = 10, sort = {"nombre", "id"}) Pageable pageable) {
         return productoService.listar(pageable);
+    }
+
+    @GetMapping("/buscar")
+    @Operation(summary = "Buscar un producto por código de barras o SKU (escáner)",
+            description = "Coincidencia exacta en la empresa del contexto: primero el código de barras, después el SKU. "
+                    + "No admite elegir empresa; el SUPER_ADMIN debe estar supervisando una (X-Tenant-ID: <id>).")
+    @ApiResponse(responseCode = "200", description = "Encontrado, con sus existencias")
+    @ApiResponse(responseCode = "404", description = "Ningún producto de la empresa tiene ese código")
+    @ApiResponse(responseCode = "409", description = "El único producto con ese código está dado de baja")
+    public ProductoEncontradoDTO buscar(
+            @Parameter(description = "Código leído o tecleado", example = "07702004003508") @RequestParam String codigo) {
+        return productoService.buscarPorCodigo(codigo);
     }
 
     @GetMapping("/{id}")

@@ -15,8 +15,8 @@ const PASOS: Paso[] = [
   { titulo: 'Necesidad', descripcion: 'Alguien del equipo necesita un producto o servicio.', disponible: true },
   { titulo: 'Solicitud', descripcion: 'La registra con productos, cantidades y motivo.', disponible: true },
   { titulo: 'Aprobación', descripcion: 'Un administrador la aprueba o la rechaza.', disponible: true },
-  { titulo: 'Orden de compra', descripcion: 'Se emite al proveedor elegido.', disponible: false },
-  { titulo: 'Recepción', descripcion: 'Se controla lo recibido frente a lo pedido.', disponible: false },
+  { titulo: 'Orden de compra', descripcion: 'Se emite al proveedor de cada producto.', disponible: true },
+  { titulo: 'Recepción', descripcion: 'Lo recibido suma existencias, frente a lo pedido.', disponible: true },
 ]
 
 /** Estado de cada paso para una solicitud concreta (sin solicitud: el flujo general). */
@@ -25,8 +25,9 @@ function estadosDePasos(estado?: EstadoSolicitud): EstadoPaso[] {
     if (!paso.disponible) return 'proximamente'
     if (!estado) return 'pendiente'
     if (indice < 2) return 'hecho'
-    if (estado === 'PENDIENTE') return 'actual'
-    return estado === 'APROBADA' ? 'hecho' : 'rechazado'
+    if (indice === 2) return estado === 'PENDIENTE' ? 'actual' : estado === 'APROBADA' ? 'hecho' : 'rechazado'
+    // Orden de compra: el paso siguiente de una solicitud aprobada.
+    return estado === 'APROBADA' && indice === 3 ? 'actual' : 'pendiente'
   })
 }
 
@@ -43,14 +44,13 @@ const TEXTO_ESTADO: Record<EstadoPaso, string> = {
 /** En pantallas estrechas el flujo compacto solo muestra los círculos: esta línea lo resume. */
 const RESUMEN: Record<EstadoSolicitud, string> = {
   PENDIENTE: 'En aprobación: un administrador debe revisarla.',
-  APROBADA: 'Aprobada. Siguiente paso: orden de compra (próximamente).',
+  APROBADA: 'Aprobada. Siguiente paso: orden de compra.',
   RECHAZADA: 'Rechazada en la aprobación.',
 }
 
 /**
  * Flujo del SGOC: Necesidad → Solicitud → Aprobación → Orden de compra → Recepción. Con
- * `estado`, marca en qué punto está una solicitud. Orden de compra y recepción aparecen como
- * "Próximamente": el backend aún no las soporta.
+ * `estado`, marca en qué punto está una solicitud.
  */
 export function FlujoCompra({ estado, compacto = false }: { estado?: EstadoSolicitud; compacto?: boolean }) {
   const estados = estadosDePasos(estado)

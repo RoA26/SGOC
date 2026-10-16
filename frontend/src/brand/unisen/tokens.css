@@ -45,6 +45,15 @@
   --unisen-color-success-border: #abefc6;
   --unisen-color-focus: #3d5bd9;
 
+  /* --- Gráficas ---
+   * Serie única (categórica, ranura 1). Validada con el validador de paletas de la guía de
+   * visualización contra la superficie de cada modo: banda de luminosidad, croma y contraste ≥ 3:1. */
+  --unisen-viz-series-1: #2a78d6;
+  /* Estado de existencias (siempre con icono y texto, nunca solo color). */
+  --unisen-color-warning: #8a5a00;
+  --unisen-color-warning-surface: #fff7e6;
+  --unisen-color-warning-border: #f5d48a;
+
   /* --- Forma y profundidad --- */
   --unisen-radius-sm: 6px;
   --unisen-radius-md: 10px;
@@ -76,6 +85,10 @@
     --unisen-color-success-surface: #0f2a1d;
     --unisen-color-success-border: #1f5a3c;
     --unisen-color-focus: #8fa6ff;
+    --unisen-viz-series-1: #3987e5;
+    --unisen-color-warning: #f5c26b;
+    --unisen-color-warning-surface: #33260d;
+    --unisen-color-warning-border: #6b4f16;
     --unisen-shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 16px 40px -16px rgb(0 0 0 / 0.6);
   }
 }
