@@ -3,7 +3,6 @@ package com.unisen.sgp.service;
 import com.unisen.sgp.exception.CampoInvalidoException;
 import com.unisen.sgp.exception.InvitacionInvalidaException;
 import com.unisen.sgp.exception.InvitacionInvalidaException.Motivo;
-import com.unisen.sgp.model.dto.InvitacionResponseDTO;
 import com.unisen.sgp.model.dto.LoginRequest;
 import com.unisen.sgp.model.dto.LoginResponse;
 import com.unisen.sgp.model.dto.RegistroRequestDTO;
@@ -18,16 +17,13 @@ import com.unisen.sgp.repository.EmpresaRepository;
 import com.unisen.sgp.repository.UsuarioRepository;
 import com.unisen.sgp.security.CodigosInvitacion;
 import com.unisen.sgp.security.JwtUtil;
-import com.unisen.sgp.security.Permisos;
 import com.unisen.sgp.security.UsuarioPrincipal;
 import com.unisen.sgp.tenant.TenantContextHolder;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -39,7 +35,6 @@ public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
-    public static final int HORAS_VALIDEZ_POR_DEFECTO = 72;
     private static final String CAMPO_CODIGO_EMPRESA = "codigoEmpresa";
 
     private final AuthenticationManager authenticationManager;
@@ -81,34 +76,7 @@ public class AuthService {
     }
 
     /**
-     * Genera un código de invitación de un solo uso para la empresa actual: quien lo canjee
-     * será USUARIO de esa empresa. Solo para gestores (GERENTE de su empresa o SUPER_ADMIN con
-     * {@code X-Tenant-ID}); la comprobación vive aquí para que ninguna vía de entrada la salte.
-     *
-     * @param creadorId    gestor que genera el código (queda registrado)
-     * @param horasValidez horas hasta la caducidad; {@code null} = {@value #HORAS_VALIDEZ_POR_DEFECTO}
-     * @return el código en claro y su fecha de caducidad
-     */
-    @PreAuthorize(Permisos.GESTION)
-    @Transactional
-    public InvitacionResponseDTO generarCodigoInvitacion(Long creadorId, Integer horasValidez) {
-        // La empresa del código la asigna Hibernate (@TenantId) desde el contexto.
-        Long empresaId = TenantContextHolder.requerirEmpresa();
-        int horas = horasValidez != null ? horasValidez : HORAS_VALIDEZ_POR_DEFECTO;
-        Instant ahora = clock.instant().truncatedTo(ChronoUnit.SECONDS);
-        Instant expiracion = ahora.plus(Duration.ofHours(horas));
-
-        Usuario creador = usuarioRepository.getReferenceById(creadorId);
-        CodigoInvitacion invitacion = codigoInvitacionRepository.save(new CodigoInvitacion(
-                CodigosInvitacion.generarUnico(codigoInvitacionRepository::existsByCodigo), expiracion, creador, ahora));
-
-        log.info("Invitación {} de la empresa {} generada por el usuario {} (caduca {}).", invitacion.getId(),
-                empresaId, creadorId, expiracion);
-        return new InvitacionResponseDTO(invitacion.getCodigo(), invitacion.getFechaExpiracion());
-    }
-
-    /**
-     * Alta pública de un trabajador (rol USUARIO). Con {@code codigoEmpresa} queda PENDIENTE
+     * Alta pública de un trabajador (rol TRABAJADOR). Con {@code codigoEmpresa} queda PENDIENTE
      * hasta que un gestor lo apruebe; con {@code codigoInvitacion}, ACTIVO (el gestor ya lo
      * autorizó al generar la invitación). Rol, estado y empresa los fija el servidor.
      *
@@ -129,7 +97,7 @@ public class AuthService {
         return registrarConInvitacion(request);
     }
 
-    /** Registro → empresa del código → TRABAJADOR (USUARIO) → PENDIENTE: sin acceso hasta que lo aprueben. */
+    /** Registro → empresa del código → TRABAJADOR → PENDIENTE: sin acceso hasta que lo aprueben. */
     private UsuarioResponse registrarConCodigoDeEmpresa(RegistroRequestDTO request) {
         Empresa empresa = empresaRepository.findByCodigoEmpresa(CodigosInvitacion.normalizar(request.codigoEmpresa()))
                 .orElseThrow(() -> new CampoInvalidoException(CAMPO_CODIGO_EMPRESA, "El código de empresa no es válido."));
@@ -138,7 +106,8 @@ public class AuthService {
         }
 
         Usuario usuario = usuarioService.crearUsuario(request.username(), request.email(),
-                request.nombreParaMostrar(), request.password(), Rol.USUARIO, empresa, EstadoUsuario.PENDIENTE);
+                request.nombres(), request.apellidos(), request.password(), Rol.TRABAJADOR, empresa,
+                EstadoUsuario.PENDIENTE);
 
         log.info("Usuario {} registrado en la empresa {} con su código: pendiente de aprobación.", usuario.getId(),
                 empresa.getId());
@@ -162,7 +131,7 @@ public class AuthService {
 
         // 3 y 4. Crear el usuario con la contraseña hasheada en BCrypt.
         Usuario usuario = usuarioService.crearUsuario(request.username(), request.email(),
-                request.nombreParaMostrar(), request.password(), Rol.USUARIO, empresa);
+                request.nombres(), request.apellidos(), request.password(), Rol.TRABAJADOR, empresa);
 
         // 5. Consumir el código: se guarda al confirmar esta misma transacción.
         invitacion.marcarUsado(usuario, ahora);

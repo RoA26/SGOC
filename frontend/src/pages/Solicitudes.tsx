@@ -38,8 +38,8 @@ function estadoDeUrl(valor: string | null): EstadoSolicitud | null {
 }
 
 /**
- * Solicitudes de compra: la necesidad interna, antes de cualquier orden de compra. USUARIO ve
- * y crea las suyas; GERENTE ve y revisa las de su empresa; SUPER_ADMIN las consulta (de todas
+ * Solicitudes de compra: la necesidad interna, antes de cualquier orden de compra. TRABAJADOR ve
+ * y crea las suyas; ADMIN_EMPRESA ve y revisa las de su empresa; SUPER_ADMIN las consulta (de todas
  * las empresas o de la que supervisa, en solo lectura). El filtrado por usuario y empresa lo
  * hace el backend.
  *
@@ -234,7 +234,7 @@ export default function Solicitudes() {
                 Ir a Productos
               </Link>
             ) : (
-              'Pide a un gerente que los registre.'
+              'Pide a un administrador que los registre.'
             )}
           </span>
         </p>

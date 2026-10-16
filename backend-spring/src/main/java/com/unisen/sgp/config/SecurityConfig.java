@@ -31,6 +31,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.AndRequestMatcher;
+import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
@@ -65,8 +67,14 @@ public class SecurityConfig {
         PathPatternRequestMatcher.Builder rutas = PathPatternRequestMatcher.withDefaults();
         RequestMatcher autenticacionPublica = new OrRequestMatcher(
                 rutas.matcher(HttpMethod.POST, LOGIN_PATH), rutas.matcher(HttpMethod.POST, REGISTRO_PATH));
+        // Datos de negocio: todo /api salvo la autenticación (login, registro, perfil, invitaciones, que
+        // exigen empresa en el servicio) y la administración de empresas (tablas globales). Lo que se
+        // añada bajo /api queda protegido por defecto.
+        RequestMatcher contextoObligatorio = new AndRequestMatcher(rutas.matcher("/api/**"),
+                new NegatedRequestMatcher(new OrRequestMatcher(rutas.matcher("/api/auth/**"),
+                        rutas.matcher("/api/v1/empresas/**"), rutas.matcher("/api/v1/empresas"))));
         TenantFilter tenantFilter = new TenantFilter(empresaRepository, problemDetailResponseWriter,
-                autenticacionPublica);
+                autenticacionPublica, contextoObligatorio);
 
         return http
                 // API sin estado autenticada por header Bearer: sin cookies de sesión no hay vector CSRF.

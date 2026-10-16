@@ -17,8 +17,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 
 /**
- * Aprovisionamiento de empresas por el SUPER_ADMIN: empresa + código permanente + GERENTE
- * fundador en una sola transacción (Hito 2).
+ * Aprovisionamiento de empresas por el SUPER_ADMIN: empresa + código permanente + administrador
+ * inicial en una sola transacción (Hito 2).
  */
 class EmpresaControllerTest extends ApiIntegrationTest {
 
@@ -33,11 +33,12 @@ class EmpresaControllerTest extends ApiIntegrationTest {
         superAdmin = crearUsuarioYEntrar("plataforma", Rol.SUPER_ADMIN, null);
     }
 
-    private static String empresa(String nombre, String nit, String gerenteUsername, String gerenteEmail) {
+    private static String empresa(String nombre, String nit, String adminUsername, String adminEmail) {
         return """
                 {"nombre": "%s", "nit": "%s",
-                 "gerente": {"username": "%s", "email": "%s", "password": "ClaveGerente2026", "nombre": "Laura Gerente"}}
-                """.formatted(nombre, nit, gerenteUsername, gerenteEmail);
+                 "administrador": {"nombres": "Laura", "apellidos": "Andina Ruiz", "username": "%s", "email": "%s",
+                                   "password": "ClaveGerente2026"}}
+                """.formatted(nombre, nit, adminUsername, adminEmail);
     }
 
     private int contar(String sql, Object... args) {
@@ -47,9 +48,9 @@ class EmpresaControllerTest extends ApiIntegrationTest {
     // ------------------------------------------------------- Test 1: crear
 
     @Test
-    void elSuperAdminCreaEmpresaConCodigoYGerenteFundador() throws Exception {
+    void elSuperAdminCreaEmpresaConCodigoYAdministradorInicial() throws Exception {
         JsonNode creada = leer(postJson(URL, superAdmin,
-                empresa("Ferretería Andina", "901.234.567-8", "Gerente.Andina", "Gerencia@Andina.com"))
+                empresa("Ferretería Andina", "901.234.567-8", "Admin.Andina", "Gerencia@Andina.com"))
                 .andExpect(status().isCreated())
                 .andExpect(header().string(HttpHeaders.LOCATION, matchesPattern(".*/api/v1/empresas/\\d+$")))
                 .andExpect(jsonPath("$.nombre").value("Ferretería Andina"))
@@ -57,35 +58,38 @@ class EmpresaControllerTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.codigo").value("FERR01"))
                 .andExpect(jsonPath("$.activa").value(true))
                 .andExpect(jsonPath("$.codigoEmpresa").value(matchesPattern(FORMATO_CODIGO)))
-                .andExpect(jsonPath("$.gerente.username").value("gerente.andina"))
-                .andExpect(jsonPath("$.gerente.email").value("gerencia@andina.com"))
-                .andExpect(jsonPath("$.gerente.nombre").value("Laura Gerente"))
-                .andExpect(jsonPath("$.gerente.rol").value("GERENTE"))
-                .andExpect(jsonPath("$.gerente.estado").value("ACTIVO"))
-                .andExpect(jsonPath("$.gerente.password").doesNotExist()));
+                .andExpect(jsonPath("$.administrador.username").value("admin.andina"))
+                .andExpect(jsonPath("$.administrador.email").value("gerencia@andina.com"))
+                .andExpect(jsonPath("$.administrador.nombre").value("Laura Andina Ruiz"))
+                .andExpect(jsonPath("$.administrador.nombres").value("Laura"))
+                .andExpect(jsonPath("$.administrador.apellidos").value("Andina Ruiz"))
+                .andExpect(jsonPath("$.administrador.empresaNombre").value("Ferretería Andina"))
+                .andExpect(jsonPath("$.administrador.rol").value("ADMIN_EMPRESA"))
+                .andExpect(jsonPath("$.administrador.estado").value("ACTIVO"))
+                .andExpect(jsonPath("$.administrador.password").doesNotExist()));
 
         long empresaId = creada.get("id").asLong();
         String codigo = creada.get("codigoEmpresa").asText();
-        assertThat(creada.get("gerente").get("empresaId").asLong()).isEqualTo(empresaId);
+        assertThat(creada.get("administrador").get("empresaId").asLong()).isEqualTo(empresaId);
 
-        // En la BD: la empresa con su código y el gerente ACTIVO dentro de ella.
+        // En la BD: la empresa con su código y el administrador ACTIVO dentro de ella.
         assertThat(jdbcTemplate.queryForObject("SELECT codigo_empresa FROM empresas WHERE id = ?", String.class,
                 empresaId)).isEqualTo(codigo);
-        Map<String, Object> gerente = jdbcTemplate.queryForMap(
-                "SELECT rol, estado, activo, empresa_id, password_hash FROM usuarios WHERE username = 'gerente.andina'");
-        assertThat(gerente.get("rol")).isEqualTo("GERENTE");
-        assertThat(gerente.get("estado")).isEqualTo("ACTIVO");
-        assertThat(gerente.get("activo")).isEqualTo(true);
-        assertThat(((Number) gerente.get("empresa_id")).longValue()).isEqualTo(empresaId);
-        assertThat((String) gerente.get("password_hash")).startsWith("$2").isNotEqualTo("ClaveGerente2026");
+        Map<String, Object> administrador = jdbcTemplate.queryForMap(
+                "SELECT rol, estado, activo, empresa_id, password_hash FROM usuarios WHERE username = 'admin.andina'");
+        assertThat(administrador.get("rol")).isEqualTo("ADMIN_EMPRESA");
+        assertThat(administrador.get("estado")).isEqualTo("ACTIVO");
+        assertThat(administrador.get("activo")).isEqualTo(true);
+        assertThat(((Number) administrador.get("empresa_id")).longValue()).isEqualTo(empresaId);
+        assertThat((String) administrador.get("password_hash")).startsWith("$2").isNotEqualTo("ClaveGerente2026");
 
-        // El gerente fundador ya puede entrar y ve el código que compartirá con sus trabajadores.
-        String tokenGerente = login("gerente.andina", "ClaveGerente2026");
-        getJson(URL + "/actual", tokenGerente)
+        // El administrador inicial ya puede entrar y ve el código que compartirá con sus trabajadores.
+        String tokenAdministrador = login("admin.andina", "ClaveGerente2026");
+        getJson(URL + "/actual", tokenAdministrador)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(empresaId))
                 .andExpect(jsonPath("$.codigoEmpresa").value(codigo))
-                .andExpect(jsonPath("$.gerente").doesNotExist());
+                .andExpect(jsonPath("$.administrador").doesNotExist());
     }
 
     @Test
@@ -106,30 +110,30 @@ class EmpresaControllerTest extends ApiIntegrationTest {
     // ---------------------------------------------- Test 2: todo o nada
 
     @Test
-    void siElGerenteNoSePuedeCrearNoQuedaNingunaEmpresa() throws Exception {
+    void siElAdministradorNoSePuedeCrearNoQuedaNingunaEmpresa() throws Exception {
         int empresasAntes = contar("SELECT COUNT(*) FROM empresas");
 
-        // "admin" ya existe (GERENTE de Unisen): la empresa se inserta primero y luego se deshace.
+        // "admin" ya existe (ADMIN_EMPRESA de Unisen): la empresa se inserta primero y luego se deshace.
         postJson(URL, superAdmin, empresa("Huérfana", "811111111-1", "admin", "nuevo@huerfana.com"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.errors['gerente.username']").value("Ese nombre de usuario ya está en uso."));
+                .andExpect(jsonPath("$.errors['administrador.username']").value("Ese nombre de usuario ya está en uso."));
         postJson(URL, superAdmin, empresa("Huérfana", "811111111-1", "nuevo.gerente", "ADMIN@unisen.com"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.errors['gerente.email']").value("Ya existe un usuario con este correo."));
+                .andExpect(jsonPath("$.errors['administrador.email']").value("Ya existe un usuario con este correo."));
 
         assertThat(contar("SELECT COUNT(*) FROM empresas")).isEqualTo(empresasAntes);
         assertThat(contar("SELECT COUNT(*) FROM empresas WHERE nit = '811111111-1'")).isZero();
         assertThat(contar("SELECT COUNT(*) FROM usuarios WHERE username = 'nuevo.gerente'")).isZero();
 
-        // Sin restos: el mismo NIT se puede aprovisionar después con un gerente válido.
+        // Sin restos: el mismo NIT se puede aprovisionar después con un administrador válido.
         postJson(URL, superAdmin, empresa("Huérfana", "811111111-1", "nuevo.gerente", "nuevo@huerfana.com"))
                 .andExpect(status().isCreated());
         assertThat(contar("SELECT COUNT(*) FROM usuarios u JOIN empresas e ON e.id = u.empresa_id "
-                + "WHERE e.nit = '811111111-1' AND u.rol = 'GERENTE'")).isEqualTo(1);
+                + "WHERE e.nit = '811111111-1' AND u.rol = 'ADMIN_EMPRESA'")).isEqualTo(1);
     }
 
     @Test
-    void nitRepetidoDevuelve409SinCrearAlGerente() throws Exception {
+    void nitRepetidoDevuelve409SinCrearAlAdministrador() throws Exception {
         postJson(URL, superAdmin, empresa("Copia", "900000001-1", "gerente.copia", "copia@copia.com"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errors.nit").value("Ya existe una empresa con este NIT."));
@@ -139,21 +143,23 @@ class EmpresaControllerTest extends ApiIntegrationTest {
     // ------------------------------------------------------- validación
 
     @Test
-    void validaLaEmpresaYAlGerente() throws Exception {
+    void validaLaEmpresaYAlAdministrador() throws Exception {
         postJson(URL, superAdmin, "{}")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.nombre").value("El nombre de la empresa es obligatorio."))
                 .andExpect(jsonPath("$.errors.nit").value("El NIT es obligatorio."))
-                .andExpect(jsonPath("$.errors.gerente").value("Indica los datos del gerente fundador."));
+                .andExpect(jsonPath("$.errors.administrador").value("Indica los datos del administrador de la empresa."));
 
         postJson(URL, superAdmin, """
-                {"nombre": "X", "nit": "12", "gerente": {"username": "a b", "email": "no", "password": "corta"}}
+                {"nombre": "X", "nit": "12", "administrador": {"username": "a b", "email": "no", "password": "corta"}}
                 """)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.nit").exists())
-                .andExpect(jsonPath("$.errors['gerente.username']").exists())
-                .andExpect(jsonPath("$.errors['gerente.email']").value("El correo no tiene un formato válido."))
-                .andExpect(jsonPath("$.errors['gerente.password']").value("La contraseña debe tener entre 8 y 72 caracteres."));
+                .andExpect(jsonPath("$.errors['administrador.username']").exists())
+                .andExpect(jsonPath("$.errors['administrador.email']").value("El correo no tiene un formato válido."))
+                .andExpect(jsonPath("$.errors['administrador.password']").value("La contraseña debe tener entre 8 y 72 caracteres."))
+                .andExpect(jsonPath("$.errors['administrador.nombres']").value("Los nombres son obligatorios."))
+                .andExpect(jsonPath("$.errors['administrador.apellidos']").value("Los apellidos son obligatorios."));
         assertThat(contar("SELECT COUNT(*) FROM empresas WHERE nombre = 'X'")).isZero();
     }
 
@@ -181,9 +187,9 @@ class EmpresaControllerTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.content[0].nombre").value("Unisen"))
                 .andExpect(jsonPath("$.content[0].codigoEmpresa").value(empresa.getCodigoEmpresa()))
                 .andExpect(jsonPath("$.content[0].codigo").value("UNIS01"))
-                .andExpect(jsonPath("$.content[0].gerente.username").value("admin"))
+                .andExpect(jsonPath("$.content[0].administrador.username").value("admin"))
                 .andExpect(jsonPath("$.content[1].nombre").value("Zeta"))
-                .andExpect(jsonPath("$.content[1].gerente").doesNotExist());
+                .andExpect(jsonPath("$.content[1].administrador").doesNotExist());
         getJson(URL + "/" + empresa.getId(), superAdmin)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nit").value("900000001-1"));

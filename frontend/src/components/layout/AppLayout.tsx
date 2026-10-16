@@ -1,8 +1,9 @@
 import { LogOut, Menu, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { BrandLogo } from '@/components/BrandLogo'
 import { ETIQUETA_ROL, useContextoEmpresa, usePermisos } from '@/features/auth/permisos'
+import { useRefrescoPerfil } from '@/features/auth/useRefrescoPerfil'
 import { AvisoSupervision } from '@/features/empresa/AvisoSupervision'
 import { ContextoEmpresaPanel } from '@/features/empresa/ContextoEmpresaPanel'
 import { cn } from '@/lib/cn'
@@ -14,6 +15,8 @@ import { construirNavegacion } from './navegacion'
  * del SGOC (en móvil, un panel que se abre desde la cabecera) y el contenido a la derecha.
  */
 export function AppLayout() {
+  // Nombre, rol y empresa vienen del backend: se refrescan sin volver a iniciar sesión.
+  useRefrescoPerfil()
   const { empresaId, esSuperAdmin } = useContextoEmpresa()
   const { pathname } = useLocation()
   // Ruta en la que se abrió el panel móvil: al navegar a otra, queda cerrado.
@@ -68,10 +71,10 @@ function PanelLateral() {
       </div>
       <Navegacion />
       <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-4">
-        <div className="min-w-0 leading-tight">
-          <p className="truncate text-sm font-medium text-foreground">{nombre}</p>
+        <Link to="/perfil" className="group min-w-0 rounded-md leading-tight" title="Mi perfil">
+          <p className="truncate text-sm font-medium text-foreground group-hover:underline">{nombre}</p>
           <p className="text-xs text-foreground-muted">{rol && ETIQUETA_ROL[rol]}</p>
-        </div>
+        </Link>
         <button type="button" className="u-btn u-btn--ghost h-9 shrink-0 px-3" onClick={clearSession}>
           <LogOut className="size-4" aria-hidden="true" />
           Salir

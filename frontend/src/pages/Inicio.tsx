@@ -1,4 +1,4 @@
-import { ArrowRight, Building, ClipboardList, FileText, Plus, SearchCheck } from 'lucide-react'
+import { ArrowRight, Building, ClipboardList, FileText, Plus, SearchCheck, UserRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ETIQUETA_ROL, useContextoEmpresa, usePermisos } from '@/features/auth/permisos'
 import { AvisoModoGlobal } from '@/features/empresa/AvisoModoGlobal'
@@ -10,11 +10,13 @@ import { cn } from '@/lib/cn'
 import { formatearFecha } from '@/lib/fechas'
 import { formatearCOP } from '@/lib/moneda'
 import type { EstadoSolicitud } from '@/services/solicitudService'
-import { useAuthStore } from '@/store/authStore'
+import { nombreCorto, useAuthStore } from '@/store/authStore'
 
 /** Panel de inicio del SGOC: en qué punto del proceso de compra está la empresa (o el usuario). */
 export default function Inicio() {
-  const nombre = useAuthStore((state) => state.nombre)
+  const saludo = useAuthStore(nombreCorto)
+  const empresaNombre = useAuthStore((state) => state.empresaNombre)
+  const datosCompletos = useAuthStore((state) => state.datosPersonalesCompletos)
   const { rol, empresaId, modoGlobal, empresaSupervisada } = useContextoEmpresa()
   const permisos = usePermisos()
   const resumen = useResumenSolicitudes()
@@ -24,15 +26,27 @@ export default function Inicio() {
     ? 'Modo global · todas las empresas'
     : empresaSupervisada
       ? `${empresaSupervisada.nombre} (${empresaSupervisada.codigo}) · Supervisión`
-      : [empresaId !== null ? etiquetaEmpresa(empresaId) : null, rol ? ETIQUETA_ROL[rol] : null].filter(Boolean).join(' · ')
+      : [empresaNombre ?? (empresaId !== null ? etiquetaEmpresa(empresaId) : null), rol ? ETIQUETA_ROL[rol] : null]
+          .filter(Boolean)
+          .join(' · ')
 
   return (
     <>
       <p className="text-xs font-medium tracking-widest text-foreground-muted uppercase">Panel de compras</p>
       <h1 className="mt-3 font-serif text-5xl text-foreground">
-        Hola, <em className="text-accent">{nombre}</em>
+        Hola, <em className="text-accent">{saludo}</em>
       </h1>
       <p className="mt-2 text-sm text-foreground-muted">{contexto}</p>
+
+      {!datosCompletos && (
+        <p role="note" className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border bg-surface-muted/60 px-4 py-3 text-sm text-foreground-muted">
+          <UserRound className="size-4 shrink-0 text-accent" aria-hidden="true" />
+          Tu cuenta aún no tiene nombres y apellidos por separado.
+          <Link to="/perfil" className="font-medium text-foreground underline-offset-4 hover:underline">
+            Complétalos en tu perfil
+          </Link>
+        </p>
+      )}
 
       <div className="mt-6 flex flex-wrap gap-3">
         {permisos.crearSolicitudes && (
@@ -72,7 +86,7 @@ export default function Inicio() {
             <Indicador
               estado="PENDIENTE"
               titulo={propias ? 'Mis solicitudes pendientes' : 'Pendientes de aprobación'}
-              detalle="Esperan la revisión de un gerente."
+              detalle="Esperan la revisión de un administrador."
               valor={resumen.estado === 'listo' ? resumen.conteos.PENDIENTE : null}
             />
             <Indicador
@@ -84,7 +98,7 @@ export default function Inicio() {
             <Indicador
               estado="RECHAZADA"
               titulo={propias ? 'Mis solicitudes rechazadas' : 'Rechazadas'}
-              detalle="Con el motivo indicado por el gerente."
+              detalle="Con el motivo indicado por el administrador."
               valor={resumen.estado === 'listo' ? resumen.conteos.RECHAZADA : null}
             />
           </div>

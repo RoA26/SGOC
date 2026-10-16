@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Trabajadores (rol USUARIO) de la empresa en la que se trabaja: el GERENTE revisa los que se
+ * Trabajadores (rol TRABAJADOR) de la empresa en la que se trabaja: el ADMIN_EMPRESA revisa los que se
  * registraron con el código de empresa y los aprueba, rechaza, desactiva o reactiva. La
  * autorización (rol y empresa) vive en {@link UsuarioService}.
  */
@@ -39,7 +39,7 @@ public class TrabajadorController {
     }
 
     @GetMapping
-    @Operation(summary = "Listar trabajadores de la empresa (GERENTE, o SUPER_ADMIN con X-Tenant-ID)",
+    @Operation(summary = "Listar trabajadores de la empresa (ADMIN_EMPRESA, o SUPER_ADMIN con X-Tenant-ID)",
             description = "Solo los de la empresa de la petición. ?estado=PENDIENTE devuelve los que esperan aprobación.")
     @ApiResponse(responseCode = "400", description = "SUPER_ADMIN sin X-Tenant-ID (modo global)")
     @ApiResponse(responseCode = "403", description = "El usuario no es gestor")

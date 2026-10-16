@@ -10,12 +10,12 @@ export interface Empresa {
   activa: boolean
   /**
    * Código de registro de trabajadores (secreto). La interfaz del SUPER_ADMIN no lo muestra: lo
-   * comparte el gerente con su equipo.
+   * comparte el administrador de la empresa con su equipo.
    */
   codigoEmpresa: string
   creadoEn: string
-  /** Administrador principal (el gerente fundador); ausente si la empresa no tiene gerente. */
-  gerente?: UsuarioResponse
+  /** Administrador principal (el inicial, creado con la empresa); ausente si no tiene ninguno. */
+  administrador?: UsuarioResponse
 }
 
 /** CodigoEmpresarialDTO: código propuesto o consultado y si está libre ahora mismo. */

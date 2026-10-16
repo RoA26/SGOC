@@ -9,6 +9,7 @@ import Empresas from '@/pages/admin/Empresas'
 import Invitaciones from '@/pages/admin/Invitaciones'
 import Inicio from '@/pages/Inicio'
 import Login from '@/pages/Login'
+import Perfil from '@/pages/Perfil'
 import Productos from '@/pages/Productos'
 import Proveedores from '@/pages/Proveedores'
 import Solicitudes from '@/pages/Solicitudes'
@@ -27,14 +28,15 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route path="/" element={<Inicio />} />
             <Route path="/solicitudes" element={<Solicitudes />} />
+            <Route path="/perfil" element={<Perfil />} />
 
-            {/* Catálogo: gestores (GERENTE de su empresa; SUPER_ADMIN en modo global o supervisando). */}
+            {/* Catálogo: gestores (ADMIN_EMPRESA de su empresa; SUPER_ADMIN en modo global o supervisando). */}
             <Route element={<RutaConRol roles={ROLES_GESTION} />}>
               <Route path="/productos" element={<Productos />} />
               <Route path="/proveedores" element={<Proveedores />} />
             </Route>
 
-            {/* Invitaciones de trabajadores: solo el GERENTE, para su empresa. */}
+            {/* Invitaciones de trabajadores: solo el ADMIN_EMPRESA, para su empresa. */}
             <Route element={<RutaConRol roles={ROLES_INVITACION} />}>
               <Route path="/admin/invitaciones" element={<Invitaciones />} />
             </Route>

@@ -4,7 +4,9 @@ import com.unisen.sgp.exception.CampoInvalidoException;
 import com.unisen.sgp.exception.DatoDuplicadoException;
 import com.unisen.sgp.exception.RecursoNoEncontradoException;
 import com.unisen.sgp.model.dto.CambioEstadoUsuarioDTO;
+import com.unisen.sgp.model.dto.DatosPersonalesDTO;
 import com.unisen.sgp.model.dto.TrabajadorResponseDTO;
+import com.unisen.sgp.model.dto.UsuarioResponse;
 import com.unisen.sgp.model.entity.Empresa;
 import com.unisen.sgp.model.entity.EstadoUsuario;
 import com.unisen.sgp.model.entity.Rol;
@@ -42,15 +44,16 @@ public class UsuarioService {
     }
 
     /**
-     * Alta ya autorizada (estado ACTIVO): administrador inicial, gerente fundador o canje de
-     * una invitación que generó un gestor. Un autorregistro debe usar la variante con estado.
+     * Alta ya autorizada (estado ACTIVO): SUPER_ADMIN inicial, administrador inicial de una
+     * empresa o canje de una invitación que generó un gestor. Un autorregistro debe usar la
+     * variante con estado.
      *
-     * @see #crearUsuario(String, String, String, String, Rol, Empresa, EstadoUsuario)
+     * @see #crearUsuario(String, String, String, String, String, Rol, Empresa, EstadoUsuario)
      */
     @Transactional
-    public Usuario crearUsuario(String username, String email, String nombre, String password, Rol rol,
-                                Empresa empresa) {
-        return crearUsuario(username, email, nombre, password, rol, empresa, EstadoUsuario.ACTIVO);
+    public Usuario crearUsuario(String username, String email, String nombres, String apellidos, String password,
+                                Rol rol, Empresa empresa) {
+        return crearUsuario(username, email, nombres, apellidos, password, rol, empresa, EstadoUsuario.ACTIVO);
     }
 
     /**
@@ -62,14 +65,15 @@ public class UsuarioService {
      * <p>Username y correo son únicos en toda la plataforma (no por empresa): identifican a
      * la persona en el login, antes de conocer su empresa.
      *
-     * @param empresa empresa del usuario; null solo para SUPER_ADMIN
-     * @param estado  PENDIENTE (autorregistro con el código de empresa) o ACTIVO
+     * @param apellidos null solo para cuentas técnicas (ver {@link Usuario})
+     * @param empresa   empresa del usuario; null solo para SUPER_ADMIN
+     * @param estado    PENDIENTE (autorregistro con el código de empresa) o ACTIVO
      * @throws DatoDuplicadoException si el username o el correo ya están en uso
      * @throws CampoInvalidoException si la contraseña no cumple la política
      */
     @Transactional
-    public Usuario crearUsuario(String username, String email, String nombre, String password, Rol rol,
-                                Empresa empresa, EstadoUsuario estado) {
+    public Usuario crearUsuario(String username, String email, String nombres, String apellidos, String password,
+                                Rol rol, Empresa empresa, EstadoUsuario estado) {
         validarPassword(password);
         String usernameNormalizado = Usuario.normalizarUsername(username);
         String emailNormalizado = Usuario.normalizarEmail(email);
@@ -80,15 +84,15 @@ public class UsuarioService {
             throw DatoDuplicadoException.email();
         }
         Usuario usuario = new Usuario(usernameNormalizado, emailNormalizado,
-                passwordEncoder.encode(password), nombre, rol, empresa, estado);
+                passwordEncoder.encode(password), nombres, apellidos, rol, empresa, estado);
         // flush: si una alta concurrente se adelanta, la violación UNIQUE salta aquí
         // (→ 409 en GlobalExceptionHandler) y no al confirmar, fuera del servicio.
         return usuarioRepository.saveAndFlush(usuario);
     }
 
     /**
-     * Trabajadores (rol USUARIO) de la empresa de la petición, opcionalmente por estado (p. ej.
-     * los PENDIENTES de aprobar). GERENTE: siempre la suya; SUPER_ADMIN: la de X-Tenant-ID.
+     * Trabajadores (rol TRABAJADOR) de la empresa de la petición, opcionalmente por estado (p. ej.
+     * los PENDIENTES de aprobar). ADMIN_EMPRESA: siempre la suya; SUPER_ADMIN: la de X-Tenant-ID.
      *
      * @throws com.unisen.sgp.exception.EmpresaNoSeleccionadaException SUPER_ADMIN en modo global (→ 400)
      */
@@ -97,8 +101,8 @@ public class UsuarioService {
     public Page<TrabajadorResponseDTO> listarTrabajadores(EstadoUsuario estado, Pageable pageable) {
         Long empresaId = TenantContextHolder.requerirEmpresa();
         Page<Usuario> trabajadores = estado == null
-                ? usuarioRepository.findByEmpresa_IdAndRol(empresaId, Rol.USUARIO, pageable)
-                : usuarioRepository.findByEmpresa_IdAndRolAndEstado(empresaId, Rol.USUARIO, estado, pageable);
+                ? usuarioRepository.findByEmpresa_IdAndRol(empresaId, Rol.TRABAJADOR, pageable)
+                : usuarioRepository.findByEmpresa_IdAndRolAndEstado(empresaId, Rol.TRABAJADOR, estado, pageable);
         return trabajadores.map(TrabajadorResponseDTO::from);
     }
 
@@ -107,7 +111,7 @@ public class UsuarioService {
      * cambio rige desde la siguiente petición del trabajador, aunque su JWT siga vigente: el
      * filtro JWT lee el estado de la BD cada vez.
      *
-     * <p>Solo trabajadores (rol USUARIO): un gestor no cambia el estado de otro gestor ni el
+     * <p>Solo trabajadores (rol TRABAJADOR): un gestor no cambia el estado de otro gestor ni el
      * suyo. Otra empresa, otro rol o un id inexistente responden igual (404), sin revelar nada.
      *
      * @throws RecursoNoEncontradoException si no es un trabajador de la empresa actual
@@ -118,7 +122,7 @@ public class UsuarioService {
     public TrabajadorResponseDTO cambiarEstadoTrabajador(Long id, CambioEstadoUsuarioDTO dto) {
         Long empresaId = TenantContextHolder.requerirEmpresa();
         UsuarioPrincipal gestor = UsuarioActual.obtener();
-        Usuario trabajador = usuarioRepository.findWithLockByIdAndEmpresa_IdAndRol(id, empresaId, Rol.USUARIO)
+        Usuario trabajador = usuarioRepository.findWithLockByIdAndEmpresa_IdAndRol(id, empresaId, Rol.TRABAJADOR)
                 .orElseThrow(() -> new RecursoNoEncontradoException("trabajador", id));
 
         EstadoUsuario anterior = trabajador.getEstado();
@@ -127,6 +131,22 @@ public class UsuarioService {
         log.info("Trabajador {} de la empresa {}: {} → {} (por el usuario {}).", id, empresaId, anterior,
                 guardado.getEstado(), gestor.getId());
         return TrabajadorResponseDTO.from(guardado);
+    }
+
+    /**
+     * La persona autenticada completa o corrige sus nombres y apellidos (las cuentas anteriores a
+     * V9 los tienen vacíos). Solo su propia cuenta: el id sale del token verificado, no del cliente.
+     * El nombre visible se recalcula, así que las solicitudes y listados muestran el nuevo.
+     */
+    @Transactional
+    public UsuarioResponse actualizarDatosPersonales(Long usuarioId, DatosPersonalesDTO dto) {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("usuario", usuarioId));
+        usuario.cambiarDatosPersonales(dto.nombres(), dto.apellidos());
+        Usuario guardado = usuarioRepository.saveAndFlush(usuario);
+        log.info("Usuario {} actualizó sus datos personales.", usuarioId);
+        // Dentro de la transacción: la empresa (LAZY) se puede leer para la respuesta.
+        return UsuarioResponse.from(guardado);
     }
 
     private static void validarPassword(String password) {

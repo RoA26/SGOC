@@ -49,6 +49,7 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       ADMIN_NOMBRE: ${ADMIN_NOMBRE:-Administrador}
+      ADMIN_APELLIDOS: ${ADMIN_APELLIDOS:-}
       # Swagger no se publica a través de Nginx; se desactiva por defecto en producción.
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
     # Sin "ports": solo es alcanzable por Nginx a través de la red interna.

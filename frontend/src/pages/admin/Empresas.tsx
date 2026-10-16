@@ -66,10 +66,10 @@ export default function Empresas() {
       id: 'administrador',
       header: 'Administrador principal',
       cell: (empresa) =>
-        empresa.gerente ? (
+        empresa.administrador ? (
           <div className="min-w-44">
-            <p className="text-foreground">{empresa.gerente.nombre}</p>
-            <p className="text-xs text-foreground-muted">{empresa.gerente.email}</p>
+            <p className="text-foreground">{empresa.administrador.nombre}</p>
+            <p className="text-xs text-foreground-muted">{empresa.administrador.email}</p>
           </div>
         ) : (
           <span className="text-foreground-muted">Sin administrador</span>
@@ -184,16 +184,16 @@ function EmpresaCreada({ empresa, onClose }: { empresa: Empresa; onClose: () => 
         <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
         Empresa «{empresa.nombre}» creada con el código {empresa.codigo}.
       </p>
-      {empresa.gerente && (
+      {empresa.administrador && (
         <p className="mt-1 text-foreground">
-          Su administrador, {empresa.gerente.nombre}, ya puede iniciar sesión con el usuario{' '}
-          <strong className="font-mono font-medium">{empresa.gerente.username}</strong> y la contraseña inicial que
+          Su administrador, {empresa.administrador.nombre}, ya puede iniciar sesión con el usuario{' '}
+          <strong className="font-mono font-medium">{empresa.administrador.username}</strong> y la contraseña inicial que
           definiste.
         </p>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <BotonCopiar texto={empresa.codigo} etiqueta="Copiar código" />
-        {empresa.gerente && <BotonCopiar texto={empresa.gerente.username} etiqueta="Copiar usuario" />}
+        {empresa.administrador && <BotonCopiar texto={empresa.administrador.username} etiqueta="Copiar usuario" />}
         <Link to={`/admin/empresas/${empresa.id}`} className="u-btn u-btn--ghost h-9 px-3">
           Ver ficha
         </Link>

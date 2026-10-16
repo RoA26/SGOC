@@ -14,7 +14,7 @@ interface Paso {
 const PASOS: Paso[] = [
   { titulo: 'Necesidad', descripcion: 'Alguien del equipo necesita un producto o servicio.', disponible: true },
   { titulo: 'Solicitud', descripcion: 'La registra con productos, cantidades y motivo.', disponible: true },
-  { titulo: 'Aprobación', descripcion: 'Un gerente la aprueba o la rechaza.', disponible: true },
+  { titulo: 'Aprobación', descripcion: 'Un administrador la aprueba o la rechaza.', disponible: true },
   { titulo: 'Orden de compra', descripcion: 'Se emite al proveedor elegido.', disponible: false },
   { titulo: 'Recepción', descripcion: 'Se controla lo recibido frente a lo pedido.', disponible: false },
 ]
@@ -42,7 +42,7 @@ const TEXTO_ESTADO: Record<EstadoPaso, string> = {
 
 /** En pantallas estrechas el flujo compacto solo muestra los círculos: esta línea lo resume. */
 const RESUMEN: Record<EstadoSolicitud, string> = {
-  PENDIENTE: 'En aprobación: un gerente debe revisarla.',
+  PENDIENTE: 'En aprobación: un administrador debe revisarla.',
   APROBADA: 'Aprobada. Siguiente paso: orden de compra (próximamente).',
   RECHAZADA: 'Rechazada en la aprobación.',
 }

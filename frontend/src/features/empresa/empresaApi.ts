@@ -23,7 +23,7 @@ export const empresaService = {
 
   /**
    * Empresa y administrador principal en una sola transacción. 409 con `errors.codigo`, `errors.nit`,
-   * `errors['gerente.username']` o `errors['gerente.email']` si algo ya existe (no se crea nada).
+   * `errors['administrador.username']` o `errors['administrador.email']` si algo ya existe (no se crea nada).
    */
   async crear(payload: EmpresaPayload): Promise<Empresa> {
     const { data } = await api.post<Empresa>(BASE, payload)
@@ -53,8 +53,8 @@ export const empresaService = {
     return data
   },
 
-  async cambiarEstadoGerente(empresaId: number, usuarioId: number, estado: 'ACTIVO' | 'INACTIVO'): Promise<UsuarioEmpresa> {
-    const { data } = await api.patch<UsuarioEmpresa>(`${BASE}/${empresaId}/gerentes/${usuarioId}/estado`, { estado })
+  async cambiarEstadoAdministrador(empresaId: number, usuarioId: number, estado: 'ACTIVO' | 'INACTIVO'): Promise<UsuarioEmpresa> {
+    const { data } = await api.patch<UsuarioEmpresa>(`${BASE}/${empresaId}/administradores/${usuarioId}/estado`, { estado })
     return data
   },
 

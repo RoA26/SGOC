@@ -14,11 +14,11 @@ import java.util.Set;
  * </pre>
  */
 public enum EstadoUsuario {
-    /** Se registró con el código de su empresa y espera la aprobación del gerente. */
+    /** Se registró con el código de su empresa y espera la aprobación del administrador de su empresa. */
     PENDIENTE,
     /** Autorizado: puede iniciar sesión y operar. */
     ACTIVO,
-    /** El gerente no aprobó su registro. */
+    /** El administrador no aprobó su registro. */
     RECHAZADO,
     /** Estuvo activo y perdió la autorización (p. ej. dejó la empresa). */
     INACTIVO;

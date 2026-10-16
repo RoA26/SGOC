@@ -37,7 +37,7 @@ absolutas en el código. PostgreSQL y Spring Boot no publican puertos hacia inte
         ├── services/        proveedorService, productoService (/api/v1/...)
         ├── components/ui/   DataTable, Modal, ConfirmDialog, FormField
         ├── features/        auth (rutas, authApi, AuthLayout), proveedores y productos (formularios en modal)
-        └── pages/           Login, Registro, Inicio, Proveedores, Productos, Solicitudes,
+        └── pages/           Login, Registro, Inicio, Perfil, Proveedores, Productos, Solicitudes,
                              admin/Empresas, admin/EmpresaDetalle, admin/Invitaciones
 ```
 
@@ -94,10 +94,18 @@ docker compose ps                  # los tres servicios deben quedar "healthy"
 Abre http://rrtf.duckdns.org e inicia sesión con `ADMIN_USERNAME` / `ADMIN_PASSWORD`. Ese
 usuario es el `SUPER_ADMIN` de la plataforma (la cuenta raíz): se crea en el primer arranque y los
 siguientes no lo modifican. Desde **Empresas** crea cada empresa con su código empresarial
-(p. ej. `NASC01`) y su administrador principal (rol GERENTE), que ya puede iniciar sesión. Los
-trabajadores entran con una invitación de su gerente (entran directamente) o con el código de
-registro secreto de su empresa (quedan pendientes hasta que el gerente los aprueba). Detalle en
+(p. ej. `NASC01`) y su administrador (rol `ADMIN_EMPRESA`, con nombres y apellidos), que ya puede
+iniciar sesión. Los trabajadores entran con una invitación de su administrador (entran
+directamente) o con el código de registro secreto de su empresa (quedan pendientes hasta que el
+administrador los aprueba). Detalle en
 [backend-spring/README.md](backend-spring/README.md#gestión-centralizada-de-empresas).
+
+**Al actualizar a la Fase 1 (V8–V10):** ninguna cuenta pierde el acceso ni hay que volver a
+iniciar sesión. V8 renombra los roles (`GERENTE` → `ADMIN_EMPRESA`, `USUARIO` → `TRABAJADOR`);
+los tokens emitidos siguen valiendo (el rol se lee de la BD) y la interfaz traduce la sesión
+guardada. V9 añade nombres y apellidos **sin partir** los nombres existentes: cada persona los
+completa en *Mi perfil*. V10 añade la revocación de invitaciones. Backend y BD deben desplegarse
+juntos (Flyway migra al arrancar); volver atrás exige una migración inversa.
 
 **Al actualizar un despliegue anterior a la gestión de empresas:** la migración V7 no borra
 nada; asigna a cada empresa existente el código empresarial `EMP` + su id (`EMP001`, `EMP002`…) y
@@ -180,25 +188,28 @@ Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, si
 | Método | Ruta | Descripción |
 | --- | --- | --- |
 | POST | `/api/auth/login` | `{username, password}` → `{accessToken, tokenType, expiresIn, usuario}` (`usuario.empresaId`, salvo SUPER_ADMIN) |
-| POST | `/api/auth/registro` | `{username, email, password, codigoInvitacion \| codigoEmpresa, nombre?}` → `201` usuario USUARIO de la empresa del código: ACTIVO con invitación, PENDIENTE con código de empresa |
-| POST | `/api/v1/empresas` | SUPER_ADMIN: empresa + código empresarial (`codigo`, indicado o propuesto) + administrador principal GERENTE, todo o nada |
-| GET | `/api/v1/empresas[/{id}]` | SUPER_ADMIN: listado paginado y ficha, con `codigo` y el administrador principal en `gerente` |
+| POST | `/api/auth/registro` | `{nombres, apellidos, username, email, password, codigoInvitacion \| codigoEmpresa}` → `201` usuario TRABAJADOR de la empresa del código: ACTIVO con invitación, PENDIENTE con código de empresa |
+| POST | `/api/v1/empresas` | SUPER_ADMIN: empresa + código empresarial (`codigo`, indicado o propuesto) + `administrador` inicial (`ADMIN_EMPRESA`, con `nombres` y `apellidos`), todo o nada |
+| GET | `/api/v1/empresas[/{id}]` | SUPER_ADMIN: listado paginado y ficha, con `codigo` y el administrador principal en `administrador` |
 | GET | `/api/v1/empresas/codigo-sugerido?nombre=` · `/codigo-disponible?codigo=` | SUPER_ADMIN: propone (`NASCAR` → `NASC01`) y comprueba un código empresarial |
-| GET | `/api/v1/empresas/{id}/usuarios` | SUPER_ADMIN: usuarios de esa empresa (gerentes y trabajadores) con su estado |
-| PATCH | `/api/v1/empresas/{id}/estado` · `/{id}/gerentes/{usuarioId}/estado` | SUPER_ADMIN: activar o desactivar la empresa, o la cuenta de uno de sus gerentes |
-| GET | `/api/v1/empresas/actual` | GERENTE, o SUPER_ADMIN con `X-Tenant-ID`: empresa en la que se trabaja, con sus códigos |
-| GET · PATCH | `/api/v1/trabajadores[?estado=]` · `/{id}/estado` | GERENTE, o SUPER_ADMIN con `X-Tenant-ID`: trabajadores de esa empresa; aprobar, rechazar, desactivar o reactivar |
-| POST | `/api/auth/invitaciones` | GERENTE (o SUPER_ADMIN con `X-Tenant-ID`, solo por API): `{horasValidez?}` → `201` `{codigo, fechaExpiracion}` |
-| GET | `/api/auth/me` | Perfil del usuario autenticado (Bearer) |
+| GET | `/api/v1/empresas/{id}/usuarios` | SUPER_ADMIN: usuarios de esa empresa (administradores y trabajadores) con su estado |
+| PATCH | `/api/v1/empresas/{id}/estado` · `/{id}/administradores/{usuarioId}/estado` | SUPER_ADMIN: activar o desactivar la empresa, o la cuenta de uno de sus administradores |
+| GET | `/api/v1/empresas/actual` | ADMIN_EMPRESA, o SUPER_ADMIN con `X-Tenant-ID: <id>`: empresa en la que se trabaja, con sus códigos |
+| GET · PATCH | `/api/v1/trabajadores[?estado=]` · `/{id}/estado` | ADMIN_EMPRESA, o SUPER_ADMIN con `X-Tenant-ID: <id>`: trabajadores de esa empresa; aprobar, rechazar, desactivar o reactivar |
+| POST | `/api/auth/invitaciones` | ADMIN_EMPRESA (o SUPER_ADMIN con `X-Tenant-ID: <id>`, solo por API): `{horasValidez?}` → `201` `{codigo, fechaExpiracion}` |
+| GET · DELETE | `/api/auth/invitaciones` · `/{id}` | Mismos roles: invitaciones de la empresa con su estado (sin el código completo); revocar una vigente (baja lógica) |
+| GET · PATCH | `/api/auth/me` | Perfil del usuario autenticado, leído de la BD: nombres, apellidos, rol, estado y empresa (`empresaNombre`, `empresaCodigo`); `PATCH {nombres, apellidos}` corrige los propios |
 | GET | `/api/v1/proveedores?page=0&size=10&sort=razonSocial,asc` | Listado paginado |
 | GET · POST · PUT · DELETE | `/api/v1/proveedores[/{id}]` | Detalle, alta, edición y baja lógica |
 | GET | `/api/v1/productos?page=0&size=10&sort=nombre,asc` | Listado paginado (incluye el proveedor) |
 | GET · POST · PUT · DELETE | `/api/v1/productos[/{id}]` | Detalle, alta, edición y baja lógica |
-| GET · POST | `/api/v1/solicitudes[?estado=]` | USUARIO ve y crea las suyas; GERENTE ve las de su empresa; SUPER_ADMIN consulta |
-| PATCH | `/api/v1/solicitudes/{id}/estado` | GERENTE o SUPER_ADMIN con `X-Tenant-ID`: `{estado: APROBADA \| RECHAZADA, comentario}` |
+| GET · POST | `/api/v1/solicitudes[?estado=]` | TRABAJADOR ve y crea las suyas; ADMIN_EMPRESA ve las de su empresa; SUPER_ADMIN consulta |
+| PATCH | `/api/v1/solicitudes/{id}/estado` | ADMIN_EMPRESA, o SUPER_ADMIN con `X-Tenant-ID: <id>`: `{estado: APROBADA \| RECHAZADA, comentario}` |
 
 Lecturas: cualquier usuario autenticado (de su empresa). Altas, cambios y bajas de catálogos:
-`GERENTE` o `SUPER_ADMIN` dentro de una empresa. Detalle de reglas y errores en
+`ADMIN_EMPRESA` o `SUPER_ADMIN` dentro de una empresa. El SUPER_ADMIN debe elegir siempre el
+contexto en las rutas de datos de negocio: `X-Tenant-ID: <id>` (supervisión) o
+`X-Tenant-ID: global` (modo global explícito y registrado); sin cabecera, `400`. Detalle de reglas y errores en
 [backend-spring/README.md](backend-spring/README.md#saas-multi-empresa-tenants).
 
 ## Roles, empresa y navegación (frontend)
@@ -207,20 +218,23 @@ El SGOC es multi-empresa: cada empresa cliente ve solo sus datos y el backend lo
 
 | Rol | Empresa de trabajo | Menú |
 | --- | --- | --- |
-| `USUARIO` | La suya (de la sesión) | Inicio · Mis solicitudes · Órdenes relacionadas (próximamente) |
-| `GERENTE` | La suya (de la sesión) | Inicio · Solicitudes · Órdenes de compra y Recepciones (próximamente) · Productos · Proveedores · Invitar usuarios |
+| `TRABAJADOR` («Trabajador») | La suya (de la sesión) | Inicio · Mis solicitudes · Órdenes relacionadas (próximamente) |
+| `ADMIN_EMPRESA` («Administrador») | La suya (de la sesión) | Inicio · Solicitudes · Órdenes de compra y Recepciones (próximamente) · Productos · Proveedores · Invitar usuarios |
 | `SUPER_ADMIN` | Ninguna (modo global) o la que supervisa | Inicio · Solicitudes · Productos · Proveedores (consulta) · Empresas |
 
-- **Panel lateral:** muestra la empresa, el usuario y su rol. GERENTE y USUARIO no pueden cambiar
+- **Panel lateral:** muestra el nombre comercial y el código de la empresa, el nombre real del
+  usuario (enlace a *Mi perfil*) y su rol, según `GET /api/auth/me`, que la interfaz consulta al
+  cargar y al volver a la pestaña. ADMIN_EMPRESA y TRABAJADOR no pueden cambiar
   de empresa.
-- **SUPER_ADMIN:** entra en **modo global** (consulta todas las empresas). En **Empresas** pulsa
+- **SUPER_ADMIN:** entra en **modo global** (consulta todas las empresas; sus peticiones llevan
+  `X-Tenant-ID: global`, que el backend registra). En **Empresas** pulsa
   *Supervisar* en una empresa: desde entonces **solo sus peticiones** llevan `X-Tenant-ID: <id>`,
   una franja fija indica qué empresa supervisa y toda la interfaz muestra solo sus datos, en
   **solo lectura** (sigue siendo SUPER_ADMIN: no hay suplantación de ningún usuario). La elección
   dura la pestaña (sessionStorage), se borra al cerrar sesión y *Volver al modo global* la quita.
-  GERENTE y USUARIO nunca envían la cabecera (el backend la ignoraría).
-- **Rutas protegidas:** `/productos` y `/proveedores` para GERENTE y SUPER_ADMIN;
-  `/admin/invitaciones` solo para GERENTE; `/admin/empresas[/:id]` solo para SUPER_ADMIN; el
+  ADMIN_EMPRESA y TRABAJADOR nunca envían la cabecera (el backend la ignoraría).
+- **Rutas protegidas:** `/productos` y `/proveedores` para ADMIN_EMPRESA y SUPER_ADMIN;
+  `/admin/invitaciones` solo para ADMIN_EMPRESA; `/perfil` para todos; `/admin/empresas[/:id]` solo para SUPER_ADMIN; el
   resto vuelve al inicio.
 - **Sesiones anteriores** (con el rol `ADMIN`, que ya no existe) se descartan y piden iniciar
   sesión de nuevo.
@@ -234,46 +248,55 @@ backend cubre hasta la aprobación; *Órdenes de compra* y *Recepciones* aparece
 "Próximamente" y una solicitud aprobada muestra "Generar orden de compra" deshabilitado.
 
 **Inicio:** solicitudes pendientes, aprobadas y rechazadas (de la empresa, o las propias para un
-USUARIO), actividad reciente y accesos a *Nueva solicitud* y *Revisar pendientes*.
+TRABAJADOR), actividad reciente y accesos a *Nueva solicitud* y *Revisar pendientes*. Saluda con
+los nombres de la persona («Hola, Light») y, si su cuenta es anterior a V9, la invita a completar
+sus nombres y apellidos.
+
+**Mi perfil (`/perfil`):** nombre real, usuario de acceso (no es el nombre visible), correo, rol
+(«Administrador de empresa», «Trabajador»…) y empresa; formulario para completar o corregir los
+propios nombres y apellidos.
 
 **Precios en COP:** la interfaz trabaja con pesos colombianos enteros (sin decimales) y los
 muestra como `$ 1.250.000`. "Nuevo producto" queda deshabilitado mientras no haya ningún
 proveedor registrado.
 
 **Registro:** quien recibe un código de invitación crea su cuenta en `/registro` (o con el
-enlace `/registro?codigo=XXXX-XXXX-XXXX-XXXX`, que precarga el código) y entra directamente en la
-empresa del código con rol USUARIO. Los errores del servidor (código inválido, usado o caducado;
+enlace `/registro?codigo=XXXX-XXXX-XXXX-XXXX`, que precarga el código) con sus nombres y
+apellidos, y entra directamente en la empresa del código con rol TRABAJADOR. Los errores del
+servidor (código inválido, usado, revocado o caducado;
 usuario o correo en uso) aparecen junto al campo afectado.
 
-**Solicitudes de compra (`/solicitudes`):** GERENTE y USUARIO piden productos del catálogo con un
-motivo y tantas líneas como necesiten (producto + cantidad), sin elegir proveedor, y ven el total
-estimado en COP. La solicitud queda `PENDIENTE`; el GERENTE (o el SUPER_ADMIN dentro de la
-empresa) la abre y la aprueba o la rechaza (con motivo). Un USUARIO solo ve las suyas. La URL
+**Solicitudes de compra (`/solicitudes`):** ADMIN_EMPRESA y TRABAJADOR piden productos del
+catálogo con un motivo y tantas líneas como necesiten (producto + cantidad), sin elegir proveedor,
+y ven el total estimado en COP. La solicitud queda `PENDIENTE`; el administrador la abre y la
+aprueba o la rechaza (con motivo); el SUPER_ADMIN solo la consulta. Un TRABAJADOR solo ve las
+suyas. La URL
 admite `?estado=PENDIENTE`, `?ver=<id>` y `?nueva=1`.
 
 **Empresas (`/admin/empresas`, SUPER_ADMIN):** listado de las empresas con su código, su
 administrador principal, su estado y su alta; *Crear empresa* abre un formulario único para la
 empresa (nombre comercial, NIT, código empresarial propuesto a partir del nombre y comprobado
-mientras se escribe) y su administrador principal (nombre, correo, usuario y contraseña inicial,
+mientras se escribe) y su administrador (nombres, apellidos, correo, usuario y contraseña inicial,
 con un generador de contraseñas seguras). Se crean juntos o no se crea nada. Cada fila ofrece
 *Detalles* (ficha con datos, administrador, actividad real y usuarios; desde ella se desactiva o
 reactiva la empresa o la cuenta de su administrador, con confirmación) y *Supervisar*.
 
-**Invitar usuarios (`/admin/invitaciones`, GERENTE):** el gerente genera un código con un clic y
-lo copia, o copia el enlace de registro. Es el alta de trabajadores de su empresa (no de
-empresas). Cada código se muestra solo mientras no se sale de la página.
+**Invitar usuarios (`/admin/invitaciones`, ADMIN_EMPRESA):** el administrador genera un código con
+un clic y lo copia, o copia el enlace de registro. Es el alta de trabajadores de su empresa (no de
+empresas). El código completo solo se muestra al generarlo; debajo, el historial de invitaciones
+de la empresa (vigente, usada, revocada o caducada, quién la creó, la usó o la revocó) permite
+revocar una vigente, con confirmación.
 
 ### Pendiente en el backend (la interfaz no lo simula)
 
 | Necesidad del frontend | Endpoint que falta |
 | --- | --- |
-| Nombre de la empresa en el panel de GERENTE y USUARIO (hoy "Empresa N.º X"; el SUPER_ADMIN ya ve nombre y código) | `GET /api/v1/empresas/actual` sirve a los gestores; para todos los roles falta `empresaNombre` en `UsuarioResponse` |
 | Registro con código de empresa y aprobación de trabajadores | Endpoints ya disponibles (Hito 2); falta la interfaz |
 | Cambio de contraseña (también la inicial del administrador) y recuperación | Sin definir: hoy no hay ningún mecanismo |
 | Empresa de cada solicitud en modo global | `empresaId`/`empresaNombre` en `SolicitudResponseDTO` |
 | Órdenes de compra y sus estados | `/api/v1/ordenes-compra` (crear desde una solicitud aprobada, listar, detalle, cambiar estado) |
 | Recepciones (también parciales) | `/api/v1/ordenes-compra/{id}/recepciones` |
-| Gestión de gerentes (alta de más gerentes, cambio de rol) | Sin definir; el SUPER_ADMIN ya desactiva o reactiva sus cuentas y los trabajadores se gestionan con `/api/v1/trabajadores` |
+| Gestión de administradores (alta de más administradores, cambio de rol) | Sin definir; el SUPER_ADMIN ya desactiva o reactiva sus cuentas y los trabajadores se gestionan con `/api/v1/trabajadores` |
 | Edición de la ficha de la empresa (nombre, NIT) | `PUT /api/v1/empresas/{id}`; el código empresarial es estable y no se edita |
 | Reportes | Sin definir |
 

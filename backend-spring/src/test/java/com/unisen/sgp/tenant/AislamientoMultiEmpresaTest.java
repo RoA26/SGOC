@@ -18,7 +18,10 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
@@ -29,6 +32,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * usuarioToken de la clase base) frente a "Ferretería Norte" ({@code norte}), y el
  * SUPER_ADMIN en modo global y con {@code X-Tenant-ID}.
  */
+@ExtendWith(OutputCaptureExtension.class)
 class AislamientoMultiEmpresaTest extends ApiIntegrationTest {
 
     private static final String PROVEEDORES = "/api/v1/proveedores";
@@ -48,8 +52,8 @@ class AislamientoMultiEmpresaTest extends ApiIntegrationTest {
     @BeforeEach
     void crearSegundaEmpresaYSuperAdmin() throws Exception {
         norte = crearEmpresa("Ferretería Norte", "900000002-2");
-        gerenteNorte = crearUsuarioYEntrar("gerente.norte", Rol.GERENTE, norte);
-        usuarioNorte = crearUsuarioYEntrar("compras.norte", Rol.USUARIO, norte);
+        gerenteNorte = crearUsuarioYEntrar("gerente.norte", Rol.ADMIN_EMPRESA, norte);
+        usuarioNorte = crearUsuarioYEntrar("compras.norte", Rol.TRABAJADOR, norte);
         superAdmin = crearUsuarioYEntrar("plataforma", Rol.SUPER_ADMIN, null);
     }
 
@@ -181,19 +185,46 @@ class AislamientoMultiEmpresaTest extends ApiIntegrationTest {
     // --------------------------------------------------------- SUPER_ADMIN
 
     @Test
-    void superAdminSinCabeceraVeTodasLasEmpresasPeroNoEscribe() throws Exception {
+    void superAdminSinCabeceraNoVeDatosDeNegocioYEnModoGlobalLeeTodoSinEscribir(CapturedOutput salida) throws Exception {
         crear(PROVEEDORES, adminToken, proveedor("900123456-7", "Aceros Andinos"));
         crear(PROVEEDORES, gerenteNorte, proveedor("800000001", "Ferretería"));
 
-        getJson(PROVEEDORES, superAdmin).andExpect(jsonPath("$.page.totalElements").value(2));
+        // Sin elegir contexto, ninguna ruta de negocio pierde el filtro de empresa: 400.
+        getJson(PROVEEDORES, superAdmin)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Contexto de empresa requerido"));
+        getJson(SOLICITUDES, superAdmin).andExpect(status().isBadRequest());
+        // Las rutas de plataforma no necesitan contexto.
+        getJson("/api/auth/me", superAdmin).andExpect(status().isOk());
+        getJson("/api/v1/empresas", superAdmin).andExpect(status().isOk());
 
-        postJson(PROVEEDORES, superAdmin, proveedor("700000001", "Sin empresa"))
+        // Modo global explícito: lee todas las empresas, queda registrado y no permite escribir.
+        getGlobal(PROVEEDORES, superAdmin).andExpect(jsonPath("$.page.totalElements").value(2));
+        assertThat(salida.getOut()).contains("Modo global: plataforma GET " + PROVEEDORES);
+        mockMvc.perform(post(PROVEEDORES).header(HttpHeaders.AUTHORIZATION, "Bearer " + superAdmin)
+                        .header(TenantFilter.HEADER_TENANT, TenantFilter.MODO_GLOBAL)
+                        .contentType(MediaType.APPLICATION_JSON).content(proveedor("700000001", "Sin empresa")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Empresa no seleccionada"));
         mockMvc.perform(post("/api/auth/invitaciones").header(HttpHeaders.AUTHORIZATION, "Bearer " + superAdmin))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Empresa no seleccionada"));
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM proveedores", Integer.class)).isEqualTo(2);
+    }
+
+    @Test
+    void elModoGlobalNoExisteParaUnAdministradorDeEmpresa() throws Exception {
+        crear(PROVEEDORES, adminToken, proveedor("900123456-7", "Aceros Andinos"));
+        crear(PROVEEDORES, gerenteNorte, proveedor("800000001", "Ferretería"));
+
+        // La cabecera se ignora: sigue viendo solo su empresa.
+        for (String token : new String[] {gerenteNorte, usuarioNorte}) {
+            mockMvc.perform(get(PROVEEDORES).header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                            .header(TenantFilter.HEADER_TENANT, TenantFilter.MODO_GLOBAL))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.page.totalElements").value(1))
+                    .andExpect(jsonPath("$.content[0].razonSocial").value("Ferretería"));
+        }
     }
 
     @Test
@@ -212,7 +243,7 @@ class AislamientoMultiEmpresaTest extends ApiIntegrationTest {
         // Invitación para Norte: quien la canjea entra en Norte.
         String codigo = leer(postComo("/api/auth/invitaciones", superAdmin, norte.getId(), "{}")
                 .andExpect(status().isCreated())).get("codigo").asText();
-        mockMvc.perform(post("/api/auth/registro").contentType(MediaType.APPLICATION_JSON).content(json(Map.of(
+        mockMvc.perform(post("/api/auth/registro").contentType(MediaType.APPLICATION_JSON).content(json(Map.of("nombres", "Nombre", "apellidos", "De Prueba", 
                         "username", "nuevo.norte", "email", "nuevo@norte.com", "password", "ClaveSegura2026",
                         "codigoInvitacion", codigo))))
                 .andExpect(status().isCreated())
@@ -229,6 +260,11 @@ class AislamientoMultiEmpresaTest extends ApiIntegrationTest {
         enviar(patch(SOLICITUDES + "/" + solicitudUnisen + "/estado").contentType(MediaType.APPLICATION_JSON)
                 .content(cambio), superAdmin, null)
                 .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Contexto de empresa requerido"));
+        mockMvc.perform(patch(SOLICITUDES + "/" + solicitudUnisen + "/estado").contentType(MediaType.APPLICATION_JSON)
+                        .content(cambio).header(HttpHeaders.AUTHORIZATION, "Bearer " + superAdmin)
+                        .header(TenantFilter.HEADER_TENANT, TenantFilter.MODO_GLOBAL))
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Empresa no seleccionada"));
         enviar(patch(SOLICITUDES + "/" + solicitudUnisen + "/estado").contentType(MediaType.APPLICATION_JSON)
                 .content(cambio), superAdmin, norte.getId())
@@ -243,12 +279,18 @@ class AislamientoMultiEmpresaTest extends ApiIntegrationTest {
     }
 
     @Test
-    void laCabeceraDebeSerUnaEmpresaExistente() throws Exception {
-        enviar(get(PROVEEDORES), superAdmin, null).andExpect(status().isOk());
+    void laCabeceraDebeSerUnaEmpresaExistenteOElModoGlobal() throws Exception {
+        enviar(get(PROVEEDORES), superAdmin, null).andExpect(status().isBadRequest());
+        for (String global : new String[] {"global", "GLOBAL", " Global "}) {
+            mockMvc.perform(get(PROVEEDORES).header(HttpHeaders.AUTHORIZATION, "Bearer " + superAdmin)
+                            .header(TenantFilter.HEADER_TENANT, global))
+                    .andExpect(status().isOk());
+        }
         mockMvc.perform(get(PROVEEDORES).header(HttpHeaders.AUTHORIZATION, "Bearer " + superAdmin)
                         .header(TenantFilter.HEADER_TENANT, "abc"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("La cabecera X-Tenant-ID debe ser el id numérico de una empresa."));
+                .andExpect(jsonPath("$.detail")
+                        .value("La cabecera X-Tenant-ID debe ser el id numérico de una empresa o \"global\"."));
         enviar(get(PROVEEDORES), superAdmin, 999_999L)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("No existe la empresa con id 999999 indicada en X-Tenant-ID."));
@@ -260,7 +302,7 @@ class AislamientoMultiEmpresaTest extends ApiIntegrationTest {
     void elJwtLlevaLaEmpresaSalvoParaElSuperAdmin() {
         Claims norteClaims = jwtUtil.validateToken(gerenteNorte);
         assertThat(JwtUtil.extractEmpresaId(norteClaims)).isEqualTo(norte.getId());
-        assertThat(norteClaims.get(JwtUtil.CLAIM_ROL, String.class)).isEqualTo("GERENTE");
+        assertThat(norteClaims.get(JwtUtil.CLAIM_ROL, String.class)).isEqualTo("ADMIN_EMPRESA");
 
         Claims superClaims = jwtUtil.validateToken(superAdmin);
         assertThat(JwtUtil.extractEmpresaId(superClaims)).isNull();

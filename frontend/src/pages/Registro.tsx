@@ -10,7 +10,7 @@ import { applyApiErrors } from '@/lib/formErrors'
 import { registroSchema, type RegistroFormValues, type RegistroPayload } from '@/schemas/authSchema'
 import { useAuthStore } from '@/store/authStore'
 
-const CAMPOS = ['codigoInvitacion', 'username', 'email', 'password'] as const
+const CAMPOS = ['codigoInvitacion', 'nombres', 'apellidos', 'username', 'email', 'password'] as const
 
 /**
  * Alta con código de invitación. El código puede llegar en el enlace que comparte el
@@ -28,7 +28,7 @@ export default function Registro() {
     formState: { errors, isSubmitting },
   } = useForm<RegistroFormValues, unknown, RegistroPayload>({
     resolver: zodResolver(registroSchema),
-    defaultValues: { codigoInvitacion: codigoEnlace, username: '', email: '', password: '' },
+    defaultValues: { codigoInvitacion: codigoEnlace, nombres: '', apellidos: '', username: '', email: '', password: '' },
   })
 
   async function crearCuenta(payload: RegistroPayload) {
@@ -73,11 +73,28 @@ export default function Registro() {
           )}
         </FormField>
 
+        <div className="grid gap-5 sm:grid-cols-2">
+          <FormField label="Nombres" required error={errors.nombres?.message}>
+            {(control) => (
+              <input
+                {...control}
+                {...register('nombres')}
+                className="u-input"
+                autoComplete="given-name"
+                autoFocus={Boolean(codigoEnlace)}
+              />
+            )}
+          </FormField>
+          <FormField label="Apellidos" required error={errors.apellidos?.message}>
+            {(control) => <input {...control} {...register('apellidos')} className="u-input" autoComplete="family-name" />}
+          </FormField>
+        </div>
+
         <FormField
           label="Usuario"
           required
           error={errors.username?.message}
-          hint="De 3 a 50 caracteres: letras, números, punto, guion o guion bajo. Sin espacios."
+          hint="Con él inicias sesión. De 3 a 50 caracteres: letras, números, punto, guion o guion bajo. Sin espacios."
         >
           {(control) => (
             <input
@@ -88,7 +105,6 @@ export default function Registro() {
               autoCapitalize="none"
               spellCheck={false}
               placeholder="nombre.apellido"
-              autoFocus={Boolean(codigoEnlace)}
             />
           )}
         </FormField>

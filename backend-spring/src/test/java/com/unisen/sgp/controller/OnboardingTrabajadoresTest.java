@@ -25,9 +25,9 @@ import org.springframework.test.web.servlet.ResultActions;
 
 /**
  * Onboarding de trabajadores (Hito 2): registro con el código de empresa → PENDIENTE → el
- * GERENTE aprueba o rechaza → acceso según el estado de la BD, no según el JWT.
+ * ADMIN_EMPRESA aprueba o rechaza → acceso según el estado de la BD, no según el JWT.
  *
- * <p>Base: "Unisen" ({@code empresa}) con su GERENTE ({@code adminToken}) y un trabajador
+ * <p>Base: "Unisen" ({@code empresa}) con su ADMIN_EMPRESA ({@code adminToken}) y un trabajador
  * activo ({@code usuarioToken}).
  */
 class OnboardingTrabajadoresTest extends ApiIntegrationTest {
@@ -49,7 +49,7 @@ class OnboardingTrabajadoresTest extends ApiIntegrationTest {
     }
 
     private ResultActions registrarConCodigo(String username, String codigoEmpresa) throws Exception {
-        return registrar(Map.of("username", username, "email", username + "@correo.com", "password", CLAVE,
+        return registrar(Map.of("nombres", "Nombre", "apellidos", "De Prueba", "username", username, "email", username + "@correo.com", "password", CLAVE,
                 "codigoEmpresa", codigoEmpresa));
     }
 
@@ -86,10 +86,11 @@ class OnboardingTrabajadoresTest extends ApiIntegrationTest {
         cuerpo.put("username", "Pedro.Bodega");
         cuerpo.put("email", "Pedro@Correo.com");
         cuerpo.put("password", CLAVE);
-        cuerpo.put("nombre", "Pedro Bodega");
+        cuerpo.put("nombres", " Pedro ");
+        cuerpo.put("apellidos", "Bodega");
         // Normalización: minúsculas, sin guiones y con espacios.
         cuerpo.put("codigoEmpresa", " " + empresa.getCodigoEmpresa().replace("-", "").toLowerCase(Locale.ROOT) + " ");
-        cuerpo.put("rol", "GERENTE");
+        cuerpo.put("rol", "ADMIN_EMPRESA");
         cuerpo.put("estado", "ACTIVO");
         cuerpo.put("empresaId", 999);
 
@@ -97,14 +98,14 @@ class OnboardingTrabajadoresTest extends ApiIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.username").value("pedro.bodega"))
                 .andExpect(jsonPath("$.nombre").value("Pedro Bodega"))
-                .andExpect(jsonPath("$.rol").value("USUARIO"))
+                .andExpect(jsonPath("$.rol").value("TRABAJADOR"))
                 .andExpect(jsonPath("$.estado").value("PENDIENTE"))
                 .andExpect(jsonPath("$.empresaId").value(empresa.getId()))
                 .andExpect(jsonPath("$.password").doesNotExist())).get("id").asLong();
 
         Map<String, Object> fila = jdbcTemplate.queryForMap(
                 "SELECT rol, estado, activo, empresa_id FROM usuarios WHERE id = ?", id);
-        assertThat(fila.get("rol")).isEqualTo("USUARIO");
+        assertThat(fila.get("rol")).isEqualTo("TRABAJADOR");
         assertThat(fila.get("estado")).isEqualTo("PENDIENTE");
         assertThat(fila.get("activo")).isEqualTo(false);
         assertThat(((Number) fila.get("empresa_id")).longValue()).isEqualTo(empresa.getId());
@@ -114,7 +115,7 @@ class OnboardingTrabajadoresTest extends ApiIntegrationTest {
     void registroConInvitacionSigueQuedandoActivo() throws Exception {
         // La invitación la genera un gestor: ya autoriza el alta (flujo previo, se conserva).
         String codigo = leer(postJson("/api/auth/invitaciones", adminToken, "{}")).get("codigo").asText();
-        registrar(Map.of("username", "invitada", "email", "invitada@correo.com", "password", CLAVE,
+        registrar(Map.of("nombres", "Nombre", "apellidos", "De Prueba", "username", "invitada", "email", "invitada@correo.com", "password", CLAVE,
                 "codigoInvitacion", codigo))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.estado").value("ACTIVO"));
@@ -145,12 +146,12 @@ class OnboardingTrabajadoresTest extends ApiIntegrationTest {
 
     @Test
     void registroExigeExactamenteUnCodigo() throws Exception {
-        registrar(Map.of("username", "sin.codigo", "email", "s@correo.com", "password", CLAVE))
+        registrar(Map.of("nombres", "Nombre", "apellidos", "De Prueba", "username", "sin.codigo", "email", "s@correo.com", "password", CLAVE))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.codigoInvitacion").value("El código de invitación es obligatorio."))
                 .andExpect(jsonPath("$.errors.codigoEmpresa")
                         .value("Indica el código de tu empresa o un código de invitación."));
-        registrar(Map.of("username", "dos.codigos", "email", "d@correo.com", "password", CLAVE,
+        registrar(Map.of("nombres", "Nombre", "apellidos", "De Prueba", "username", "dos.codigos", "email", "d@correo.com", "password", CLAVE,
                 "codigoEmpresa", empresa.getCodigoEmpresa(), "codigoInvitacion", "AAAA-BBBB-CCCC-DDDD"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.codigoEmpresa")
@@ -162,7 +163,7 @@ class OnboardingTrabajadoresTest extends ApiIntegrationTest {
         registrarConCodigo("compras", empresa.getCodigoEmpresa())
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errors.username").value("Ese nombre de usuario ya está en uso."));
-        registrar(Map.of("username", "corta", "email", "corta@correo.com", "password", "corta",
+        registrar(Map.of("nombres", "Nombre", "apellidos", "De Prueba", "username", "corta", "email", "corta@correo.com", "password", "corta",
                 "codigoEmpresa", empresa.getCodigoEmpresa()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.password").exists());
@@ -179,7 +180,7 @@ class OnboardingTrabajadoresTest extends ApiIntegrationTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.title").value("Cuenta no autorizada"))
                 .andExpect(jsonPath("$.motivo").value("PENDIENTE"))
-                .andExpect(jsonPath("$.detail").value("Tu cuenta está pendiente de aprobación por el gerente de tu empresa."))
+                .andExpect(jsonPath("$.detail").value("Tu cuenta está pendiente de aprobación por el administrador de tu empresa."))
                 .andExpect(jsonPath("$.accessToken").doesNotExist());
         // Contraseña incorrecta: no revela que la cuenta existe ni su estado.
         mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
@@ -200,7 +201,7 @@ class OnboardingTrabajadoresTest extends ApiIntegrationTest {
         // Las rutas públicas siguen funcionando con ese token en la cabecera.
         mockMvc.perform(post(REGISTRO).header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("username", "otro.pendiente", "email", "otro@correo.com",
+                        .content(json(Map.of("nombres", "Nombre", "apellidos", "De Prueba", "username", "otro.pendiente", "email", "otro@correo.com",
                                 "password", CLAVE, "codigoEmpresa", empresa.getCodigoEmpresa()))))
                 .andExpect(status().isCreated());
     }
@@ -264,7 +265,7 @@ class OnboardingTrabajadoresTest extends ApiIntegrationTest {
         String token = leer(loginComo("critico").andExpect(status().isOk())).get("accessToken").asText();
         getJson(SOLICITUDES, token).andExpect(status().isOk());
 
-        // El GERENTE le retira la autorización.
+        // El ADMIN_EMPRESA le retira la autorización.
         cambiarEstado(id, "INACTIVO", adminToken)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("INACTIVO"));
@@ -325,10 +326,10 @@ class OnboardingTrabajadoresTest extends ApiIntegrationTest {
         assertThat(estadoEnBd(gerenteId)).isEqualTo("ACTIVO");
         cambiarEstado(999_999L, "ACTIVO", adminToken).andExpect(status().isNotFound());
 
-        // El listado solo incluye trabajadores (rol USUARIO): "compras" y el nuevo.
+        // El listado solo incluye trabajadores (rol TRABAJADOR): "compras" y el nuevo.
         getJson(TRABAJADORES, adminToken)
                 .andExpect(jsonPath("$.page.totalElements").value(2))
-                .andExpect(jsonPath("$.content[?(@.rol != 'USUARIO')]").isEmpty());
+                .andExpect(jsonPath("$.content[?(@.rol != 'TRABAJADOR')]").isEmpty());
     }
 
     @Test
@@ -336,8 +337,11 @@ class OnboardingTrabajadoresTest extends ApiIntegrationTest {
         long id = registrarPendiente("soporte");
         String superAdmin = crearUsuarioYEntrar("plataforma", Rol.SUPER_ADMIN, null);
 
-        // Modo global: no hay empresa en la que gestionar.
+        // Sin contexto, o en el modo global: no hay empresa en la que gestionar.
         getJson(TRABAJADORES, superAdmin)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Contexto de empresa requerido"));
+        getGlobal(TRABAJADORES, superAdmin)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Empresa no seleccionada"));
         cambiarEstado(id, "ACTIVO", superAdmin).andExpect(status().isBadRequest());

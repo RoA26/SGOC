@@ -1,17 +1,21 @@
 import { Building, Building2, Eye, Globe2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ETIQUETA_ROL, useContextoEmpresa } from '@/features/auth/permisos'
+import { useAuthStore } from '@/store/authStore'
 import { useEmpresaSeleccionadaStore } from './empresaSeleccionadaStore'
 import { etiquetaEmpresa } from './etiquetas'
 import type { EmpresaSupervisada } from './types'
 
 /**
- * Empresa sobre la que se trabaja. GERENTE y USUARIO solo la ven (es la suya). El SUPER_ADMIN
+ * Empresa sobre la que se trabaja. ADMIN_EMPRESA y TRABAJADOR ven la suya, con el nombre comercial
+ * que devuelve el backend (GET /api/auth/me). El SUPER_ADMIN
  * está en modo global o supervisando una empresa que eligió en «Empresas»; desde aquí vuelve al
  * modo global.
  */
 export function ContextoEmpresaPanel() {
   const { rol, empresaId, esSuperAdmin, empresaSupervisada } = useContextoEmpresa()
+  const empresaNombre = useAuthStore((state) => state.empresaNombre)
+  const empresaCodigo = useAuthStore((state) => state.empresaCodigo)
 
   if (!esSuperAdmin) {
     return (
@@ -19,9 +23,13 @@ export function ContextoEmpresaPanel() {
         <p className="text-xs text-foreground-muted">Empresa</p>
         <p className="flex items-center gap-2 text-sm font-medium text-foreground">
           <Building className="size-4 shrink-0 text-accent" aria-hidden="true" />
-          {empresaId !== null ? etiquetaEmpresa(empresaId) : 'Sin empresa'}
+          {/* Mientras llega el perfil de una sesión antigua, el id; nunca un nombre que no venga del backend. */}
+          <span className="truncate">{empresaNombre ?? (empresaId !== null ? etiquetaEmpresa(empresaId) : 'Sin empresa')}</span>
         </p>
-        {rol && <p className="mt-0.5 text-xs text-foreground-muted">{ETIQUETA_ROL[rol]}</p>}
+        <p className="mt-0.5 text-xs text-foreground-muted">
+          {empresaCodigo && <span className="font-mono">{empresaCodigo} · </span>}
+          {rol && ETIQUETA_ROL[rol]}
+        </p>
       </div>
     )
   }

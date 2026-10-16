@@ -18,7 +18,7 @@ interface DetalleSolicitudModalProps {
 }
 
 /**
- * Detalle de una solicitud y su punto en el flujo de compra. Al GERENTE, si está pendiente, le
+ * Detalle de una solicitud y su punto en el flujo de compra. Al ADMIN_EMPRESA, si está pendiente, le
  * permite aprobarla o rechazarla (con motivo obligatorio al rechazar); el SUPER_ADMIN solo la
  * consulta. Una solicitud aprobada no es todavía una orden de compra.
  */
@@ -183,7 +183,7 @@ export function DetalleSolicitudModal({ solicitud, onClose, onRevisada }: Detall
         {pendiente && esSuperAdmin && (
           <p role="note" className="flex items-start gap-2 rounded-md border border-border bg-surface-muted/60 px-4 py-3 text-foreground-muted">
             <Eye className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
-            Consulta de solo lectura: la aprobación corresponde al gerente de la empresa.
+            Consulta de solo lectura: la aprobación corresponde al administrador de la empresa.
           </p>
         )}
 

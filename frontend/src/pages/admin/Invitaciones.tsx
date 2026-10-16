@@ -1,11 +1,17 @@
-import { Clock, Loader2, Ticket, TicketPlus } from 'lucide-react'
+import { Ban, CheckCircle2, CircleSlash, Clock, Loader2, Ticket, TicketPlus } from 'lucide-react'
 import { useState } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { BotonCopiar } from '@/components/ui/BotonCopiar'
-import { generarCodigoInvitacion } from '@/features/auth/authApi'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { DataTable, type Column } from '@/components/ui/DataTable'
+import { generarCodigoInvitacion, listarInvitaciones, revocarInvitacion } from '@/features/auth/authApi'
 import { usePermisos } from '@/features/auth/permisos'
-import type { InvitacionResponse } from '@/features/auth/types'
+import type { EstadoInvitacion, InvitacionResponse, InvitacionResumen } from '@/features/auth/types'
+import { useAviso } from '@/hooks/useAviso'
+import { usePaginatedResource } from '@/hooks/usePaginatedResource'
+import { cn } from '@/lib/cn'
 import { getApiErrorMessage } from '@/lib/errors'
+import { formatearFechaHora } from '@/lib/fechas'
 
 const formatoFecha = new Intl.DateTimeFormat('es', { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -15,17 +21,18 @@ function enlaceRegistro(codigo: string): string {
 }
 
 /**
- * Panel del GERENTE: genera códigos de invitación de un solo uso para su empresa (la cuenta
- * creada con el código entra en ella con rol USUARIO). Es el alta de trabajadores, no de
+ * Panel del ADMIN_EMPRESA: genera códigos de invitación de un solo uso para su empresa (la cuenta
+ * creada con el código entra en ella con rol TRABAJADOR). Es el alta de trabajadores, no de
  * empresas: esas las crea el SUPER_ADMIN en «Empresas». El backend solo devuelve cada código al
  * crearlo, así que la página conserva los de esta visita.
  */
 export default function Invitaciones() {
-  // Solo el GERENTE invita, siempre a su propia empresa (la ruta ya está restringida a su rol).
+  // Solo el ADMIN_EMPRESA invita, siempre a su propia empresa (la ruta ya está restringida a su rol).
   const puedeInvitar = usePermisos().gestionarInvitaciones
   const [invitaciones, setInvitaciones] = useState<InvitacionResponse[]>([])
   const [generando, setGenerando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [recargaHistorial, setRecargaHistorial] = useState(0)
 
   async function generar() {
     setGenerando(true)
@@ -33,6 +40,7 @@ export default function Invitaciones() {
     try {
       const nueva = await generarCodigoInvitacion()
       setInvitaciones((anteriores) => [nueva, ...anteriores])
+      setRecargaHistorial((n) => n + 1)
     } catch (err) {
       setError(getApiErrorMessage(err))
     } finally {
@@ -47,7 +55,7 @@ export default function Invitaciones() {
       <PageHeader
         eyebrow="Administración"
         title="Invitar usuarios"
-        description="Genera un código para cada persona de tu empresa que deba crear su cuenta. Entrará con el rol Usuario. El código es de un solo uso y caduca a las 72 horas."
+        description="Genera un código para cada persona de tu empresa que deba crear su cuenta. Entrará con el rol Trabajador. El código es de un solo uso y caduca a las 72 horas."
         actions={
           <button
             type="button"
@@ -152,6 +160,151 @@ export default function Invitaciones() {
           </ul>
         </section>
       )}
+
+      {puedeInvitar && <HistorialInvitaciones recarga={recargaHistorial} />}
     </>
+  )
+}
+
+const TAMANO_PAGINA = 10
+const ORDEN = 'creadoEn,desc'
+
+const ESTADO: Record<EstadoInvitacion, { etiqueta: string; clase: string; Icono: typeof Clock }> = {
+  VIGENTE: { etiqueta: 'Vigente', clase: 'border-success-border bg-success-surface text-success', Icono: CheckCircle2 },
+  USADA: { etiqueta: 'Usada', clase: 'border-border-strong bg-surface-muted text-foreground', Icono: Ticket },
+  REVOCADA: { etiqueta: 'Revocada', clase: 'border-danger-border bg-danger-surface text-danger', Icono: Ban },
+  CADUCADA: { etiqueta: 'Caducada', clase: 'border-border bg-surface-muted text-foreground-muted', Icono: CircleSlash },
+}
+
+function EstadoInvitacionBadge({ estado }: { estado: EstadoInvitacion }) {
+  const { etiqueta, clase, Icono } = ESTADO[estado]
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap', clase)}>
+      <Icono className="size-3.5" aria-hidden="true" />
+      {etiqueta}
+    </span>
+  )
+}
+
+/**
+ * Invitaciones de la empresa con su estado real según el backend. El código completo no se
+ * vuelve a mostrar (es una credencial): se reconoce por sus 4 últimos caracteres. Una vigente
+ * se puede revocar; deja de aceptarse y se conserva en el historial.
+ */
+function HistorialInvitaciones({ recarga }: { recarga: number }) {
+  const [pagina, setPagina] = useState(0)
+  const { data, loading, error, reload } = usePaginatedResource(listarInvitaciones, pagina, TAMANO_PAGINA, ORDEN, String(recarga))
+  const [porRevocar, setPorRevocar] = useState<InvitacionResumen | null>(null)
+  const [revocando, setRevocando] = useState(false)
+  const [errorRevocar, setErrorRevocar] = useState<string | null>(null)
+  const { aviso, mostrarAviso } = useAviso()
+
+  async function confirmarRevocacion() {
+    if (!porRevocar) return
+    setRevocando(true)
+    setErrorRevocar(null)
+    try {
+      await revocarInvitacion(porRevocar.id)
+      mostrarAviso(`Invitación ${porRevocar.codigoParcial} revocada.`)
+      setPorRevocar(null)
+      reload()
+    } catch (err) {
+      // 409: se usó, se revocó o caducó mientras tanto.
+      setErrorRevocar(getApiErrorMessage(err))
+    } finally {
+      setRevocando(false)
+    }
+  }
+
+  const columnas: Column<InvitacionResumen>[] = [
+    {
+      id: 'codigo',
+      header: 'Código',
+      cell: (invitacion) => <span className="font-mono text-xs whitespace-nowrap text-foreground">{invitacion.codigoParcial}</span>,
+    },
+    { id: 'estado', header: 'Estado', cell: (invitacion) => <EstadoInvitacionBadge estado={invitacion.estado} /> },
+    {
+      id: 'creada',
+      header: 'Creada',
+      className: 'hidden md:table-cell',
+      cell: (invitacion) => (
+        <div className="whitespace-nowrap">
+          <p>{formatearFechaHora(invitacion.creadoEn)}</p>
+          <p className="text-xs text-foreground-muted">por {invitacion.creador.nombre}</p>
+        </div>
+      ),
+    },
+    {
+      id: 'detalle',
+      header: 'Detalle',
+      cell: (invitacion) => (
+        <span className="text-sm text-foreground-muted">
+          {invitacion.estado === 'USADA' && invitacion.usadoPor && `Cuenta de ${invitacion.usadoPor.nombre}`}
+          {invitacion.estado === 'REVOCADA' && invitacion.revocadoPor && `Revocada por ${invitacion.revocadoPor.nombre}`}
+          {(invitacion.estado === 'VIGENTE' || invitacion.estado === 'CADUCADA') &&
+            `${invitacion.estado === 'VIGENTE' ? 'Caduca' : 'Caducó'} el ${formatearFechaHora(invitacion.fechaExpiracion)}`}
+        </span>
+      ),
+    },
+    {
+      id: 'acciones',
+      header: <span className="sr-only">Acciones</span>,
+      align: 'right',
+      cell: (invitacion) =>
+        invitacion.estado === 'VIGENTE' && (
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-foreground-muted hover:bg-danger-surface hover:text-danger"
+            onClick={() => {
+              setErrorRevocar(null)
+              setPorRevocar(invitacion)
+            }}
+            aria-label={`Revocar la invitación ${invitacion.codigoParcial}`}
+          >
+            <Ban className="size-4" aria-hidden="true" />
+            Revocar
+          </button>
+        ),
+    },
+  ]
+
+  return (
+    <section aria-labelledby="historial-invitaciones" className="mt-10 max-w-5xl">
+      <h2 id="historial-invitaciones" className="text-sm font-semibold text-foreground">
+        Invitaciones de la empresa
+      </h2>
+      <p className="mt-1 mb-3 text-sm text-foreground-muted">
+        Estado de cada código generado. Revoca los que ya no deban usarse: dejan de valer al instante.
+      </p>
+      <p role="status" aria-live="polite">
+        {aviso && <span className="u-alert u-alert--success mb-3 block">{aviso}</span>}
+      </p>
+      <DataTable
+        caption="Invitaciones de la empresa"
+        columns={columnas}
+        rows={data?.content ?? []}
+        rowKey={(invitacion) => invitacion.id}
+        loading={loading}
+        error={error}
+        onRetry={reload}
+        emptyMessage="Aún no se ha generado ninguna invitación."
+        page={data?.page}
+        onPageChange={setPagina}
+      />
+      <ConfirmDialog
+        open={porRevocar !== null}
+        title="Revocar invitación"
+        confirmLabel="Revocar"
+        busy={revocando}
+        error={errorRevocar}
+        onConfirm={() => void confirmarRevocacion()}
+        onCancel={() => setPorRevocar(null)}
+      >
+        <p>
+          ¿Revocar la invitación <strong className="font-mono text-foreground">{porRevocar?.codigoParcial}</strong>? Nadie
+          podrá registrarse con ella. Si ya la compartiste, genera otra para esa persona.
+        </p>
+      </ConfirmDialog>
+    </section>
   )
 }

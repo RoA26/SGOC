@@ -76,10 +76,10 @@ class AuthControllerTest {
     void setUp() {
         BaseDeDatosDePrueba.vaciar(jdbcTemplate);
         empresa = empresaRepository.save(new Empresa("Unisen", "900000001-1", "UNIS01", CodigosInvitacion.generar()));
-        ana = usuarioService.crearUsuario("Ana.Compras", "Ana.Compras@Unisen.com", "Ana Compras", PASSWORD,
-                Rol.USUARIO, empresa);
-        inactivo = usuarioService.crearUsuario("baja", "baja@unisen.com", "Usuario de Baja", PASSWORD, Rol.USUARIO,
-                empresa);
+        ana = usuarioService.crearUsuario("Ana.Compras", "Ana.Compras@Unisen.com", "Ana", "Compras", PASSWORD,
+                Rol.TRABAJADOR, empresa);
+        inactivo = usuarioService.crearUsuario("baja", "baja@unisen.com", "Usuario", "de Baja", PASSWORD,
+                Rol.TRABAJADOR, empresa);
         inactivo.cambiarEstado(EstadoUsuario.INACTIVO);
         usuarioRepository.save(inactivo);
     }
@@ -112,7 +112,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.usuario.username").value("ana.compras"))
                 .andExpect(jsonPath("$.usuario.email").value("ana.compras@unisen.com"))
                 .andExpect(jsonPath("$.usuario.nombre").value("Ana Compras"))
-                .andExpect(jsonPath("$.usuario.rol").value("USUARIO"))
+                .andExpect(jsonPath("$.usuario.rol").value("TRABAJADOR"))
                 .andExpect(jsonPath("$.usuario.empresaId").value(empresa.getId()))
                 .andExpect(jsonPath("$.usuario.passwordHash").doesNotExist())
                 .andReturn().getResponse().getContentAsString();
@@ -218,7 +218,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.id").value(ana.getId()))
                 .andExpect(jsonPath("$.username").value("ana.compras"))
                 .andExpect(jsonPath("$.email").value("ana.compras@unisen.com"))
-                .andExpect(jsonPath("$.rol").value("USUARIO"));
+                .andExpect(jsonPath("$.rol").value("TRABAJADOR"));
     }
 
     @Test
@@ -271,7 +271,7 @@ class AuthControllerTest {
     @Test
     void tokenAntiguoConElCorreoComoSubjectDevuelve401() throws Exception {
         Usuario comoAntes = new Usuario("ana.compras@unisen.com", ana.getEmail(), ana.getPasswordHash(),
-                ana.getNombre(), ana.getRol(), empresa);
+                ana.getNombres(), ana.getApellidos(), ana.getRol(), empresa);
         String tokenAntiguo = jwtUtil.generateToken(UsuarioPrincipal.from(comoAntes));
 
         mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, bearer(tokenAntiguo)))

@@ -2,11 +2,12 @@
 
 /**
  * Roles del backend (enum Rol):
- * - SUPER_ADMIN: operador de la plataforma, sin empresa. Elige empresa con X-Tenant-ID.
- * - GERENTE: administra su empresa (catálogos, revisión de solicitudes, invitaciones).
- * - USUARIO: crea solicitudes en su empresa y consulta las suyas.
+ * - SUPER_ADMIN: administración global de la plataforma, sin empresa. Elige contexto con X-Tenant-ID.
+ * - ADMIN_EMPRESA: administra su empresa (trabajadores, invitaciones, catálogos, revisión de solicitudes).
+ * - TRABAJADOR: crea solicitudes en su empresa y consulta las suyas.
+ * Hasta la migración V8 se llamaban GERENTE y USUARIO (ver store/authStore.ts).
  */
-export type Rol = 'SUPER_ADMIN' | 'GERENTE' | 'USUARIO'
+export type Rol = 'SUPER_ADMIN' | 'ADMIN_EMPRESA' | 'TRABAJADOR'
 
 export interface LoginRequest {
   username: string
@@ -15,6 +16,8 @@ export interface LoginRequest {
 
 /** RegistroRequestDTO: alta con un código de invitación de un solo uso. */
 export interface RegistroRequest {
+  nombres: string
+  apellidos: string
   username: string
   email: string
   password: string
@@ -25,11 +28,18 @@ export interface UsuarioResponse {
   id: number
   username: string
   email: string
+  /** Nombre visible: "nombres apellidos", o el nombre completo de una cuenta anterior sin completar. */
   nombre: string
+  /** Nulos en cuentas anteriores a V9 que aún no completaron su perfil. */
+  nombres?: string | null
+  apellidos?: string | null
+  datosPersonalesCompletos: boolean
   rol: Rol
-  /** Empresa del usuario; el backend la omite para SUPER_ADMIN. */
+  /** Empresa del usuario (leída de la BD en cada petición); el backend la omite para SUPER_ADMIN. */
   empresaId?: number
-  /** PENDIENTE tras registrarse con el código de empresa, hasta que un gerente lo apruebe. */
+  empresaNombre?: string
+  empresaCodigo?: string
+  /** PENDIENTE tras registrarse con el código de empresa, hasta que un administrador lo apruebe. */
   estado?: EstadoUsuario
 }
 
@@ -41,6 +51,34 @@ export interface LoginResponse {
   /** Segundos de validez del token. */
   expiresIn: number
   usuario: UsuarioResponse
+}
+
+export interface DatosPersonales {
+  nombres: string
+  apellidos: string
+}
+
+export type EstadoInvitacion = 'VIGENTE' | 'USADA' | 'REVOCADA' | 'CADUCADA'
+
+/** UsuarioResumenDTO */
+export interface UsuarioResumen {
+  id: number
+  username: string
+  nombre: string
+}
+
+/** InvitacionResumenDTO: nunca trae el código completo, solo sus 4 últimos caracteres. */
+export interface InvitacionResumen {
+  id: number
+  codigoParcial: string
+  estado: EstadoInvitacion
+  creadoEn: string
+  fechaExpiracion: string
+  creador: UsuarioResumen
+  usadoPor?: UsuarioResumen
+  fechaUso?: string
+  revocadoPor?: UsuarioResumen
+  fechaRevocacion?: string
 }
 
 /** InvitacionResponseDTO: el código solo se devuelve una vez, al generarlo. */

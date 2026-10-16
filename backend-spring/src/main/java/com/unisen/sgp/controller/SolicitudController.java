@@ -42,7 +42,7 @@ public class SolicitudController {
 
     @GetMapping
     @Operation(summary = "Listar solicitudes (paginado)",
-            description = "USUARIO recibe solo las suyas; ADMIN y GERENTE, todas. Por defecto, las más recientes primero.")
+            description = "TRABAJADOR recibe solo las suyas; ADMIN_EMPRESA y SUPER_ADMIN, todas. Por defecto, las más recientes primero.")
     public Page<SolicitudResponseDTO> listar(
             @Parameter(description = "Filtra por estado") @RequestParam(required = false) EstadoSolicitud estado,
             @ParameterObject @PageableDefault(size = 10, sort = {"fecha", "id"}, direction = Sort.Direction.DESC)
@@ -72,11 +72,11 @@ public class SolicitudController {
 
     @PatchMapping("/{id}/estado")
     @PreAuthorize(Permisos.GESTION)
-    @Operation(summary = "Aprobar o rechazar una solicitud (ADMIN / GERENTE)",
+    @Operation(summary = "Aprobar o rechazar una solicitud (ADMIN_EMPRESA, o SUPER_ADMIN con X-Tenant-ID)",
             description = "Solo desde PENDIENTE. El comentario es obligatorio al rechazar.")
     @ApiResponse(responseCode = "200", description = "Solicitud revisada")
     @ApiResponse(responseCode = "400", description = "Estado no válido o falta el motivo del rechazo")
-    @ApiResponse(responseCode = "403", description = "El usuario no es ADMIN ni GERENTE")
+    @ApiResponse(responseCode = "403", description = "El usuario no administra la empresa")
     @ApiResponse(responseCode = "404", description = "No existe")
     @ApiResponse(responseCode = "409", description = "Ya estaba aprobada o rechazada")
     public SolicitudResponseDTO cambiarEstado(@PathVariable Long id,

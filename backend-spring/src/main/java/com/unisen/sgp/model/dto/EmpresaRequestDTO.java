@@ -10,8 +10,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * Aprovisionamiento de una empresa cliente (solo SUPER_ADMIN): la empresa y su GERENTE
- * fundador (su administrador principal) se crean juntos o no se crea nada.
+ * Alta de una empresa cliente (solo SUPER_ADMIN): la empresa y su administrador inicial
+ * (rol ADMIN_EMPRESA) se crean juntos o no se crea nada.
  *
  * <p>{@code codigo} es el código empresarial (p. ej. NASC01): si se omite, el servidor propone el
  * siguiente libre a partir del nombre. El código de registro de trabajadores ({@code codigoEmpresa}
@@ -35,9 +35,9 @@ public record EmpresaRequestDTO(
                 message = "El código debe tener de 3 a 12 letras mayúsculas o números y empezar por una letra (p. ej. NASC01).")
         String codigo,
 
-        @NotNull(message = "Indica los datos del gerente fundador.")
+        @NotNull(message = "Indica los datos del administrador de la empresa.")
         @Valid
-        GerenteFundador gerente) {
+        AdministradorInicial administrador) {
 
     /**
      * Normaliza antes de validar: el NIT pierde puntos y espacios ("901.234.567-8" es válido) y
@@ -50,18 +50,28 @@ public record EmpresaRequestDTO(
     }
 
     /**
-     * Primer GERENTE de la empresa (su administrador principal): queda ACTIVO, con la contraseña
-     * inicial indicada. Rol, estado y empresa los fija el servidor; si el JSON los trae, se ignoran.
+     * Administrador inicial de la empresa: rol ADMIN_EMPRESA, ACTIVO, con la contraseña inicial
+     * indicada. Rol, estado y empresa los fija el servidor; si el JSON los trae, se ignoran.
      */
-    public record GerenteFundador(
-            @Schema(example = "gerente.andina")
+    public record AdministradorInicial(
+            @Schema(example = "Light")
+            @NotBlank(message = "Los nombres son obligatorios.")
+            @Size(max = Usuario.NOMBRES_MAX_LENGTH, message = "Los nombres no pueden superar 100 caracteres.")
+            String nombres,
+
+            @Schema(example = "Yagami")
+            @NotBlank(message = "Los apellidos son obligatorios.")
+            @Size(max = Usuario.APELLIDOS_MAX_LENGTH, message = "Los apellidos no pueden superar 100 caracteres.")
+            String apellidos,
+
+            @Schema(example = "admin.andina")
             @NotBlank(message = "El usuario es obligatorio.")
             @Pattern(regexp = Patrones.USERNAME,
                     message = "El usuario debe tener de 3 a 50 caracteres: letras, números, punto, guion o guion bajo, "
                             + "y empezar y terminar con letra o número.")
             String username,
 
-            @Schema(example = "gerencia@andina.com")
+            @Schema(example = "administracion@andina.com")
             @NotBlank(message = "El correo es obligatorio.")
             @Email(regexp = Patrones.EMAIL, message = "El correo no tiene un formato válido.")
             @Size(max = Usuario.EMAIL_MAX_LENGTH, message = "El correo es demasiado largo.")
@@ -70,27 +80,19 @@ public record EmpresaRequestDTO(
             @Schema(example = "UnaClaveSegura2026")
             @NotBlank(message = "La contraseña es obligatoria.")
             @Size(min = 8, max = 72, message = "La contraseña debe tener entre 8 y 72 caracteres.")
-            String password,
+            String password) {
 
-            @Schema(description = "Nombre para mostrar. Opcional: si se omite se usa el username.",
-                    example = "Laura Gerente")
-            @Size(max = Usuario.NOMBRE_MAX_LENGTH, message = "El nombre no puede superar 150 caracteres.")
-            String nombre) {
-
-        public GerenteFundador {
+        public AdministradorInicial {
+            nombres = Textos.limpiar(nombres);
+            apellidos = Textos.limpiar(apellidos);
             username = Usuario.normalizarUsername(username);
             email = Textos.minusculas(email);
-            nombre = Textos.vacioANull(nombre);
-        }
-
-        public String nombreParaMostrar() {
-            return nombre != null ? nombre : username;
         }
 
         /** La contraseña nunca llega a los logs. */
         @Override
         public String toString() {
-            return "GerenteFundador[username=" + username + ", email=" + email + ", password=***]";
+            return "AdministradorInicial[username=" + username + ", email=" + email + ", password=***]";
         }
     }
 }

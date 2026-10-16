@@ -7,7 +7,7 @@ import java.time.Instant;
 
 /**
  * Persona de una empresa tal como la ve quien la gestiona, sin datos de acceso: un trabajador para
- * su gerente, o cualquier usuario (también gerentes) en la ficha de empresa del SUPER_ADMIN.
+ * su administrador, o cualquier usuario (también administradores) en la ficha de empresa del SUPER_ADMIN.
  */
 public record TrabajadorResponseDTO(Long id, String username, String email, String nombre, Rol rol,
                                     EstadoUsuario estado, Instant creadoEn) {

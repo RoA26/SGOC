@@ -22,11 +22,15 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * cuando ya se sabe quién llama:
  *
  * <ul>
- *   <li>GERENTE y USUARIO: siempre su propia empresa, la del JWT (que el filtro JWT ya
+ *   <li>ADMIN_EMPRESA y TRABAJADOR: siempre su propia empresa, la del JWT (que el filtro JWT ya
  *       comprobó contra la base de datos). La cabecera {@value #HEADER_TENANT} se ignora: nadie
  *       puede cambiar de empresa enviándola.</li>
- *   <li>SUPER_ADMIN: la empresa de {@value #HEADER_TENANT} si la envía (soporte,
- *       impersonación); si no, ninguna (modo global).</li>
+ *   <li>SUPER_ADMIN: debe elegir el contexto de forma explícita en los endpoints de negocio:
+ *       {@code X-Tenant-ID: <id>} (supervisión de esa empresa) o {@code X-Tenant-ID: global} (modo
+ *       global: sin filtro de empresa, solo lectura porque toda escritura exige empresa). Ambos
+ *       quedan registrados. Sin cabecera solo puede usar las rutas de plataforma (autenticación,
+ *       perfil, administración de empresas); en cualquier otra, 400. Así una ruta de negocio,
+ *       presente o futura, nunca pierde el filtro de empresa por omisión.</li>
  *   <li>Peticiones sin autenticar: ninguna.</li>
  *   <li>Rutas públicas de autenticación (login y registro): ninguna, aunque lleven un token.
  *       Se comportan siempre igual que una petición anónima: un código de invitación de otra
@@ -40,6 +44,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class TenantFilter extends OncePerRequestFilter {
 
     public static final String HEADER_TENANT = "X-Tenant-ID";
+    /** Valor de {@value #HEADER_TENANT} con el que el SUPER_ADMIN pide el modo global de forma explícita. */
+    public static final String MODO_GLOBAL = "global";
 
     private static final Logger log = LoggerFactory.getLogger(TenantFilter.class);
 
@@ -47,12 +53,15 @@ public class TenantFilter extends OncePerRequestFilter {
     private final ProblemDetailResponseWriter responseWriter;
     /** Rutas públicas de autenticación, que nunca trabajan dentro de una empresa. */
     private final RequestMatcher rutasSinEmpresa;
+    /** Rutas de datos de negocio: el SUPER_ADMIN debe indicar empresa o modo global. */
+    private final RequestMatcher rutasConContextoObligatorio;
 
     public TenantFilter(EmpresaRepository empresaRepository, ProblemDetailResponseWriter responseWriter,
-                        RequestMatcher rutasSinEmpresa) {
+                        RequestMatcher rutasSinEmpresa, RequestMatcher rutasConContextoObligatorio) {
         this.empresaRepository = empresaRepository;
         this.responseWriter = responseWriter;
         this.rutasSinEmpresa = rutasSinEmpresa;
+        this.rutasConContextoObligatorio = rutasConContextoObligatorio;
     }
 
     @Override
@@ -85,12 +94,23 @@ public class TenantFilter extends OncePerRequestFilter {
 
         String cabecera = request.getHeader(HEADER_TENANT);
         if (!StringUtils.hasText(cabecera)) {
-            return true; // SUPER_ADMIN en modo global
+            if (!rutasConContextoObligatorio.matches(request)) {
+                return true; // Ruta de plataforma: no consulta datos de ninguna empresa.
+            }
+            responseWriter.write(request, response, HttpStatus.BAD_REQUEST, "Contexto de empresa requerido",
+                    "Indica la empresa (" + HEADER_TENANT + ": <id>) o el modo global explícito ("
+                            + HEADER_TENANT + ": " + MODO_GLOBAL + ").");
+            return false;
+        }
+        if (MODO_GLOBAL.equalsIgnoreCase(cabecera.strip())) {
+            // Sin empresa en el contexto: Hibernate usa el tenant raíz (todas las empresas).
+            log.info("Modo global: {} {} {}", usuario.getUsername(), request.getMethod(), request.getRequestURI());
+            return true;
         }
         Long empresaId = parsear(cabecera.strip());
         if (empresaId == null) {
             responseWriter.write(request, response, HttpStatus.BAD_REQUEST, "Empresa no válida",
-                    "La cabecera " + HEADER_TENANT + " debe ser el id numérico de una empresa.");
+                    "La cabecera " + HEADER_TENANT + " debe ser el id numérico de una empresa o \"" + MODO_GLOBAL + "\".");
             return false;
         }
         if (!empresaRepository.existsById(empresaId)) {
@@ -98,7 +118,7 @@ public class TenantFilter extends OncePerRequestFilter {
                     "No existe la empresa con id " + empresaId + " indicada en " + HEADER_TENANT + ".");
             return false;
         }
-        log.info("Soporte: {} {} {} en la empresa {}", usuario.getUsername(), request.getMethod(),
+        log.info("Supervisión: {} {} {} en la empresa {}", usuario.getUsername(), request.getMethod(),
                 request.getRequestURI(), empresaId);
         TenantContextHolder.establecer(empresaId);
         return true;

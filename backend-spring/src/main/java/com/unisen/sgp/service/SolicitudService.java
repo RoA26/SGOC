@@ -36,8 +36,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Solicitudes internas de compra. Aplica la seguridad a nivel de fila: un USUARIO solo ve y
- * crea las suyas; ADMIN y GERENTE ven todas y las revisan.
+ * Solicitudes internas de compra. Aplica la seguridad a nivel de fila: un TRABAJADOR solo ve y
+ * crea las suyas; ADMIN_EMPRESA (y SUPER_ADMIN con contexto de empresa) ven todas y las revisan.
  */
 @Service
 @Transactional(readOnly = true)
@@ -60,7 +60,7 @@ public class SolicitudService {
      * Crea la solicitud con todas sus líneas en una sola transacción (todo o nada). El
      * solicitante es siempre el usuario autenticado, la empresa la de su contexto (@TenantId) y
      * el estado, PENDIENTE: el cliente no puede fijar ninguno. Solo personas de la empresa
-     * (GERENTE o USUARIO); el SUPER_ADMIN da soporte, no pide compras.
+     * (ADMIN_EMPRESA o TRABAJADOR); el SUPER_ADMIN da soporte, no pide compras.
      *
      * @throws CampoInvalidoException si un producto no existe, está dado de baja o se repite
      */
@@ -91,7 +91,7 @@ public class SolicitudService {
         return SolicitudResponseDTO.from(solicitudRepository.saveAndFlush(solicitud));
     }
 
-    /** USUARIO: solo las suyas. ADMIN / GERENTE: todas. En ambos casos, filtrable por estado. */
+    /** TRABAJADOR: solo las suyas. ADMIN_EMPRESA / SUPER_ADMIN: todas. En ambos casos, filtrable por estado. */
     public Page<SolicitudResponseDTO> listar(EstadoSolicitud estado, Pageable pageable) {
         UsuarioPrincipal actual = UsuarioActual.obtener();
         Specification<Solicitud> filtro = conEstado(estado);
@@ -101,7 +101,7 @@ public class SolicitudService {
         return solicitudRepository.findAll(filtro, pageable).map(SolicitudResponseDTO::from);
     }
 
-    /** Una solicitud ajena responde 404 a un USUARIO: no se revela que existe. */
+    /** Una solicitud ajena responde 404 a un TRABAJADOR: no se revela que existe. */
     public SolicitudResponseDTO obtener(Long id) {
         UsuarioPrincipal actual = UsuarioActual.obtener();
         Solicitud solicitud = solicitudRepository.findById(id)

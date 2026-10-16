@@ -16,7 +16,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Alta pública de un trabajador (rol USUARIO) con <em>uno</em> de estos códigos:
+ * Alta pública de un trabajador (rol TRABAJADOR), con sus nombres y apellidos, y <em>uno</em> de
+ * estos códigos:
  * <ul>
  *   <li>{@code codigoEmpresa}: el código permanente de su empresa. La cuenta queda PENDIENTE
  *       hasta que un gestor la apruebe.</li>
@@ -55,22 +56,23 @@ public record RegistroRequestDTO(
         @Size(max = 64, message = "El código de empresa no es válido.")
         String codigoEmpresa,
 
-        @Schema(description = "Nombre para mostrar. Opcional: si se omite se usa el username.",
-                example = "Ana Compras")
-        @Size(max = Usuario.NOMBRE_MAX_LENGTH, message = "El nombre no puede superar 150 caracteres.")
-        String nombre) {
+        @Schema(example = "Ana María")
+        @NotBlank(message = "Los nombres son obligatorios.")
+        @Size(max = Usuario.NOMBRES_MAX_LENGTH, message = "Los nombres no pueden superar 100 caracteres.")
+        String nombres,
+
+        @Schema(example = "Compras Díaz")
+        @NotBlank(message = "Los apellidos son obligatorios.")
+        @Size(max = Usuario.APELLIDOS_MAX_LENGTH, message = "Los apellidos no pueden superar 100 caracteres.")
+        String apellidos) {
 
     public RegistroRequestDTO {
         username = Usuario.normalizarUsername(username);
         email = Textos.minusculas(email);
         codigoInvitacion = Textos.vacioANull(codigoInvitacion);
         codigoEmpresa = Textos.vacioANull(codigoEmpresa);
-        nombre = Textos.vacioANull(nombre);
-    }
-
-    /** Nombre a mostrar: el indicado o, si no hay, el username. */
-    public String nombreParaMostrar() {
-        return nombre != null ? nombre : username;
+        nombres = Textos.limpiar(nombres);
+        apellidos = Textos.limpiar(apellidos);
     }
 
     /** Ni la contraseña ni los códigos (credenciales) llegan a los logs. */

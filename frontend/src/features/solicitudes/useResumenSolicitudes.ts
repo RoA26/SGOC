@@ -10,8 +10,8 @@ export type Resumen =
 
 /**
  * Datos del panel de inicio con el endpoint real de solicitudes: un total por estado
- * (`size=1`, se lee page.totalElements) y las 5 más recientes. El backend ya filtra: USUARIO
- * recibe solo las suyas; GERENTE, las de su empresa; SUPER_ADMIN, las de la empresa elegida o
+ * (`size=1`, se lee page.totalElements) y las 5 más recientes. El backend ya filtra: TRABAJADOR
+ * recibe solo las suyas; ADMIN_EMPRESA, las de su empresa; SUPER_ADMIN, las de la empresa elegida o
  * todas en modo global.
  */
 export function useResumenSolicitudes(): Resumen {

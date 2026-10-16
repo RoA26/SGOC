@@ -19,8 +19,8 @@ public class CuentaNoAutorizadaException extends AccountStatusException {
     public static final String TITULO = "Cuenta no autorizada";
 
     public enum Motivo {
-        PENDIENTE("Tu cuenta está pendiente de aprobación por el gerente de tu empresa."),
-        RECHAZADO("Tu solicitud de acceso fue rechazada. Contacta con el gerente de tu empresa."),
+        PENDIENTE("Tu cuenta está pendiente de aprobación por el administrador de tu empresa."),
+        RECHAZADO("Tu solicitud de acceso fue rechazada. Contacta con el administrador de tu empresa."),
         INACTIVO("La cuenta de usuario está deshabilitada."),
         EMPRESA_INACTIVA("La empresa del usuario está desactivada.");
 

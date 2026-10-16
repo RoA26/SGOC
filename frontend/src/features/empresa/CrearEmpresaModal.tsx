@@ -18,17 +18,18 @@ const CAMPOS = [
   'nombre',
   'nit',
   'codigo',
-  'gerente.nombre',
-  'gerente.email',
-  'gerente.username',
-  'gerente.password',
+  'administrador.nombres',
+  'administrador.apellidos',
+  'administrador.email',
+  'administrador.username',
+  'administrador.password',
 ] as const
 
 const VALORES_INICIALES: EmpresaFormValues = {
   nombre: '',
   nit: '',
   codigo: '',
-  gerente: { nombre: '', email: '', username: '', password: '' },
+  administrador: { nombres: '', apellidos: '', email: '', username: '', password: '' },
 }
 
 /** Espera tras la última pulsación antes de consultar al backend. */
@@ -38,12 +39,12 @@ type Disponibilidad = { codigo: string; disponible: boolean } | null
 
 interface CrearEmpresaModalProps {
   onClose: () => void
-  /** Empresa recién creada (con su administrador en `gerente`). */
+  /** Empresa recién creada (con su administrador en `administrador`). */
   onCreated: (empresa: Empresa) => void
 }
 
 /**
- * Alta de una empresa y de su administrador principal (GERENTE): o se crean los dos o ninguno.
+ * Alta de una empresa y de su administrador inicial (ADMIN_EMPRESA): o se crean los dos o ninguno.
  * El código empresarial se propone a partir del nombre (NASCAR → NASC01) y se puede cambiar; su
  * disponibilidad se comprueba mientras se escribe, pero quien decide es el backend al guardar.
  */
@@ -123,14 +124,14 @@ export function CrearEmpresaModal({ onClose, onCreated }: CrearEmpresaModalProps
   function generar() {
     const password = generarPassword()
     setPasswordGenerada(password)
-    setValue('gerente.password', password, { shouldValidate: true, shouldDirty: true })
+    setValue('administrador.password', password, { shouldValidate: true, shouldDirty: true })
   }
 
   async function guardar(payload: EmpresaPayload) {
     try {
       onCreated(await empresaService.crear(payload))
     } catch (error) {
-      // 400/409 con { errors: { codigo | nit | 'gerente.email' ... } } se muestran junto al campo.
+      // 400/409 con { errors: { codigo | nit | 'administrador.email' ... } } se muestran junto al campo.
       const general = applyApiErrors(error, setError, CAMPOS)
       if (general) setError('root.server', { message: general })
       if (axios.isAxiosError(error) && error.response?.status === 409) setDisponibilidad(null)
@@ -228,31 +229,35 @@ export function CrearEmpresaModal({ onClose, onCreated }: CrearEmpresaModalProps
         </fieldset>
 
         <fieldset className="border-t border-border pt-5">
-          <legend className="sr-only">Administrador principal</legend>
+          <legend className="sr-only">Administrador de la empresa</legend>
           <p aria-hidden="true" className="mb-3 text-xs font-medium tracking-widest text-foreground-muted uppercase">
-            Administrador principal · rol Gerente
+            Administrador de la empresa
           </p>
           <div className="grid gap-5 sm:grid-cols-2">
-            <FormField label="Nombre completo" required error={errors.gerente?.nombre?.message}>
-              {(campo) => <input {...campo} {...register('gerente.nombre')} className="u-input" autoComplete="off" />}
+            <FormField label="Nombres" required error={errors.administrador?.nombres?.message}>
+              {(campo) => <input {...campo} {...register('administrador.nombres')} className="u-input" autoComplete="off" />}
             </FormField>
 
-            <FormField label="Correo electrónico" required error={errors.gerente?.email?.message}>
+            <FormField label="Apellidos" required error={errors.administrador?.apellidos?.message}>
+              {(campo) => <input {...campo} {...register('administrador.apellidos')} className="u-input" autoComplete="off" />}
+            </FormField>
+
+            <FormField label="Correo electrónico" required error={errors.administrador?.email?.message}>
               {(campo) => (
-                <input {...campo} {...register('gerente.email')} type="email" inputMode="email" className="u-input" autoComplete="off" />
+                <input {...campo} {...register('administrador.email')} type="email" inputMode="email" className="u-input" autoComplete="off" />
               )}
             </FormField>
 
             <FormField
               label="Usuario"
               required
-              error={errors.gerente?.username?.message}
+              error={errors.administrador?.username?.message}
               hint="Con él inicia sesión. Ej.: admin.nascar"
             >
               {(campo) => (
                 <input
                   {...campo}
-                  {...register('gerente.username')}
+                  {...register('administrador.username')}
                   className="u-input"
                   autoComplete="off"
                   autoCapitalize="none"
@@ -265,13 +270,13 @@ export function CrearEmpresaModal({ onClose, onCreated }: CrearEmpresaModalProps
               <FormField
                 label="Contraseña inicial"
                 required
-                error={errors.gerente?.password?.message}
+                error={errors.administrador?.password?.message}
                 hint="Entre 8 y 72 caracteres. Entrégala al administrador por un canal seguro."
               >
                 {(campo) => (
                   <div className="flex gap-2">
                     <div className="min-w-0 flex-1">
-                      <PasswordInput {...campo} {...register('gerente.password')} autoComplete="new-password" />
+                      <PasswordInput {...campo} {...register('administrador.password')} autoComplete="new-password" />
                     </div>
                     <button type="button" className="u-btn u-btn--ghost shrink-0 px-3" onClick={generar} title="Generar una contraseña segura">
                       <KeyRound className="size-4" aria-hidden="true" />

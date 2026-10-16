@@ -10,7 +10,8 @@ import org.springframework.util.StringUtils;
 @ConfigurationProperties(prefix = "app.bootstrap")
 public record BootstrapProperties(Admin admin) {
 
-    public record Admin(String username, String email, String password, String nombre) {
+    /** @param apellidos opcionales: el SUPER_ADMIN inicial es una cuenta técnica */
+    public record Admin(String username, String email, String password, String nombre, String apellidos) {
 
         public boolean isConfigured() {
             return StringUtils.hasText(username) && StringUtils.hasText(email) && StringUtils.hasText(password);
@@ -18,7 +19,8 @@ public record BootstrapProperties(Admin admin) {
 
         @Override
         public String toString() {
-            return "Admin[username=" + username + ", email=" + email + ", password=***, nombre=" + nombre + "]";
+            return "Admin[username=" + username + ", email=" + email + ", password=***, nombre=" + nombre
+                    + ", apellidos=" + apellidos + "]";
         }
     }
 }

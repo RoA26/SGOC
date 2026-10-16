@@ -14,6 +14,7 @@ import com.unisen.sgp.repository.EmpresaRepository;
 import com.unisen.sgp.security.CodigosInvitacion;
 import com.unisen.sgp.service.CodigosEmpresariales;
 import com.unisen.sgp.service.UsuarioService;
+import com.unisen.sgp.tenant.TenantFilter;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,8 +28,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 /**
- * Base de los tests HTTP: BD limpia, la empresa "Unisen" con un GERENTE ({@code adminToken})
- * y un USUARIO ({@code usuarioToken}) ACTIVOS, con tokens reales obtenidos vía /api/auth/login
+ * Base de los tests HTTP: BD limpia, la empresa "Unisen" con un ADMIN_EMPRESA ({@code adminToken})
+ * y un TRABAJADOR ({@code usuarioToken}) ACTIVOS, con tokens reales obtenidos vía /api/auth/login
  * (se ejercita la cadena de seguridad completa).
  */
 @SpringBootTest
@@ -51,9 +52,9 @@ public abstract class ApiIntegrationTest {
 
     /** Empresa en la que trabajan {@link #adminToken} y {@link #usuarioToken}. */
     protected Empresa empresa;
-    /** GERENTE de {@link #empresa} (administra su empresa: catálogos, invitaciones, revisiones). */
+    /** ADMIN_EMPRESA de {@link #empresa} (administra su empresa: catálogos, invitaciones, revisiones). */
     protected String adminToken;
-    /** USUARIO de {@link #empresa}. */
+    /** TRABAJADOR de {@link #empresa}. */
     protected String usuarioToken;
 
     @BeforeEach
@@ -61,8 +62,9 @@ public abstract class ApiIntegrationTest {
         BaseDeDatosDePrueba.vaciar(jdbcTemplate);
 
         empresa = crearEmpresa("Unisen", "900000001-1");
-        usuarioService.crearUsuario("admin", "admin@unisen.com", "Admin", PASSWORD, Rol.GERENTE, empresa);
-        usuarioService.crearUsuario("compras", "compras@unisen.com", "Compras", PASSWORD, Rol.USUARIO, empresa);
+        usuarioService.crearUsuario("admin", "admin@unisen.com", "Admin", "Unisen", PASSWORD, Rol.ADMIN_EMPRESA, empresa);
+        usuarioService.crearUsuario("compras", "compras@unisen.com", "Compras", "Unisen", PASSWORD, Rol.TRABAJADOR,
+                empresa);
         adminToken = login("admin");
         usuarioToken = login("compras");
     }
@@ -75,7 +77,8 @@ public abstract class ApiIntegrationTest {
 
     /** Crea un usuario y devuelve su token. Con {@code empresa} null, el rol debe ser SUPER_ADMIN. */
     protected String crearUsuarioYEntrar(String username, Rol rol, Empresa empresaDelUsuario) throws Exception {
-        usuarioService.crearUsuario(username, username + "@unisen.com", username, PASSWORD, rol, empresaDelUsuario);
+        usuarioService.crearUsuario(username, username + "@unisen.com", username, "Prueba", PASSWORD, rol,
+                empresaDelUsuario);
         return login(username);
     }
 
@@ -97,6 +100,12 @@ public abstract class ApiIntegrationTest {
 
     protected JsonNode leer(ResultActions result) throws Exception {
         return objectMapper.readTree(result.andReturn().getResponse().getContentAsString());
+    }
+
+    /** GET del SUPER_ADMIN en el modo global explícito ({@code X-Tenant-ID: global}). */
+    protected ResultActions getGlobal(String url, String token) throws Exception {
+        return mockMvc.perform(get(url).header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .header(TenantFilter.HEADER_TENANT, TenantFilter.MODO_GLOBAL));
     }
 
     protected ResultActions getJson(String url, String token) throws Exception {

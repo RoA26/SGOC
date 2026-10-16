@@ -30,7 +30,10 @@ public class Usuario {
 
     public static final int USERNAME_MAX_LENGTH = 50;
     public static final int EMAIL_MAX_LENGTH = 320;
-    public static final int NOMBRE_MAX_LENGTH = 150;
+    public static final int NOMBRES_MAX_LENGTH = 100;
+    public static final int APELLIDOS_MAX_LENGTH = 100;
+    /** Nombre visible: nombres + " " + apellidos. */
+    public static final int NOMBRE_MAX_LENGTH = NOMBRES_MAX_LENGTH + 1 + APELLIDOS_MAX_LENGTH;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -47,8 +50,21 @@ public class Usuario {
     @Column(name = "password_hash", nullable = false, length = 100)
     private String passwordHash;
 
+    /**
+     * Nombre visible de la persona. Para las cuentas con datos personales es "nombres apellidos" y
+     * lo mantiene {@link #cambiarDatosPersonales}; las cuentas anteriores a V9 conservan aquí su
+     * nombre completo hasta que lo completen (nunca se partió de forma automática).
+     */
     @Column(nullable = false, length = NOMBRE_MAX_LENGTH)
     private String nombre;
+
+    /** Nombre(s) de pila. Nulo solo en cuentas anteriores a V9 que aún no completaron su perfil. */
+    @Column(length = NOMBRES_MAX_LENGTH)
+    private String nombres;
+
+    /** Apellido(s). Nulo en cuentas anteriores a V9 sin completar o en cuentas técnicas sin apellidos. */
+    @Column(length = APELLIDOS_MAX_LENGTH)
+    private String apellidos;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -87,22 +103,26 @@ public class Usuario {
     }
 
     /** Cuenta sin acceso hasta que un gestor la apruebe (estado PENDIENTE). */
-    public Usuario(String username, String email, String passwordHash, String nombre, Rol rol, Empresa empresa) {
-        this(username, email, passwordHash, nombre, rol, empresa, EstadoUsuario.PENDIENTE);
+    public Usuario(String username, String email, String passwordHash, String nombres, String apellidos, Rol rol,
+                   Empresa empresa) {
+        this(username, email, passwordHash, nombres, apellidos, rol, empresa, EstadoUsuario.PENDIENTE);
     }
 
     /**
-     * @param empresa obligatoria para GERENTE y USUARIO; debe ser null para SUPER_ADMIN
-     * @param estado  estado inicial: PENDIENTE para un autorregistro, ACTIVO para un alta ya
-     *                autorizada (gerente fundador, invitación, administrador inicial)
+     * @param nombres   obligatorios
+     * @param apellidos obligatorios para las personas (lo exigen los DTO de alta); null solo para
+     *                  cuentas técnicas como el administrador inicial sin apellidos configurados
+     * @param empresa   obligatoria para ADMIN_EMPRESA y TRABAJADOR; debe ser null para SUPER_ADMIN
+     * @param estado    estado inicial: PENDIENTE para un autorregistro, ACTIVO para un alta ya
+     *                  autorizada (administrador inicial de la empresa, invitación, SUPER_ADMIN inicial)
      */
-    public Usuario(String username, String email, String passwordHash, String nombre, Rol rol, Empresa empresa,
-                   EstadoUsuario estado) {
+    public Usuario(String username, String email, String passwordHash, String nombres, String apellidos, Rol rol,
+                   Empresa empresa, EstadoUsuario estado) {
         // Asignación directa: invocar setters sobrescribibles desde el constructor es inseguro.
         this.username = normalizarUsername(Objects.requireNonNull(username, "username"));
         this.email = normalizarEmail(Objects.requireNonNull(email, "email"));
         this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash");
-        this.nombre = Objects.requireNonNull(nombre, "nombre").strip();
+        fijarDatosPersonales(nombres, apellidos);
         this.rol = Objects.requireNonNull(rol, "rol");
         this.empresa = validarEmpresa(rol, empresa);
         fijarEstado(Objects.requireNonNull(estado, "estado"));
@@ -152,12 +172,42 @@ public class Usuario {
         this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash");
     }
 
+    /** Nombre visible (ver el campo). */
     public String getNombre() {
         return nombre;
     }
 
-    public void setNombre(String nombre) {
-        this.nombre = Objects.requireNonNull(nombre, "nombre").strip();
+    public String getNombres() {
+        return nombres;
+    }
+
+    public String getApellidos() {
+        return apellidos;
+    }
+
+    /** Tiene nombres y apellidos por separado (las cuentas anteriores a V9 deben completarlos). */
+    public boolean tieneDatosPersonalesCompletos() {
+        return nombres != null && apellidos != null;
+    }
+
+    /**
+     * Fija nombres y apellidos y, a partir de ellos, el nombre visible.
+     *
+     * @param apellidos puede ser null (ver el constructor)
+     */
+    public void cambiarDatosPersonales(String nombres, String apellidos) {
+        fijarDatosPersonales(nombres, apellidos);
+    }
+
+    private void fijarDatosPersonales(String nombres, String apellidos) {
+        String limpiosNombres = Objects.requireNonNull(nombres, "nombres").strip();
+        if (limpiosNombres.isEmpty()) {
+            throw new IllegalArgumentException("Los nombres son obligatorios.");
+        }
+        String limpiosApellidos = apellidos == null || apellidos.isBlank() ? null : apellidos.strip();
+        this.nombres = limpiosNombres;
+        this.apellidos = limpiosApellidos;
+        this.nombre = limpiosApellidos == null ? limpiosNombres : limpiosNombres + " " + limpiosApellidos;
     }
 
     public Rol getRol() {

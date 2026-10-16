@@ -42,7 +42,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     /**
      * Primer usuario con {@code rol} (el de id más bajo) de cada una de las empresas indicadas.
-     * Con GERENTE es el administrador principal: el gerente fundador, creado con la empresa.
+     * Con ADMIN_EMPRESA es el administrador principal: el inicial, creado con la empresa.
      * Una sola consulta para toda la página de empresas (sin N+1). {@code empresaIds} no puede
      * estar vacío.
      */

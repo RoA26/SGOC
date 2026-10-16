@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { PATRONES } from './patrones'
+import { apellidosSchema, nombresSchema } from './personaSchema'
 
 /** BCrypt solo procesa 72 bytes: el backend rechaza contraseñas más largas (no caracteres). */
 const PASSWORD_MAX_BYTES = 72
@@ -8,7 +9,7 @@ const encoder = new TextEncoder()
 export const MENSAJE_CODIGO = 'El código debe tener de 3 a 12 letras mayúsculas o números y empezar por una letra (p. ej. NASC01).'
 
 /**
- * Alta de una empresa con su administrador principal: replica EmpresaRequestDTO (Jakarta
+ * Alta de una empresa con su administrador inicial (rol ADMIN_EMPRESA): replica EmpresaRequestDTO (Jakarta
  * Validation) con los mismos mensajes y la misma normalización.
  */
 export const empresaSchema = z.object({
@@ -37,12 +38,9 @@ export const empresaSchema = z.object({
     .toUpperCase()
     .min(1, 'El código empresarial es obligatorio.')
     .regex(PATRONES.codigoEmpresarial, MENSAJE_CODIGO),
-  gerente: z.object({
-    nombre: z
-      .string()
-      .trim()
-      .min(1, 'El nombre del administrador es obligatorio.')
-      .max(150, 'El nombre no puede superar 150 caracteres.'),
+  administrador: z.object({
+    nombres: nombresSchema,
+    apellidos: apellidosSchema,
     email: z
       .string()
       .trim()

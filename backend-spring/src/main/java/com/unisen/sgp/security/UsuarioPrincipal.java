@@ -23,42 +23,40 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
     private final String username;
     private final String email;
     private final String nombre;
+    private final String nombres;
+    private final String apellidos;
     private final Rol rol;
     /** Estado leído de la BD al cargar el usuario (en cada petición, no del JWT). */
     private final EstadoUsuario estado;
     /** Tenant del usuario; null para SUPER_ADMIN. */
     private final Long empresaId;
     private final boolean empresaActiva;
+    /** Nombre comercial y código empresarial de su empresa (null para SUPER_ADMIN). */
+    private final String empresaNombre;
+    private final String empresaCodigo;
     private final List<GrantedAuthority> authorities;
     private String passwordHash;
 
-    private UsuarioPrincipal(Long id, String username, String email, String passwordHash, String nombre, Rol rol,
-                             EstadoUsuario estado, Long empresaId, boolean empresaActiva) {
-        this.id = id;
-        this.username = username;
-        this.email = email;
-        this.passwordHash = passwordHash;
-        this.nombre = nombre;
-        this.rol = rol;
-        this.estado = estado;
-        this.empresaId = empresaId;
-        this.empresaActiva = empresaActiva;
-        this.authorities = List.of(new SimpleGrantedAuthority(rol.authority()));
+    private UsuarioPrincipal(Usuario usuario, Empresa empresa) {
+        this.id = usuario.getId();
+        this.username = usuario.getUsername();
+        this.email = usuario.getEmail();
+        this.passwordHash = usuario.getPasswordHash();
+        this.nombre = usuario.getNombre();
+        this.nombres = usuario.getNombres();
+        this.apellidos = usuario.getApellidos();
+        this.rol = usuario.getRol();
+        this.estado = usuario.getEstado();
+        this.empresaId = empresa == null ? null : empresa.getId();
+        this.empresaActiva = empresa == null || empresa.isActiva();
+        this.empresaNombre = empresa == null ? null : empresa.getNombre();
+        this.empresaCodigo = empresa == null ? null : empresa.getCodigo();
+        this.authorities = List.of(new SimpleGrantedAuthority(this.rol.authority()));
     }
 
     /** La empresa del usuario debe estar cargada (UsuarioRepository.findByUsername la trae). */
     public static UsuarioPrincipal from(Usuario usuario) {
-        Empresa empresa = usuario.getEmpresa();
-        return new UsuarioPrincipal(
-                usuario.getId(),
-                usuario.getUsername(),
-                usuario.getEmail(),
-                usuario.getPasswordHash(),
-                usuario.getNombre(),
-                usuario.getRol(),
-                usuario.getEstado(),
-                empresa == null ? null : empresa.getId(),
-                empresa == null || empresa.isActiva());
+        return new UsuarioPrincipal(usuario, usuario.getEmpresa());
     }
 
     public Long getEmpresaId() {
@@ -80,6 +78,22 @@ public final class UsuarioPrincipal implements UserDetails, CredentialsContainer
 
     public String getNombre() {
         return nombre;
+    }
+
+    public String getNombres() {
+        return nombres;
+    }
+
+    public String getApellidos() {
+        return apellidos;
+    }
+
+    public String getEmpresaNombre() {
+        return empresaNombre;
+    }
+
+    public String getEmpresaCodigo() {
+        return empresaCodigo;
     }
 
     public Rol getRol() {

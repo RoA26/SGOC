@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { PATRONES } from './patrones'
+import { apellidosSchema, nombresSchema } from './personaSchema'
 
 /** BCrypt solo procesa 72 bytes: el backend rechaza contraseñas más largas (no caracteres). */
 const PASSWORD_MAX_BYTES = 72
@@ -26,6 +27,8 @@ export const loginSchema = z.object({
  * mismos mensajes.
  */
 export const registroSchema = z.object({
+  nombres: nombresSchema,
+  apellidos: apellidosSchema,
   username: z
     .string()
     .trim()

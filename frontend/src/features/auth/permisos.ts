@@ -3,25 +3,32 @@ import type { EmpresaSupervisada } from '@/features/empresa/types'
 import { useAuthStore } from '@/store/authStore'
 import type { Rol } from './types'
 
-/** Nombre visible de cada rol. */
+/** Nombre visible de cada rol, en su forma corta (panel lateral, tablas). */
 export const ETIQUETA_ROL: Record<Rol, string> = {
   SUPER_ADMIN: 'Super administrador',
-  GERENTE: 'Gerente',
-  USUARIO: 'Usuario',
+  ADMIN_EMPRESA: 'Administrador',
+  TRABAJADOR: 'Trabajador',
+}
+
+/** Nombre visible de cada rol donde hay espacio (perfil). */
+export const ETIQUETA_ROL_COMPLETA: Record<Rol, string> = {
+  SUPER_ADMIN: 'Super administrador de la plataforma',
+  ADMIN_EMPRESA: 'Administrador de empresa',
+  TRABAJADOR: 'Trabajador',
 }
 
 /** Roles con Permisos.GESTION en el backend: ven catálogos y todas las solicitudes de la empresa. */
-export const ROLES_GESTION: readonly Rol[] = ['SUPER_ADMIN', 'GERENTE']
+export const ROLES_GESTION: readonly Rol[] = ['SUPER_ADMIN', 'ADMIN_EMPRESA']
 /** Personas de una empresa (Permisos.MIEMBRO_EMPRESA): las únicas que crean solicitudes. */
-export const ROLES_EMPRESA: readonly Rol[] = ['GERENTE', 'USUARIO']
+export const ROLES_EMPRESA: readonly Rol[] = ['ADMIN_EMPRESA', 'TRABAJADOR']
 /** Administración de la plataforma: empresas y sus administradores. */
 export const ROLES_PLATAFORMA: readonly Rol[] = ['SUPER_ADMIN']
-/** Invitar trabajadores: solo el gerente, a su propia empresa. */
-export const ROLES_INVITACION: readonly Rol[] = ['GERENTE']
+/** Invitar trabajadores: solo el administrador de la empresa, a la suya. */
+export const ROLES_INVITACION: readonly Rol[] = ['ADMIN_EMPRESA']
 
 /**
  * Empresa sobre la que se trabaja:
- * - GERENTE / USUARIO: la suya, fija (viene de la sesión).
+ * - ADMIN_EMPRESA / TRABAJADOR: la suya, fija (viene de la sesión).
  * - SUPER_ADMIN: la que supervisa, o ninguna (modo global). En ambos casos, solo lectura.
  */
 export interface ContextoEmpresa {
@@ -60,20 +67,20 @@ export interface Permisos {
 }
 
 /**
- * Los cambios en los datos de una empresa los hace su GERENTE. El SUPER_ADMIN la supervisa
+ * Los cambios en los datos de una empresa los hace su administrador (ADMIN_EMPRESA). El SUPER_ADMIN la supervisa
  * en solo lectura: así una consulta de soporte nunca modifica datos por accidente. (La API
  * conserva el modo soporte con X-Tenant-ID para él; la interfaz no lo expone.)
  */
 export function calcularPermisos({ rol }: ContextoEmpresa): Permisos {
   const gestor = rol !== null && ROLES_GESTION.includes(rol)
-  const gerente = rol === 'GERENTE'
+  const adminEmpresa = rol === 'ADMIN_EMPRESA'
   return {
     verTodasLasSolicitudes: gestor,
-    revisarSolicitudes: gerente,
+    revisarSolicitudes: adminEmpresa,
     crearSolicitudes: rol !== null && ROLES_EMPRESA.includes(rol),
     verCatalogos: gestor,
-    gestionarCatalogos: gerente,
-    gestionarInvitaciones: gerente,
+    gestionarCatalogos: adminEmpresa,
+    gestionarInvitaciones: adminEmpresa,
     gestionarEmpresas: rol === 'SUPER_ADMIN',
   }
 }

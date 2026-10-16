@@ -37,7 +37,7 @@ class JwtUtilTest {
         jwtUtil = jwtUtilAt(NOW, SECRET, ISSUER);
         Empresa empresa = new Empresa("Unisen", "900000001-1", "UNIS01", "AAAA-BBBB-CCCC-DDDD");
         asignarId(Empresa.class, empresa, 7L);
-        Usuario entidad = new Usuario("Ana.Compras", "Ana@Unisen.com", "$2a$04$hash", "Ana Compras", Rol.USUARIO,
+        Usuario entidad = new Usuario("Ana.Compras", "Ana@Unisen.com", "$2a$04$hash", "Ana", "Compras", Rol.TRABAJADOR,
                 empresa);
         asignarId(Usuario.class, entidad, 42L);
         usuario = UsuarioPrincipal.from(entidad);
@@ -51,7 +51,8 @@ class JwtUtilTest {
 
     @Test
     void elTokenDeUnSuperAdminNoLlevaEmpresa() throws ReflectiveOperationException {
-        Usuario superAdmin = new Usuario("root", "root@unisen.com", "$2a$04$hash", "Plataforma", Rol.SUPER_ADMIN, null);
+        Usuario superAdmin = new Usuario("root", "root@unisen.com", "$2a$04$hash", "Plataforma", null, Rol.SUPER_ADMIN,
+                null);
         asignarId(Usuario.class, superAdmin, 1L);
 
         Claims claims = jwtUtil.validateToken(jwtUtil.generateToken(UsuarioPrincipal.from(superAdmin)));
@@ -72,7 +73,7 @@ class JwtUtilTest {
         assertThat(claims.getSubject()).isEqualTo("ana.compras");
         assertThat(claims.getIssuer()).isEqualTo(ISSUER);
         assertThat(claims.get(JwtUtil.CLAIM_USER_ID, Long.class)).isEqualTo(42L);
-        assertThat(claims.get(JwtUtil.CLAIM_ROL, String.class)).isEqualTo("USUARIO");
+        assertThat(claims.get(JwtUtil.CLAIM_ROL, String.class)).isEqualTo("TRABAJADOR");
         assertThat(JwtUtil.extractEmpresaId(claims)).isEqualTo(7L);
         assertThat(claims.getId()).isNotBlank();
         assertThat(claims.getIssuedAt().toInstant()).isEqualTo(NOW);

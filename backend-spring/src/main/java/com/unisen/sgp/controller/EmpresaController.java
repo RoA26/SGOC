@@ -43,14 +43,14 @@ public class EmpresaController {
     @PostMapping
     @Operation(summary = "Crear una empresa con su administrador principal (SUPER_ADMIN)",
             description = "Crea la empresa, su código empresarial (el indicado o el siguiente libre), su código de registro "
-                    + "de trabajadores (codigoEmpresa) y su GERENTE fundador, ACTIVO, en una sola transacción: si algo "
+                    + "de trabajadores (codigoEmpresa) y su administrador inicial (ADMIN_EMPRESA, ACTIVO) en una sola transacción: si algo "
                     + "falla no se crea nada.")
-    @ApiResponse(responseCode = "201", description = "Empresa y gerente creados")
-    @ApiResponse(responseCode = "400", description = "Datos inválidos (errors.codigo, errors.nit, errors['gerente.username']...)")
+    @ApiResponse(responseCode = "201", description = "Empresa y administrador creados")
+    @ApiResponse(responseCode = "400", description = "Datos inválidos (errors.codigo, errors.nit, errors['administrador.nombres']...)")
     @ApiResponse(responseCode = "403", description = "El usuario no es SUPER_ADMIN")
-    @ApiResponse(responseCode = "409", description = "NIT o código ya registrados, o username/correo del gerente en uso")
+    @ApiResponse(responseCode = "409", description = "NIT o código ya registrados, o username/correo del administrador en uso")
     public ResponseEntity<EmpresaResponseDTO> crear(@Valid @RequestBody EmpresaRequestDTO request) {
-        EmpresaResponseDTO creada = empresaService.crearConGerente(request);
+        EmpresaResponseDTO creada = empresaService.crearConAdministrador(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}").buildAndExpand(creada.id()).toUri();
         return ResponseEntity.created(location).body(creada);
@@ -84,8 +84,8 @@ public class EmpresaController {
     }
 
     @GetMapping("/actual")
-    @Operation(summary = "Empresa en la que se trabaja (GERENTE, o SUPER_ADMIN con X-Tenant-ID)",
-            description = "Incluye el código de empresa que el gerente comparte con sus trabajadores para que se registren.")
+    @Operation(summary = "Empresa en la que se trabaja (ADMIN_EMPRESA, o SUPER_ADMIN con X-Tenant-ID)",
+            description = "Incluye el código de registro que el administrador comparte con sus trabajadores.")
     @ApiResponse(responseCode = "400", description = "SUPER_ADMIN sin X-Tenant-ID (modo global)")
     @ApiResponse(responseCode = "403", description = "El usuario no es gestor")
     public EmpresaResponseDTO actual() {
@@ -102,7 +102,7 @@ public class EmpresaController {
 
     @GetMapping("/{id}/usuarios")
     @Operation(summary = "Usuarios de una empresa y su estado (SUPER_ADMIN, solo lectura)",
-            description = "Gerentes y trabajadores de la empresa indicada, nunca de otra.")
+            description = "Administradores y trabajadores de la empresa indicada, nunca de otra.")
     @ApiResponse(responseCode = "403", description = "El usuario no es SUPER_ADMIN")
     @ApiResponse(responseCode = "404", description = "La empresa no existe")
     public Page<TrabajadorResponseDTO> listarUsuarios(
@@ -124,17 +124,17 @@ public class EmpresaController {
         return empresaService.cambiarEstado(id, request);
     }
 
-    @PatchMapping("/{id}/gerentes/{usuarioId}/estado")
-    @Operation(summary = "Desactivar o reactivar la cuenta de un gerente de la empresa (SUPER_ADMIN)",
-            description = "ACTIVO → INACTIVO o INACTIVO → ACTIVO. Rige desde la siguiente petición del gerente, aunque su "
+    @PatchMapping("/{id}/administradores/{usuarioId}/estado")
+    @Operation(summary = "Desactivar o reactivar la cuenta de un administrador de la empresa (SUPER_ADMIN)",
+            description = "ACTIVO → INACTIVO o INACTIVO → ACTIVO. Rige desde la siguiente petición del administrador, aunque su "
                     + "JWT siga vigente.")
     @ApiResponse(responseCode = "200", description = "Estado actualizado")
     @ApiResponse(responseCode = "400", description = "Estado no válido")
     @ApiResponse(responseCode = "403", description = "El usuario no es SUPER_ADMIN")
-    @ApiResponse(responseCode = "404", description = "No es un gerente de esa empresa")
+    @ApiResponse(responseCode = "404", description = "No es un administrador de esa empresa")
     @ApiResponse(responseCode = "409", description = "Ya estaba en ese estado o la transición no existe")
-    public TrabajadorResponseDTO cambiarEstadoGerente(@PathVariable Long id, @PathVariable Long usuarioId,
+    public TrabajadorResponseDTO cambiarEstadoAdministrador(@PathVariable Long id, @PathVariable Long usuarioId,
                                                       @Valid @RequestBody CambioEstadoUsuarioDTO request) {
-        return empresaService.cambiarEstadoGerente(id, usuarioId, request);
+        return empresaService.cambiarEstadoAdministrador(id, usuarioId, request);
     }
 }

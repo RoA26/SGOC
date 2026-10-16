@@ -17,7 +17,7 @@ import org.springframework.util.StringUtils;
  * ya existen no modifica nada, de modo que puede quedarse configurado en el despliegue sin
  * sobrescribir cambios.
  *
- * <p>Es la cuenta raíz: crea las empresas y su administrador principal (GERENTE) desde
+ * <p>Es la cuenta raíz: crea las empresas y su administrador principal (ADMIN_EMPRESA) desde
  * «Empresas» ({@code POST /api/v1/empresas}).
  */
 @Component
@@ -48,9 +48,10 @@ public class AdminBootstrap implements ApplicationRunner {
             log.info("Administrador inicial {} ya existe; no se realizan cambios.", username);
             return;
         }
-        String nombre = StringUtils.hasText(admin.nombre()) ? admin.nombre() : "Administrador";
+        String nombres = StringUtils.hasText(admin.nombre()) ? admin.nombre() : "Administrador";
+        String apellidos = StringUtils.hasText(admin.apellidos()) ? admin.apellidos() : null;
         // Operador de la plataforma: no pertenece a ninguna empresa.
-        usuarioService.crearUsuario(username, email, nombre, admin.password(), Rol.SUPER_ADMIN, null);
+        usuarioService.crearUsuario(username, email, nombres, apellidos, admin.password(), Rol.SUPER_ADMIN, null);
         log.info("Super administrador inicial {} creado.", username);
     }
 }

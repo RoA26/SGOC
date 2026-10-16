@@ -49,8 +49,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class EmpresaService {
 
     private static final Logger log = LoggerFactory.getLogger(EmpresaService.class);
-    /** Prefijo de los errores del gerente fundador: mismo formato que Bean Validation ({@code gerente.username}). */
-    private static final String CAMPO_GERENTE = "gerente.";
+    /** Prefijo de los errores del administrador inicial: mismo formato que Bean Validation ({@code administrador.username}). */
+    private static final String CAMPO_ADMINISTRADOR = "administrador.";
     private static final String CAMPO_CODIGO = "codigo";
     /** Un código propuesto por el servidor solo choca si otra alta simultánea lo toma: basta con pocos reintentos. */
     private static final int MAX_INTENTOS_CODIGO_PROPUESTO = 3;
@@ -69,9 +69,10 @@ public class EmpresaService {
     }
 
     /**
-     * Crea la empresa, su código empresarial, su código de registro de trabajadores y su GERENTE
-     * fundador (ACTIVO) en una sola transacción: si cualquier paso falla (NIT o código repetido,
-     * username o correo en uso, error de BD...), no queda ni la empresa ni el gerente.
+     * Crea la empresa, su código empresarial, su código de registro de trabajadores y su
+     * administrador inicial (ADMIN_EMPRESA, ACTIVO) en una sola transacción: si cualquier paso falla
+     * (NIT o código repetido, username o correo en uso, error de BD...), no queda ni la empresa ni
+     * el administrador.
      *
      * <p>Sin {@code codigo} en la petición, el servidor propone el siguiente libre a partir del
      * nombre. Si otra alta simultánea lo toma antes (la UNIQUE de la BD salta), se repite toda la
@@ -83,10 +84,11 @@ public class EmpresaService {
      * sin {@code @TenantId}, así que no dependen del tenant de la sesión.
      *
      * @throws DatoDuplicadoException si el NIT ({@code nit}), el código ({@code codigo}) o el
-     *         username/correo del gerente ({@code gerente.username} / {@code gerente.email}) ya existen (→ 409)
+     *         username/correo del administrador ({@code administrador.username} / {@code administrador.email})
+     *         ya existen (→ 409)
      */
     @PreAuthorize(Permisos.SUPER_ADMIN)
-    public EmpresaResponseDTO crearConGerente(EmpresaRequestDTO request) {
+    public EmpresaResponseDTO crearConAdministrador(EmpresaRequestDTO request) {
         for (int intento = 1; ; intento++) {
             try {
                 return transactionTemplate.execute(estado -> aprovisionar(request));
@@ -100,7 +102,7 @@ public class EmpresaService {
         }
     }
 
-    /** Una transacción completa del aprovisionamiento (ver {@link #crearConGerente}). */
+    /** Una transacción completa del aprovisionamiento (ver {@link #crearConAdministrador}). */
     private EmpresaResponseDTO aprovisionar(EmpresaRequestDTO request) {
         if (empresaRepository.existsByNit(request.nit())) {
             throw new DatoDuplicadoException("nit", "Ya existe una empresa con este NIT.");
@@ -108,7 +110,7 @@ public class EmpresaService {
         String codigo = request.codigo() != null ? exigirDisponible(request.codigo()) : proponerCodigo(request.nombre());
         String codigoRegistro = CodigosInvitacion.generarUnico(empresaRepository::existsByCodigoEmpresa);
 
-        // flush: la empresa ya está en la BD cuando se crea el gerente (FK y UNIQUE comprobadas aquí).
+        // flush: la empresa ya está en la BD cuando se crea el administrador (FK y UNIQUE comprobadas aquí).
         Empresa empresa;
         try {
             empresa = empresaRepository.saveAndFlush(new Empresa(request.nombre(), request.nit(), codigo, codigoRegistro));
@@ -117,24 +119,24 @@ public class EmpresaService {
             throw duplicadoDeLaEmpresa(ex, codigo);
         }
 
-        EmpresaRequestDTO.GerenteFundador datos = request.gerente();
-        Usuario gerente;
+        EmpresaRequestDTO.AdministradorInicial datos = request.administrador();
+        Usuario administrador;
         try {
-            gerente = usuarioService.crearUsuario(datos.username(), datos.email(), datos.nombreParaMostrar(),
-                    datos.password(), Rol.GERENTE, empresa);
+            administrador = usuarioService.crearUsuario(datos.username(), datos.email(), datos.nombres(),
+                    datos.apellidos(), datos.password(), Rol.ADMIN_EMPRESA, empresa);
         } catch (DatoDuplicadoException ex) {
             // La excepción deshace la transacción: la empresa tampoco se guarda.
-            throw new DatoDuplicadoException(CAMPO_GERENTE + ex.getCampo(), ex.getMessage());
+            throw new DatoDuplicadoException(CAMPO_ADMINISTRADOR + ex.getCampo(), ex.getMessage());
         } catch (CampoInvalidoException ex) {
-            throw new CampoInvalidoException(CAMPO_GERENTE + ex.getCampo(), ex.getMessage());
+            throw new CampoInvalidoException(CAMPO_ADMINISTRADOR + ex.getCampo(), ex.getMessage());
         } catch (DataIntegrityViolationException ex) {
-            // Alta simultánea con el mismo username o correo: la UNIQUE salta al insertar al gerente.
-            throw duplicadoDelGerente(ex);
+            // Alta simultánea con el mismo username o correo: la UNIQUE salta al insertar al administrador.
+            throw duplicadoDelAdministrador(ex);
         }
 
-        log.info("Empresa {} ({}) creada con el gerente fundador {} por {}.", empresa.getId(), empresa.getCodigo(),
-                gerente.getId(), UsuarioActual.paraAuditoria());
-        return EmpresaResponseDTO.from(empresa, gerente);
+        log.info("Empresa {} ({}) creada con el administrador inicial {} por {}.", empresa.getId(), empresa.getCodigo(),
+                administrador.getId(), UsuarioActual.paraAuditoria());
+        return EmpresaResponseDTO.from(empresa, administrador);
     }
 
     private String exigirDisponible(String codigo) {
@@ -172,14 +174,14 @@ public class EmpresaService {
         return ex;
     }
 
-    /** Asocia la restricción violada al campo del gerente; cualquier otra se propaga tal cual. */
-    private static RuntimeException duplicadoDelGerente(DataIntegrityViolationException ex) {
+    /** Asocia la restricción violada al campo del administrador; cualquier otra se propaga tal cual. */
+    private static RuntimeException duplicadoDelAdministrador(DataIntegrityViolationException ex) {
         String causa = causa(ex);
         DatoDuplicadoException duplicado = causa.contains("uq_usuarios_username") ? DatoDuplicadoException.username()
                 : causa.contains("uq_usuarios_email") ? DatoDuplicadoException.email()
                 : null;
         return duplicado == null ? ex
-                : new DatoDuplicadoException(CAMPO_GERENTE + duplicado.getCampo(), duplicado.getMessage());
+                : new DatoDuplicadoException(CAMPO_ADMINISTRADOR + duplicado.getCampo(), duplicado.getMessage());
     }
 
     private static String causa(DataIntegrityViolationException ex) {
@@ -232,7 +234,7 @@ public class EmpresaService {
     }
 
     /**
-     * Personas de una empresa (gerentes y trabajadores) con su estado, para la ficha del
+     * Personas de una empresa (administradores y trabajadores) con su estado, para la ficha del
      * SUPER_ADMIN. Solo lectura y solo de la empresa de la ruta.
      */
     @PreAuthorize(Permisos.SUPER_ADMIN)
@@ -265,29 +267,29 @@ public class EmpresaService {
     }
 
     /**
-     * Desactiva o reactiva la cuenta de un GERENTE de la empresa (p. ej. el administrador
-     * principal deja la empresa o su cuenta se ve comprometida). Rige desde su siguiente
+     * Desactiva o reactiva la cuenta de un administrador (ADMIN_EMPRESA) de la empresa (p. ej.
+     * deja la empresa o su cuenta se ve comprometida). Rige desde su siguiente
      * petición, aunque su JWT siga vigente. Las transiciones son las de {@link EstadoUsuario}.
      *
-     * <p>Solo gerentes de la empresa de la ruta: otra empresa, otro rol o un id inexistente
+     * <p>Solo administradores de la empresa de la ruta: otra empresa, otro rol o un id inexistente
      * responden igual (404). La fila se bloquea frente a cambios simultáneos.
      */
     @PreAuthorize(Permisos.SUPER_ADMIN)
     @Transactional
-    public TrabajadorResponseDTO cambiarEstadoGerente(Long empresaId, Long usuarioId, CambioEstadoUsuarioDTO dto) {
-        Usuario gerente = usuarioRepository.findWithLockByIdAndEmpresa_IdAndRol(usuarioId, empresaId, Rol.GERENTE)
-                .orElseThrow(() -> new RecursoNoEncontradoException("gerente", usuarioId));
-        EstadoUsuario anterior = gerente.getEstado();
-        gerente.cambiarEstado(dto.estado());
-        Usuario guardado = usuarioRepository.saveAndFlush(gerente);
-        log.info("Gerente {} de la empresa {}: {} → {} (por {}).", usuarioId, empresaId, anterior,
+    public TrabajadorResponseDTO cambiarEstadoAdministrador(Long empresaId, Long usuarioId, CambioEstadoUsuarioDTO dto) {
+        Usuario administrador = usuarioRepository.findWithLockByIdAndEmpresa_IdAndRol(usuarioId, empresaId, Rol.ADMIN_EMPRESA)
+                .orElseThrow(() -> new RecursoNoEncontradoException("administrador", usuarioId));
+        EstadoUsuario anterior = administrador.getEstado();
+        administrador.cambiarEstado(dto.estado());
+        Usuario guardado = usuarioRepository.saveAndFlush(administrador);
+        log.info("Administrador {} de la empresa {}: {} → {} (por {}).", usuarioId, empresaId, anterior,
                 guardado.getEstado(), UsuarioActual.paraAuditoria());
         return TrabajadorResponseDTO.from(guardado);
     }
 
     /**
      * Empresa de la petición, con el código que el gestor comparte con sus trabajadores.
-     * GERENTE: la suya; SUPER_ADMIN: la de X-Tenant-ID.
+     * ADMIN_EMPRESA: la suya; SUPER_ADMIN: la de X-Tenant-ID.
      *
      * @throws com.unisen.sgp.exception.EmpresaNoSeleccionadaException SUPER_ADMIN en modo global (→ 400)
      */
@@ -304,13 +306,13 @@ public class EmpresaService {
         return empresaRepository.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("empresa", id));
     }
 
-    /** Administrador principal (primer GERENTE) de cada empresa, por id de empresa. */
+    /** Administrador principal (primer ADMIN_EMPRESA) de cada empresa, por id de empresa. */
     private Map<Long, Usuario> administradoresPrincipales(List<Empresa> empresas) {
         if (empresas.isEmpty()) {
             return Map.of();
         }
         List<Long> ids = empresas.stream().map(Empresa::getId).toList();
-        return usuarioRepository.findPrimeroConRolPorEmpresa(Rol.GERENTE, ids).stream()
+        return usuarioRepository.findPrimeroConRolPorEmpresa(Rol.ADMIN_EMPRESA, ids).stream()
                 .collect(Collectors.toMap(Usuario::getEmpresaId, Function.identity()));
     }
 }

@@ -11,7 +11,7 @@ public class RecursoNoEncontradoException extends RuntimeException {
         super(mensaje);
     }
 
-    /** También para las solicitudes ajenas: a un USUARIO no se le revela que existen. */
+    /** También para las solicitudes ajenas: a un TRABAJADOR no se le revela que existen. */
     public static RecursoNoEncontradoException solicitud(Long id) {
         return new RecursoNoEncontradoException("No existe la solicitud con id " + id + ".");
     }

@@ -47,6 +47,8 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
 
     private ResultActions registrar(String username, String email, String password, String codigo) throws Exception {
         Map<String, Object> body = new LinkedHashMap<>();
+        body.put("nombres", "Nombre");
+        body.put("apellidos", "De Prueba");
         body.put("username", username);
         body.put("email", email);
         body.put("password", password);
@@ -140,8 +142,8 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.id").isNumber())
                 .andExpect(jsonPath("$.username").value("nuevo.usuario"))
                 .andExpect(jsonPath("$.email").value("nuevo@unisen.com"))
-                .andExpect(jsonPath("$.nombre").value("nuevo.usuario"))
-                .andExpect(jsonPath("$.rol").value("USUARIO"))
+                .andExpect(jsonPath("$.nombre").value("Nombre De Prueba"))
+                .andExpect(jsonPath("$.rol").value("TRABAJADOR"))
                 .andExpect(jsonPath("$.password").doesNotExist())
                 .andExpect(jsonPath("$.passwordHash").doesNotExist());
 
@@ -168,11 +170,27 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
     }
 
     @Test
-    void registroAceptaUnNombreParaMostrar() throws Exception {
-        registrar(json(Map.of("username", "ana", "email", "ana@unisen.com", "password", PASSWORD_NUEVO,
-                        "codigoInvitacion", generarCodigo(), "nombre", "  Ana Compras  ")))
+    void registroGuardaNombresYApellidosPorSeparado() throws Exception {
+        registrar(json(Map.of("nombres", "  Ana María ", "apellidos", " Compras Díaz ", "username", "ana",
+                        "email", "ana@unisen.com", "password", PASSWORD_NUEVO, "codigoInvitacion", generarCodigo())))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.nombre").value("Ana Compras"));
+                .andExpect(jsonPath("$.nombres").value("Ana María"))
+                .andExpect(jsonPath("$.apellidos").value("Compras Díaz"))
+                .andExpect(jsonPath("$.nombre").value("Ana María Compras Díaz"))
+                .andExpect(jsonPath("$.datosPersonalesCompletos").value(true));
+        assertThat(jdbcTemplate.queryForObject("SELECT nombres || '|' || apellidos || '|' || nombre FROM usuarios "
+                + "WHERE username = 'ana'", String.class)).isEqualTo("Ana María|Compras Díaz|Ana María Compras Díaz");
+    }
+
+    @Test
+    void registroExigeNombresYApellidosSinConsumirLaInvitacion() throws Exception {
+        String codigo = generarCodigo();
+        registrar(json(Map.of("username", "sin.nombre", "email", "sin.nombre@unisen.com", "password", PASSWORD_NUEVO,
+                        "codigoInvitacion", codigo, "nombres", " ")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.nombres").value("Los nombres son obligatorios."))
+                .andExpect(jsonPath("$.errors.apellidos").value("Los apellidos son obligatorios."));
+        assertThat(filaInvitacion(codigo).get("usado")).isEqualTo(false);
     }
 
     @Test
@@ -297,7 +315,7 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
         mockMvc.perform(post(REGISTRO_URL)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer token-basura")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("username", "con.token", "email", "con.token@unisen.com",
+                        .content(json(Map.of("nombres", "Nombre", "apellidos", "De Prueba", "username", "con.token", "email", "con.token@unisen.com",
                                 "password", PASSWORD_NUEVO, "codigoInvitacion", codigo))))
                 .andExpect(status().isCreated());
     }

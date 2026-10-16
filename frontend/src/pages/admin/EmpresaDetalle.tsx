@@ -18,13 +18,13 @@ import { formatearFecha } from '@/lib/fechas'
 import type { PageParams } from '@/services/types'
 
 const TAMANO_PAGINA = 10
-/** Gerentes primero (GERENTE < USUARIO) y después por nombre. */
+/** Administradores primero (ADMIN_EMPRESA < TRABAJADOR) y después por nombre. */
 const ORDEN_USUARIOS = ['rol,asc', 'nombre,asc']
 
 type Carga<T> = { estado: 'cargando' } | { estado: 'error'; mensaje: string } | { estado: 'listo'; datos: T }
 
 /** Acción pendiente de confirmar: desactivar la empresa o la cuenta de su administrador. */
-type Confirmacion = 'empresa' | 'gerente' | null
+type Confirmacion = 'empresa' | 'administrador' | null
 
 /**
  * Ficha de una empresa para el SUPER_ADMIN: datos, administrador principal, indicadores reales
@@ -131,12 +131,12 @@ function Ficha({ empresa, onActualizada }: { empresa: Empresa; onActualizada: (e
       onActualizada(await empresaService.cambiarEstado(empresa.id, activa))
     }, activa ? `«${empresa.nombre}» vuelve a estar activa.` : `«${empresa.nombre}» desactivada: sus usuarios ya no pueden operar.`)
 
-  const gerente = empresa.gerente
-  const cambiarEstadoGerente = (estado: 'ACTIVO' | 'INACTIVO') =>
+  const administrador = empresa.administrador
+  const cambiarEstadoAdministrador = (estado: 'ACTIVO' | 'INACTIVO') =>
     ejecutar(async () => {
-      if (!gerente) return
-      const actualizado = await empresaService.cambiarEstadoGerente(empresa.id, gerente.id, estado)
-      onActualizada({ ...empresa, gerente: { ...gerente, estado: actualizado.estado } })
+      if (!administrador) return
+      const actualizado = await empresaService.cambiarEstadoAdministrador(empresa.id, administrador.id, estado)
+      onActualizada({ ...empresa, administrador: { ...administrador, estado: actualizado.estado } })
       setRecargaUsuarios((n) => n + 1)
     }, estado === 'ACTIVO' ? 'Cuenta del administrador reactivada.' : 'Cuenta del administrador desactivada.')
 
@@ -222,30 +222,30 @@ function Ficha({ empresa, onActualizada }: { empresa: Empresa; onActualizada: (e
           <h2 id="administrador" className="font-medium text-foreground">
             Administrador principal
           </h2>
-          {gerente ? (
+          {administrador ? (
             <>
               <div className="mt-4 flex items-start gap-3">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-muted">
                   <UserRound className="size-5 text-accent" aria-hidden="true" />
                 </span>
                 <div className="min-w-0 text-sm">
-                  <p className="font-medium text-foreground">{gerente.nombre}</p>
+                  <p className="font-medium text-foreground">{administrador.nombre}</p>
                   <p className="text-foreground-muted">
-                    <span className="font-mono">@{gerente.username}</span> · {ETIQUETA_ROL[gerente.rol]}
+                    <span className="font-mono">@{administrador.username}</span> · {ETIQUETA_ROL[administrador.rol]}
                   </p>
-                  <a href={`mailto:${gerente.email}`} className="break-all text-foreground-muted hover:text-foreground hover:underline">
-                    {gerente.email}
+                  <a href={`mailto:${administrador.email}`} className="break-all text-foreground-muted hover:text-foreground hover:underline">
+                    {administrador.email}
                   </a>
-                  {gerente.estado && (
+                  {administrador.estado && (
                     <p className="mt-2">
-                      <EstadoUsuarioBadge estado={gerente.estado} />
+                      <EstadoUsuarioBadge estado={administrador.estado} />
                     </p>
                   )}
                 </div>
               </div>
               <div className="mt-4 border-t border-border pt-4">
-                {gerente.estado === 'INACTIVO' ? (
-                  <button type="button" className="u-btn u-btn--ghost h-9 px-3 text-sm" onClick={() => void cambiarEstadoGerente('ACTIVO')} disabled={enCurso}>
+                {administrador.estado === 'INACTIVO' ? (
+                  <button type="button" className="u-btn u-btn--ghost h-9 px-3 text-sm" onClick={() => void cambiarEstadoAdministrador('ACTIVO')} disabled={enCurso}>
                     Reactivar cuenta
                   </button>
                 ) : (
@@ -254,7 +254,7 @@ function Ficha({ empresa, onActualizada }: { empresa: Empresa; onActualizada: (e
                     className="u-btn u-btn--ghost h-9 px-3 text-sm"
                     onClick={() => {
                       setErrorAccion(null)
-                      setConfirmacion('gerente')
+                      setConfirmacion('administrador')
                     }}
                   >
                     Desactivar cuenta
@@ -263,7 +263,7 @@ function Ficha({ empresa, onActualizada }: { empresa: Empresa; onActualizada: (e
               </div>
             </>
           ) : (
-            <p className="mt-4 text-sm text-foreground-muted">Esta empresa aún no tiene ningún gerente registrado.</p>
+            <p className="mt-4 text-sm text-foreground-muted">Esta empresa aún no tiene ningún administrador registrado.</p>
           )}
         </section>
       </div>
@@ -288,16 +288,16 @@ function Ficha({ empresa, onActualizada }: { empresa: Empresa; onActualizada: (e
       </ConfirmDialog>
 
       <ConfirmDialog
-        open={confirmacion === 'gerente'}
+        open={confirmacion === 'administrador'}
         title="Desactivar cuenta del administrador"
         confirmLabel="Desactivar cuenta"
         busy={enCurso}
         error={errorAccion}
-        onConfirm={() => void cambiarEstadoGerente('INACTIVO')}
+        onConfirm={() => void cambiarEstadoAdministrador('INACTIVO')}
         onCancel={() => setConfirmacion(null)}
       >
         <p>
-          ¿Desactivar la cuenta de <strong className="text-foreground">{gerente?.nombre}</strong>? Perderá el acceso
+          ¿Desactivar la cuenta de <strong className="text-foreground">{administrador?.nombre}</strong>? Perderá el acceso
           desde su siguiente acción, aunque tenga la sesión abierta. Podrás reactivarla después.
         </p>
       </ConfirmDialog>
@@ -379,7 +379,7 @@ function Indicador({ titulo, valor }: { titulo: string; valor: number | null }) 
   )
 }
 
-/** Usuarios de la empresa (gerentes primero) con su estado. Solo lectura. */
+/** Usuarios de la empresa (administradores primero) con su estado. Solo lectura. */
 function UsuariosEmpresa({ empresaId, recarga }: { empresaId: number; recarga: number }) {
   const [pagina, setPagina] = useState(0)
   // El hook solo admite un criterio de orden: aquí se envían los dos que entiende Spring.

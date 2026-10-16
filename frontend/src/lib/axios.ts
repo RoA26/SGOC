@@ -4,6 +4,8 @@ import { useAuthStore } from '@/store/authStore'
 
 /** Cabecera con la que el SUPER_ADMIN indica al backend en qué empresa trabaja (TenantFilter). */
 export const CABECERA_TENANT = 'X-Tenant-ID'
+/** Valor de la cabecera para el modo global explícito del SUPER_ADMIN (todas las empresas, solo lectura). */
+export const MODO_GLOBAL = 'global'
 
 /**
  * Instancia única de Axios para toda la aplicación.
@@ -19,17 +21,18 @@ export const api = axios.create({
   paramsSerializer: { indexes: null },
 })
 
-// Adjunta el JWT de la sesión a cada petición y, solo para el SUPER_ADMIN que eligió una
-// empresa, X-Tenant-ID. GERENTE y USUARIO nunca la envían: el backend fija su empresa desde el
-// token (y la ignoraría). Una cabecera puesta a mano en la petición (verificación) se respeta.
+// Adjunta el JWT de la sesión a cada petición y, solo para el SUPER_ADMIN, X-Tenant-ID: el id de la
+// empresa que supervisa o, si no supervisa ninguna, "global" (el backend exige que el modo global
+// sea explícito y lo registra). ADMIN_EMPRESA y TRABAJADOR nunca la envían: el backend fija su
+// empresa desde el token (y la ignoraría). Una cabecera puesta a mano en la petición se respeta.
 api.interceptors.request.use((config) => {
   const { accessToken, rol } = useAuthStore.getState()
   if (accessToken) {
     config.headers.set('Authorization', `Bearer ${accessToken}`)
   }
   const empresaElegida = useEmpresaSeleccionadaStore.getState().empresaId
-  if (rol === 'SUPER_ADMIN' && empresaElegida !== null && !config.headers.has(CABECERA_TENANT)) {
-    config.headers.set(CABECERA_TENANT, String(empresaElegida))
+  if (rol === 'SUPER_ADMIN' && accessToken && !config.headers.has(CABECERA_TENANT)) {
+    config.headers.set(CABECERA_TENANT, empresaElegida !== null ? String(empresaElegida) : MODO_GLOBAL)
   }
   return config
 })

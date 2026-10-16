@@ -46,7 +46,7 @@ public class Empresa {
 
     /**
      * Código de registro de trabajadores: aleatorio y secreto (80 bits); quien lo conoce puede
-     * registrarse en esta empresa y queda PENDIENTE hasta que el gerente lo apruebe. Único y
+     * registrarse en esta empresa y queda PENDIENTE hasta que el administrador lo apruebe. Único y
      * estable: no caduca ni se consume, a diferencia de un {@link CodigoInvitacion}. No debe
      * confundirse con {@link #codigo}, el identificador público de la empresa.
      */

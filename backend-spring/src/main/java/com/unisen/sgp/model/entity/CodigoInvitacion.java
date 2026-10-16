@@ -1,5 +1,6 @@
 package com.unisen.sgp.model.entity;
 
+import com.unisen.sgp.exception.ConflictoException;
 import com.unisen.sgp.exception.InvitacionInvalidaException;
 import com.unisen.sgp.exception.InvitacionInvalidaException.Motivo;
 import jakarta.persistence.Column;
@@ -15,9 +16,10 @@ import java.time.Instant;
 import java.util.Objects;
 
 /**
- * Código de invitación de un solo uso y con caducidad. Es la única vía de alta de usuarios:
- * un gestor lo genera para su empresa y la persona invitada lo canjea en
- * {@code POST /api/auth/registro}, quedando como USUARIO de esa empresa.
+ * Código de invitación de un solo uso y con caducidad: un administrador lo genera para su empresa
+ * y la persona invitada lo canjea en {@code POST /api/auth/registro}, quedando como TRABAJADOR
+ * ACTIVO de esa empresa. Su validez (sin usar, sin revocar y sin caducar) se comprueba al
+ * canjearlo, con la fila bloqueada; no depende de ningún proceso programado.
  */
 @Entity
 @Table(name = "codigos_invitacion")
@@ -50,6 +52,14 @@ public class CodigoInvitacion extends EntidadDeEmpresa {
     @Column(name = "creado_en", nullable = false, updatable = false)
     private Instant creadoEn;
 
+    /** Revocación (baja lógica): quién y cuándo. Ambas nulas mientras no se revoque. */
+    @Column(name = "fecha_revocacion")
+    private Instant fechaRevocacion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "revocado_por_id")
+    private Usuario revocadoPor;
+
     /** Requerido por JPA. */
     protected CodigoInvitacion() {
     }
@@ -67,11 +77,42 @@ public class CodigoInvitacion extends EntidadDeEmpresa {
      * @throws InvitacionInvalidaException si ya se usó o ha caducado
      */
     public void validarCanjeable(Instant ahora) {
-        if (usado) {
-            throw new InvitacionInvalidaException(Motivo.USADO);
+        switch (estado(ahora)) {
+            case USADA -> throw new InvitacionInvalidaException(Motivo.USADO);
+            case REVOCADA -> throw new InvitacionInvalidaException(Motivo.REVOCADO);
+            case CADUCADA -> throw new InvitacionInvalidaException(Motivo.CADUCADO);
+            case VIGENTE -> {
+                // Se puede canjear.
+            }
         }
-        if (!fechaExpiracion.isAfter(ahora)) {
-            throw new InvitacionInvalidaException(Motivo.CADUCADO);
+    }
+
+    /** Situación en el instante indicado. Usada y revocada son definitivas; la caducidad depende de la hora. */
+    public EstadoInvitacion estado(Instant ahora) {
+        if (usado) {
+            return EstadoInvitacion.USADA;
+        }
+        if (fechaRevocacion != null) {
+            return EstadoInvitacion.REVOCADA;
+        }
+        return fechaExpiracion.isAfter(ahora) ? EstadoInvitacion.VIGENTE : EstadoInvitacion.CADUCADA;
+    }
+
+    /**
+     * Anula una invitación vigente: deja de aceptarse y se conserva para la auditoría. Debe
+     * llamarse con la fila bloqueada, para no competir con un canje simultáneo.
+     *
+     * @throws ConflictoException si ya se usó, ya estaba revocada o ya caducó (→ 409)
+     */
+    public void revocar(Usuario revocador, Instant ahora) {
+        switch (estado(ahora)) {
+            case USADA -> throw new ConflictoException("La invitación ya fue utilizada: no se puede revocar.");
+            case REVOCADA -> throw new ConflictoException("La invitación ya estaba revocada.");
+            case CADUCADA -> throw new ConflictoException("La invitación ya caducó: no hace falta revocarla.");
+            case VIGENTE -> {
+                this.fechaRevocacion = Objects.requireNonNull(ahora, "ahora");
+                this.revocadoPor = Objects.requireNonNull(revocador, "revocador");
+            }
         }
     }
 
@@ -115,6 +156,19 @@ public class CodigoInvitacion extends EntidadDeEmpresa {
         return creadoEn;
     }
 
+    public Instant getFechaRevocacion() {
+        return fechaRevocacion;
+    }
+
+    public Usuario getRevocadoPor() {
+        return revocadoPor;
+    }
+
+    /** Solo los 4 últimos caracteres: el código completo es una credencial y solo se muestra al generarlo. */
+    public String getCodigoParcial() {
+        return "••••-••••-••••-" + codigo.substring(Math.max(0, codigo.length() - 4));
+    }
+
     @Override
     public boolean equals(Object other) {
         if (this == other) {
@@ -134,6 +188,7 @@ public class CodigoInvitacion extends EntidadDeEmpresa {
     /** Nunca incluye el código: es una credencial. */
     @Override
     public String toString() {
-        return "CodigoInvitacion{id=" + id + ", usado=" + usado + ", fechaExpiracion=" + fechaExpiracion + '}';
+        return "CodigoInvitacion{id=" + id + ", usado=" + usado + ", revocada=" + (fechaRevocacion != null)
+                + ", fechaExpiracion=" + fechaExpiracion + '}';
     }
 }

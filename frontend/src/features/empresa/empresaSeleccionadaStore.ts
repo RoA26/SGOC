@@ -17,8 +17,8 @@ interface EmpresaSeleccionadaState {
  * cabecera X-Tenant-ID (ver lib/axios.ts) y ve solo los datos de esa empresa, sin dejar de ser
  * SUPER_ADMIN (no hay suplantación: el backend sigue identificándolo con su propia cuenta).
  *
- * Se guarda en sessionStorage: dura lo que la pestaña y se borra al cerrar sesión. GERENTE y
- * USUARIO no la usan: su empresa viene de su sesión y el backend la impone.
+ * Se guarda en sessionStorage: dura lo que la pestaña y se borra al cerrar sesión. ADMIN_EMPRESA y
+ * TRABAJADOR no la usan: su empresa viene de su sesión y el backend la impone.
  */
 export const useEmpresaSeleccionadaStore = create<EmpresaSeleccionadaState>()(
   persist(

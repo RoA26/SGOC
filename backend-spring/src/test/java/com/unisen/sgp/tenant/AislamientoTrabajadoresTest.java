@@ -17,7 +17,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 
 /**
- * Test 9 del Hito 2: el GERENTE de la empresa A ve y gestiona solo a los trabajadores de A.
+ * Test 9 del Hito 2: el ADMIN_EMPRESA de la empresa A ve y gestiona solo a los trabajadores de A.
  * Usuario no lleva {@code @TenantId}, así que este aislamiento depende de los filtros
  * explícitos por empresa del servicio: aquí se comprueba de extremo a extremo.
  */
@@ -33,14 +33,14 @@ class AislamientoTrabajadoresTest extends ApiIntegrationTest {
     @BeforeEach
     void dosEmpresasConUnPendienteCadaUna() throws Exception {
         empresaB = crearEmpresa("Ferretería Norte", "900000002-2");
-        gerenteB = crearUsuarioYEntrar("gerente.norte", Rol.GERENTE, empresaB);
+        gerenteB = crearUsuarioYEntrar("gerente.norte", Rol.ADMIN_EMPRESA, empresaB);
         trabajadorA = registrar("pendiente.a", empresa.getCodigoEmpresa());
         trabajadorB = registrar("pendiente.b", empresaB.getCodigoEmpresa());
     }
 
     private long registrar(String username, String codigoEmpresa) throws Exception {
         return leer(mockMvc.perform(post("/api/auth/registro").contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("username", username, "email", username + "@correo.com",
+                        .content(json(Map.of("nombres", "Nombre", "apellidos", "De Prueba", "username", username, "email", username + "@correo.com",
                                 "password", "ClaveTrabajador2026", "codigoEmpresa", codigoEmpresa))))
                 .andExpect(status().isCreated())).get("id").asLong();
     }
@@ -92,7 +92,7 @@ class AislamientoTrabajadoresTest extends ApiIntegrationTest {
         long invitado = leer(mockMvc.perform(post("/api/auth/registro")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + gerenteB)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("username", "invitado.a", "email", "invitado.a@correo.com",
+                        .content(json(Map.of("nombres", "Nombre", "apellidos", "De Prueba", "username", "invitado.a", "email", "invitado.a@correo.com",
                                 "password", "ClaveTrabajador2026", "codigoInvitacion", invitacionA))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.empresaId").value(empresa.getId()))).get("id").asLong();
@@ -101,7 +101,7 @@ class AislamientoTrabajadoresTest extends ApiIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + gerenteB)
                         .header(TenantFilter.HEADER_TENANT, empresaB.getId().toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("username", "codigo.a", "email", "codigo.a@correo.com",
+                        .content(json(Map.of("nombres", "Nombre", "apellidos", "De Prueba", "username", "codigo.a", "email", "codigo.a@correo.com",
                                 "password", "ClaveTrabajador2026", "codigoEmpresa", empresa.getCodigoEmpresa()))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.empresaId").value(empresa.getId()))).get("id").asLong();
