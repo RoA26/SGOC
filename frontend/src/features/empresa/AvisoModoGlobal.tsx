@@ -1,11 +1,11 @@
 import { Globe2 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { useContextoEmpresa } from '@/features/auth/permisos'
 
 /**
- * Para el SUPER_ADMIN en modo global: explica por qué no puede crear ni modificar. El backend
- * responde 400 ("Empresa no seleccionada") a cualquier escritura sin X-Tenant-ID. Con `children`
- * se sustituye el texto por defecto.
+ * Para el SUPER_ADMIN en modo global: indica que ve datos de todas las empresas y cómo revisar
+ * los de una sola. Con `children` se sustituye el texto por defecto.
  */
 export function AvisoModoGlobal({ que, children }: { que?: string; children?: ReactNode }) {
   const { modoGlobal } = useContextoEmpresa()
@@ -17,8 +17,11 @@ export function AvisoModoGlobal({ que, children }: { que?: string; children?: Re
         <strong className="font-medium text-foreground">Modo global:</strong>{' '}
         {children ?? (
           <>
-            ves {que} de todas las empresas. Para crear o modificar, entra en una empresa desde el panel «Trabajar en
-            una empresa».
+            ves {que} de todas las empresas. Para revisar los de una sola, supervísala desde{' '}
+            <Link to="/admin/empresas" className="font-medium text-foreground underline-offset-4 hover:underline">
+              Empresas
+            </Link>
+            .
           </>
         )}
       </span>

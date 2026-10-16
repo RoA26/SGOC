@@ -1,18 +1,17 @@
-import { Building, Globe2, Loader2, LogIn, X } from 'lucide-react'
-import { useId, useState, type FormEvent } from 'react'
+import { Building, Building2, Eye, Globe2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { ETIQUETA_ROL, useContextoEmpresa } from '@/features/auth/permisos'
-import { getApiErrorMessage } from '@/lib/errors'
-import { verificarEmpresa } from './empresaApi'
 import { useEmpresaSeleccionadaStore } from './empresaSeleccionadaStore'
 import { etiquetaEmpresa } from './etiquetas'
+import type { EmpresaSupervisada } from './types'
 
 /**
  * Empresa sobre la que se trabaja. GERENTE y USUARIO solo la ven (es la suya). El SUPER_ADMIN
- * puede entrar en una empresa (soporte: las peticiones llevan X-Tenant-ID) o volver al modo
- * global (todas las empresas, solo lectura).
+ * está en modo global o supervisando una empresa que eligió en «Empresas»; desde aquí vuelve al
+ * modo global.
  */
 export function ContextoEmpresaPanel() {
-  const { rol, empresaId, esSuperAdmin } = useContextoEmpresa()
+  const { rol, empresaId, esSuperAdmin, empresaSupervisada } = useContextoEmpresa()
 
   if (!esSuperAdmin) {
     return (
@@ -26,59 +25,10 @@ export function ContextoEmpresaPanel() {
       </div>
     )
   }
-  return <SelectorEmpresa empresaId={empresaId} />
+  return empresaSupervisada ? <PanelSupervision empresa={empresaSupervisada} /> : <PanelModoGlobal />
 }
 
-function SelectorEmpresa({ empresaId }: { empresaId: number | null }) {
-  const seleccionar = useEmpresaSeleccionadaStore((state) => state.seleccionar)
-  const salir = useEmpresaSeleccionadaStore((state) => state.salir)
-  const [abierto, setAbierto] = useState(false)
-  const [valor, setValor] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [verificando, setVerificando] = useState(false)
-  const inputId = useId()
-
-  async function entrar(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const id = Number(valor)
-    if (!Number.isInteger(id) || id <= 0) {
-      setError('Escribe el número (id) de la empresa.')
-      return
-    }
-    setVerificando(true)
-    setError(null)
-    try {
-      await verificarEmpresa(id)
-      seleccionar(id)
-      setAbierto(false)
-      setValor('')
-    } catch (err) {
-      setError(getApiErrorMessage(err))
-    } finally {
-      setVerificando(false)
-    }
-  }
-
-  if (empresaId !== null) {
-    return (
-      <div className="rounded-lg border border-accent/40 bg-accent/10 px-3 py-2.5">
-        <p className="text-xs text-foreground-muted">Trabajando en</p>
-        <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <Building className="size-4 shrink-0 text-accent" aria-hidden="true" />
-          {etiquetaEmpresa(empresaId)}
-        </p>
-        <button
-          type="button"
-          onClick={salir}
-          className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-foreground underline-offset-4 hover:underline"
-        >
-          <Globe2 className="size-3.5" aria-hidden="true" />
-          Volver al modo global
-        </button>
-      </div>
-    )
-  }
-
+function PanelModoGlobal() {
   return (
     <div className="rounded-lg border border-border bg-surface-muted/50 px-3 py-2.5">
       <p className="text-xs text-foreground-muted">Super administrador</p>
@@ -86,59 +36,47 @@ function SelectorEmpresa({ empresaId }: { empresaId: number | null }) {
         <Globe2 className="size-4 shrink-0 text-accent" aria-hidden="true" />
         Modo global
       </p>
-      <p className="mt-0.5 text-xs text-foreground-muted">Ves todas las empresas, sin poder modificar sus datos.</p>
+      <p className="mt-0.5 text-xs text-foreground-muted">Ves los datos de todas las empresas.</p>
+      <Link
+        to="/admin/empresas"
+        className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-foreground underline-offset-4 hover:underline"
+      >
+        <Building2 className="size-3.5" aria-hidden="true" />
+        Gestionar empresas
+      </Link>
+    </div>
+  )
+}
 
-      {abierto ? (
-        <form onSubmit={entrar} noValidate className="mt-2 space-y-1.5">
-          <label htmlFor={inputId} className="text-xs font-medium text-foreground">
-            Id de la empresa
-          </label>
-          <div className="flex gap-1.5">
-            <input
-              id={inputId}
-              value={valor}
-              onChange={(event) => {
-                setValor(event.target.value)
-                setError(null)
-              }}
-              inputMode="numeric"
-              autoComplete="off"
-              autoFocus
-              className="u-input h-9 min-w-0 flex-1 text-sm"
-              aria-invalid={error ? true : undefined}
-              aria-describedby={error ? `${inputId}-error` : undefined}
-            />
-            <button type="submit" className="u-btn u-btn--primary h-9 px-2.5" disabled={verificando} aria-label="Entrar en la empresa">
-              {verificando ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <LogIn className="size-4" aria-hidden="true" />}
-            </button>
-            <button
-              type="button"
-              className="u-btn u-btn--ghost h-9 px-2.5"
-              onClick={() => {
-                setAbierto(false)
-                setError(null)
-              }}
-              aria-label="Cancelar"
-            >
-              <X className="size-4" aria-hidden="true" />
-            </button>
-          </div>
-          {error && (
-            <p id={`${inputId}-error`} role="alert" className="u-field-error text-xs">
-              {error}
-            </p>
-          )}
-        </form>
-      ) : (
+function PanelSupervision({ empresa }: { empresa: EmpresaSupervisada }) {
+  const salir = useEmpresaSeleccionadaStore((state) => state.salir)
+  return (
+    <div className="rounded-lg border border-accent/40 bg-accent/10 px-3 py-2.5">
+      <p className="flex items-center gap-1.5 text-xs text-foreground-muted">
+        <Eye className="size-3.5" aria-hidden="true" />
+        Supervisando · solo lectura
+      </p>
+      <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+        <Building className="size-4 shrink-0 text-accent" aria-hidden="true" />
+        <span className="truncate">{empresa.nombre}</span>
+      </p>
+      <p className="mt-0.5 font-mono text-xs text-foreground-muted">{empresa.codigo}</p>
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+        <Link
+          to={`/admin/empresas/${empresa.id}`}
+          className="text-xs font-medium text-foreground underline-offset-4 hover:underline"
+        >
+          Ver ficha
+        </Link>
         <button
           type="button"
-          onClick={() => setAbierto(true)}
-          className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-foreground underline-offset-4 hover:underline"
+          onClick={salir}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground underline-offset-4 hover:underline"
         >
-          <Building className="size-3.5" aria-hidden="true" />
-          Trabajar en una empresa
+          <Globe2 className="size-3.5" aria-hidden="true" />
+          Volver al modo global
         </button>
-      )}
+      </div>
     </div>
   )
 }

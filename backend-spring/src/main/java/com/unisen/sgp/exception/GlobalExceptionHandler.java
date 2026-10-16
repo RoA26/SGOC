@@ -48,8 +48,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             new Restriccion("uq_productos_sku", "sku",
                     "Ya existe un producto con este SKU (también se cuentan los dados de baja)."),
             new Restriccion("uq_empresas_nit", "nit", "Ya existe una empresa con este NIT."),
+            // Antes que uq_empresas_codigo: se busca por subcadena y aquel nombre es prefijo de este.
             new Restriccion("uq_empresas_codigo_empresa", "codigoEmpresa",
                     "No se pudo asignar un código de empresa único. Inténtalo de nuevo."),
+            new Restriccion("uq_empresas_codigo", "codigo", "Ese código empresarial ya pertenece a otra empresa."),
+            new Restriccion("ck_empresas_codigo", "codigo",
+                    "El código debe tener de 3 a 12 letras mayúsculas o números y empezar por una letra."),
             new Restriccion("fk_productos_proveedor", "proveedorId",
                     "El proveedor seleccionado no existe."),
             new Restriccion("uq_detalles_solicitud_producto", "detalles",

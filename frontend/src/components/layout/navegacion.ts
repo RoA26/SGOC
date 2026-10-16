@@ -1,4 +1,5 @@
 import {
+  Building,
   Building2,
   ClipboardList,
   FileText,
@@ -51,7 +52,10 @@ export function construirNavegacion(rol: Rol | null, permisos: Permisos): GrupoN
       ],
     })
   }
-  if (gestor) {
+  // SUPER_ADMIN: empresas y sus administradores. GERENTE: invitar trabajadores a su empresa.
+  if (permisos.gestionarEmpresas) {
+    grupos.push({ titulo: 'Administración', items: [{ to: '/admin/empresas', label: 'Empresas', icon: Building }] })
+  } else if (permisos.gestionarInvitaciones) {
     grupos.push({ titulo: 'Administración', items: [{ to: '/admin/invitaciones', label: 'Invitar usuarios', icon: Ticket }] })
   }
   return grupos

@@ -1,4 +1,4 @@
-import { Check, FileText, Globe2, Loader2, X } from 'lucide-react'
+import { Check, Eye, FileText, Loader2, X } from 'lucide-react'
 import { useId, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { useContextoEmpresa, usePermisos } from '@/features/auth/permisos'
@@ -18,13 +18,13 @@ interface DetalleSolicitudModalProps {
 }
 
 /**
- * Detalle de una solicitud y su punto en el flujo de compra. Al GERENTE (y al SUPER_ADMIN que
- * trabaja dentro de una empresa), si está pendiente, le permite aprobarla o rechazarla (con
- * motivo obligatorio al rechazar). Una solicitud aprobada no es todavía una orden de compra.
+ * Detalle de una solicitud y su punto en el flujo de compra. Al GERENTE, si está pendiente, le
+ * permite aprobarla o rechazarla (con motivo obligatorio al rechazar); el SUPER_ADMIN solo la
+ * consulta. Una solicitud aprobada no es todavía una orden de compra.
  */
 export function DetalleSolicitudModal({ solicitud, onClose, onRevisada }: DetalleSolicitudModalProps) {
   const permisos = usePermisos()
-  const { modoGlobal } = useContextoEmpresa()
+  const { esSuperAdmin } = useContextoEmpresa()
   const pendiente = solicitud.estado === 'PENDIENTE'
   const revisable = permisos.revisarSolicitudes && pendiente
   const comentarioId = useId()
@@ -180,10 +180,10 @@ export function DetalleSolicitudModal({ solicitud, onClose, onRevisada }: Detall
 
         {solicitud.estado === 'APROBADA' && <SiguientePasoOrden gestor={permisos.verTodasLasSolicitudes} />}
 
-        {pendiente && modoGlobal && (
+        {pendiente && esSuperAdmin && (
           <p role="note" className="flex items-start gap-2 rounded-md border border-border bg-surface-muted/60 px-4 py-3 text-foreground-muted">
-            <Globe2 className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
-            Modo global: para aprobarla o rechazarla, entra en la empresa de la solicitud desde «Trabajar en una empresa».
+            <Eye className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
+            Consulta de solo lectura: la aprobación corresponde al gerente de la empresa.
           </p>
         )}
 

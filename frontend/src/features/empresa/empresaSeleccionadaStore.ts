@@ -1,17 +1,21 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { useAuthStore } from '@/store/authStore'
+import type { EmpresaSupervisada } from './types'
 
 interface EmpresaSeleccionadaState {
-  /** Empresa en la que trabaja el SUPER_ADMIN; null = modo global (todas las empresas). */
+  /** Empresa que supervisa el SUPER_ADMIN; null = modo global (todas las empresas). */
   empresaId: number | null
-  seleccionar: (empresaId: number) => void
+  /** Nombre y código de la empresa supervisada, para mostrarla en toda la interfaz. */
+  empresa: EmpresaSupervisada | null
+  seleccionar: (empresa: EmpresaSupervisada) => void
   salir: () => void
 }
 
 /**
- * Empresa elegida por el SUPER_ADMIN para trabajar dentro de ella (soporte). Mientras haya
- * una, las peticiones llevan la cabecera X-Tenant-ID (ver lib/axios.ts).
+ * Supervisión del SUPER_ADMIN: mientras haya una empresa elegida, sus peticiones llevan la
+ * cabecera X-Tenant-ID (ver lib/axios.ts) y ve solo los datos de esa empresa, sin dejar de ser
+ * SUPER_ADMIN (no hay suplantación: el backend sigue identificándolo con su propia cuenta).
  *
  * Se guarda en sessionStorage: dura lo que la pestaña y se borra al cerrar sesión. GERENTE y
  * USUARIO no la usan: su empresa viene de su sesión y el backend la impone.
@@ -20,13 +24,17 @@ export const useEmpresaSeleccionadaStore = create<EmpresaSeleccionadaState>()(
   persist(
     (set) => ({
       empresaId: null,
-      seleccionar: (empresaId) => set({ empresaId }),
-      salir: () => set({ empresaId: null }),
+      empresa: null,
+      seleccionar: (empresa) => set({ empresaId: empresa.id, empresa }),
+      salir: () => set({ empresaId: null, empresa: null }),
     }),
     {
       name: 'sgoc.empresa-seleccionada',
       storage: createJSONStorage(() => sessionStorage),
-      partialize: ({ empresaId }) => ({ empresaId }),
+      // Versión 1: guarda también nombre y código. Una selección anterior (solo el id) se descarta.
+      version: 1,
+      migrate: () => ({ empresaId: null, empresa: null }),
+      partialize: ({ empresaId, empresa }) => ({ empresaId, empresa }),
     },
   ),
 )

@@ -5,7 +5,6 @@ import { BotonCopiar } from '@/components/ui/BotonCopiar'
 import { generarCodigoInvitacion } from '@/features/auth/authApi'
 import { usePermisos } from '@/features/auth/permisos'
 import type { InvitacionResponse } from '@/features/auth/types'
-import { AvisoModoGlobal } from '@/features/empresa/AvisoModoGlobal'
 import { getApiErrorMessage } from '@/lib/errors'
 
 const formatoFecha = new Intl.DateTimeFormat('es', { dateStyle: 'medium', timeStyle: 'short' })
@@ -16,12 +15,13 @@ function enlaceRegistro(codigo: string): string {
 }
 
 /**
- * Panel de administración: genera códigos de invitación de un solo uso para la empresa en la
- * que se trabaja (la cuenta creada con el código entra en ella con rol USUARIO). El backend
- * solo devuelve cada código al crearlo, así que la página conserva los de esta visita.
+ * Panel del GERENTE: genera códigos de invitación de un solo uso para su empresa (la cuenta
+ * creada con el código entra en ella con rol USUARIO). Es el alta de trabajadores, no de
+ * empresas: esas las crea el SUPER_ADMIN en «Empresas». El backend solo devuelve cada código al
+ * crearlo, así que la página conserva los de esta visita.
  */
 export default function Invitaciones() {
-  // GERENTE, o SUPER_ADMIN dentro de una empresa: en modo global no hay empresa a la que invitar.
+  // Solo el GERENTE invita, siempre a su propia empresa (la ruta ya está restringida a su rol).
   const puedeInvitar = usePermisos().gestionarInvitaciones
   const [invitaciones, setInvitaciones] = useState<InvitacionResponse[]>([])
   const [generando, setGenerando] = useState(false)
@@ -65,11 +65,6 @@ export default function Invitaciones() {
           </button>
         }
       />
-
-      <AvisoModoGlobal>
-        cada invitación pertenece a una empresa. Para generar códigos, entra en una empresa desde el panel «Trabajar en
-        una empresa».
-      </AvisoModoGlobal>
 
       {/* Fuera de la tarjeta (que se vuelve a montar con cada código) para que se anuncie siempre. */}
       <p role="status" className="sr-only">

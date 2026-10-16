@@ -1,4 +1,4 @@
-import { ArrowRight, ClipboardList, FileText, Plus, SearchCheck } from 'lucide-react'
+import { ArrowRight, Building, ClipboardList, FileText, Plus, SearchCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ETIQUETA_ROL, useContextoEmpresa, usePermisos } from '@/features/auth/permisos'
 import { AvisoModoGlobal } from '@/features/empresa/AvisoModoGlobal'
@@ -15,14 +15,16 @@ import { useAuthStore } from '@/store/authStore'
 /** Panel de inicio del SGOC: en qué punto del proceso de compra está la empresa (o el usuario). */
 export default function Inicio() {
   const nombre = useAuthStore((state) => state.nombre)
-  const { rol, empresaId, modoGlobal } = useContextoEmpresa()
+  const { rol, empresaId, modoGlobal, empresaSupervisada } = useContextoEmpresa()
   const permisos = usePermisos()
   const resumen = useResumenSolicitudes()
   const propias = !permisos.verTodasLasSolicitudes
 
   const contexto = modoGlobal
     ? 'Modo global · todas las empresas'
-    : [empresaId !== null ? etiquetaEmpresa(empresaId) : null, rol ? ETIQUETA_ROL[rol] : null].filter(Boolean).join(' · ')
+    : empresaSupervisada
+      ? `${empresaSupervisada.nombre} (${empresaSupervisada.codigo}) · Supervisión`
+      : [empresaId !== null ? etiquetaEmpresa(empresaId) : null, rol ? ETIQUETA_ROL[rol] : null].filter(Boolean).join(' · ')
 
   return (
     <>
@@ -39,10 +41,16 @@ export default function Inicio() {
             Nueva solicitud
           </Link>
         )}
+        {permisos.gestionarEmpresas && modoGlobal && (
+          <Link to="/admin/empresas" className="u-btn u-btn--primary">
+            <Building className="size-4" aria-hidden="true" />
+            Gestionar empresas
+          </Link>
+        )}
         {permisos.verTodasLasSolicitudes && (
           <Link to="/solicitudes?estado=PENDIENTE" className="u-btn u-btn--ghost">
             <SearchCheck className="size-4" aria-hidden="true" />
-            Revisar pendientes
+            {permisos.revisarSolicitudes ? 'Revisar pendientes' : 'Ver pendientes'}
           </Link>
         )}
       </div>

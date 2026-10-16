@@ -2,9 +2,11 @@
 
 API REST del Sistema de Gestión de Órdenes de Compra: core Spring Boot y seguridad JWT
 (Hito 1), catálogos de proveedores y productos (Hito 3), login por username con códigos de
-invitación (Hito 4), solicitudes internas, SaaS multi-empresa y **identidad y onboarding:
-aprovisionamiento de empresas, registro de trabajadores con el código de su empresa y
-aprobación por el gerente** (ver [Identidad y onboarding](#identidad-y-onboarding)).
+invitación (Hito 4), solicitudes internas, SaaS multi-empresa, identidad y onboarding
+(registro de trabajadores con el código de su empresa y aprobación por el gerente) y **gestión
+centralizada de empresas por el SUPER_ADMIN: código empresarial estable, alta atómica con su
+administrador principal, ciclo de vida y supervisión** (ver
+[Gestión centralizada de empresas](#gestión-centralizada-de-empresas)).
 
 | Tecnología | Versión |
 | --- | --- |
@@ -47,7 +49,7 @@ src/main/resources
 ├── application.yml
 └── db/migration/      V1 usuarios · V2 proveedores y productos · V3 username e invitaciones ·
                        V4 solicitudes internas y rol GERENTE · V5 multi-empresa y roles SaaS ·
-                       V6 estado de usuario y código de empresa
+                       V6 estado de usuario y código de empresa · V7 código empresarial
 ```
 
 ## Puesta en marcha (local)
@@ -100,9 +102,14 @@ e indica qué variable falta.
 | POST | `/api/auth/registro` | Pública (requiere `codigoEmpresa` o `codigoInvitacion`) | `201` `{id, username, email, nombre, rol, empresaId, estado}`: PENDIENTE con código de empresa, ACTIVO con invitación · `400` · `409` username/correo en uso |
 | POST | `/api/auth/invitaciones` | Bearer **GERENTE / SUPER_ADMIN** | `201` `{codigo, fechaExpiracion}` para la empresa actual · `400` · `403` |
 | GET | `/api/auth/me` | Bearer | `200` `{id, username, email, nombre, rol, empresaId, estado}` |
-| POST | `/api/v1/empresas` | Bearer **SUPER_ADMIN** | `201` empresa + `codigoEmpresa` + `gerente` (todo o nada) · `400` · `403` · `409` NIT o gerente duplicado |
-| GET | `/api/v1/empresas` · `/{id}` | Bearer **SUPER_ADMIN** | `200` página / empresa con su `codigoEmpresa` · `403` · `404` |
-| GET | `/api/v1/empresas/actual` | Bearer **GERENTE / SUPER_ADMIN con `X-Tenant-ID`** | `200` empresa en la que se trabaja, con su `codigoEmpresa` · `400` sin empresa |
+| POST | `/api/v1/empresas` | Bearer **SUPER_ADMIN** | `201` empresa + `codigo` (indicado o propuesto) + `codigoEmpresa` + `gerente` (todo o nada) · `400` · `403` · `409` NIT, código o gerente duplicado |
+| GET | `/api/v1/empresas` · `/{id}` | Bearer **SUPER_ADMIN** | `200` página / ficha con `codigo`, `codigoEmpresa` y el administrador principal en `gerente` · `403` · `404` |
+| GET | `/api/v1/empresas/codigo-sugerido?nombre=` | Bearer **SUPER_ADMIN** | `200` `{codigo, disponible}` (NASCAR → NASC01, o el siguiente libre) · `400` sin nombre |
+| GET | `/api/v1/empresas/codigo-disponible?codigo=` | Bearer **SUPER_ADMIN** | `200` `{codigo, disponible}` · `400` formato no válido |
+| GET | `/api/v1/empresas/{id}/usuarios` | Bearer **SUPER_ADMIN** | `200` página de usuarios de esa empresa (gerentes primero) con su estado · `404` |
+| PATCH | `/api/v1/empresas/{id}/estado` | Bearer **SUPER_ADMIN** | `{activa}` → `200` · `400` · `404` · `409` ya estaba así |
+| PATCH | `/api/v1/empresas/{id}/gerentes/{usuarioId}/estado` | Bearer **SUPER_ADMIN** | `{estado: ACTIVO \| INACTIVO}` → `200` · `404` si no es gerente de esa empresa · `409` |
+| GET | `/api/v1/empresas/actual` | Bearer **GERENTE / SUPER_ADMIN con `X-Tenant-ID`** | `200` empresa en la que se trabaja, con su `codigo` y su `codigoEmpresa` · `400` sin empresa |
 | GET | `/api/v1/trabajadores?estado=` | Bearer **GERENTE / SUPER_ADMIN con `X-Tenant-ID`** | `200` página de trabajadores (rol USUARIO) de esa empresa · `400` sin empresa · `403` |
 | PATCH | `/api/v1/trabajadores/{id}/estado` | Bearer **GERENTE / SUPER_ADMIN con `X-Tenant-ID`** | `{estado}` → `200` · `400` · `403` · `404` si no es trabajador de esa empresa · `409` transición no permitida |
 | GET | `/api/v1/proveedores` | Bearer | `200` página de proveedores activos |
@@ -157,7 +164,7 @@ Los errores siguen RFC 9457 (`application/problem+json`):
 | `401` | No hay identidad: credenciales incorrectas; token ausente, manipulado o expirado; usuario eliminado; token de otra empresa |
 | `403` | Identidad verificada pero sin autorización: cuenta PENDIENTE, RECHAZADA, INACTIVA o de una empresa desactivada (en el login con la contraseña correcta y en cualquier ruta protegida con un token válido; propiedad `motivo`); rol insuficiente |
 | `404` | Recurso inexistente o dado de baja |
-| `409` | NIT, SKU, username o correo duplicado (`errors`: campo → mensaje) o baja de un proveedor con productos activos |
+| `409` | NIT, SKU, código empresarial, username o correo duplicado (`errors`: campo → mensaje), baja de un proveedor con productos activos o cambio de estado a uno que ya tenía |
 
 ## Usuarios e invitaciones (Hito 4)
 
@@ -232,9 +239,9 @@ volver a iniciar sesión.
 ## Tests
 
 ```bash
-./mvnw test        # 148 tests: H2 en modo PostgreSQL, sin dependencias externas
+./mvnw test        # 170 tests: H2 en modo PostgreSQL, sin dependencias externas
 
-# Contra PostgreSQL real (crea antes una BD vacía; Flyway aplica V1…V6 y quedan aplicadas):
+# Contra PostgreSQL real (crea antes una BD vacía; Flyway aplica V1…V7 y quedan aplicadas):
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/sgp_test \
 SPRING_DATASOURCE_USERNAME=sgp SPRING_DATASOURCE_PASSWORD=sgp ./mvnw test
 ```
@@ -242,9 +249,11 @@ SPRING_DATASOURCE_USERNAME=sgp SPRING_DATASOURCE_PASSWORD=sgp ./mvnw test
 Cubren `JwtUtil` (expiración, manipulación, otra clave, otro emisor, `alg: none`, claves
 débiles) y el flujo HTTP completo: login por username, validación, cuentas deshabilitadas,
 tokens antiguos, rutas protegidas, CORS, Swagger, health, el alta del administrador, las
-migraciones V3, V5 y V6 sobre datos existentes, el ciclo de invitaciones (permisos, caducidad,
+migraciones V3, V5, V6 y V7 sobre datos existentes, el ciclo de invitaciones (permisos, caducidad,
 reutilización, duplicados sin consumir el código y dos canjes simultáneos), el aislamiento
-entre empresas y el onboarding del Hito 2 (ver [Identidad y onboarding](#identidad-y-onboarding)).
+entre empresas, el onboarding del Hito 2 (ver [Identidad y onboarding](#identidad-y-onboarding))
+y la gestión centralizada de empresas (ver
+[Gestión centralizada de empresas](#gestión-centralizada-de-empresas)).
 
 El compilador corre con `-Xlint:all -Werror`: cualquier warning, incluido el uso de APIs
 deprecadas, rompe el build.
@@ -414,8 +423,9 @@ NIT ya existe (`409 errors.nit`), si el username o el correo del gerente están 
 (`409 errors['gerente.username']` / `errors['gerente.email']`) o si falla cualquier otro paso, la
 transacción se deshace entera: nunca queda una empresa sin gerente ni un gerente huérfano.
 
-**Código de empresa** (`empresas.codigo_empresa`): permanente, único y con el formato de las
-invitaciones (`XXXX-XXXX-XXXX-XXXX`, Base32 de Crockford, 80 bits, mismo generador
+**Código de empresa** (`empresas.codigo_empresa`, el *código de registro de trabajadores*; no
+confundir con el código empresarial `empresas.codigo` de V7): secreto, permanente, único y con el
+formato de las invitaciones (`XXXX-XXXX-XXXX-XXXX`, Base32 de Crockford, 80 bits, mismo generador
 `CodigosInvitacion`). Al registrarse se acepta en minúsculas, sin guiones o con espacios. No es
 una invitación: no caduca ni se consume. El gerente lo consulta en `GET /api/v1/empresas/actual`.
 El registro exige exactamente uno de los dos códigos; el rol, el estado y la empresa nunca
@@ -436,10 +446,91 @@ ACTIVO y los inactivos a INACTIVO (nadie pierde el acceso que tenía); la column
 `codigo_invitacion_actual` pasa a llamarse `codigo_empresa` y cada empresa existente recibe un
 código aleatorio.
 
+## Gestión centralizada de empresas
+
+El SUPER_ADMIN es la cuenta raíz de la plataforma: no pertenece a ninguna empresa y desde
+**Empresas** (frontend) crea, consulta, supervisa y activa o desactiva las empresas y la cuenta
+de sus administradores. Reutiliza la multi-empresa existente (`@TenantId` + `X-Tenant-ID`): no
+hay una segunda estrategia de tenants.
+
+```
+SUPER_ADMIN ── POST /api/v1/empresas ──→ Empresa (codigo NASC01) + GERENTE principal (ACTIVO), todo o nada
+SUPER_ADMIN ── GET /api/v1/empresas[/{id}[/usuarios]] ──→ listado, ficha y usuarios con su estado
+SUPER_ADMIN ── X-Tenant-ID: <id> ──→ supervisión: datos de esa empresa, con su propia identidad
+```
+
+**Dos códigos por empresa, con funciones distintas:**
+
+| Columna | JSON | Qué es |
+| --- | --- | --- |
+| `codigo` (V7) | `codigo` | **Código empresarial**: identificador legible, único y estable (`NASC01`). Público: no es una contraseña ni concede ningún permiso, y **no sirve para registrarse** |
+| `codigo_empresa` (V6) | `codigoEmpresa` | **Código de registro de trabajadores**: aleatorio (80 bits) y secreto; quien lo conoce se registra como PENDIENTE hasta que el gerente lo apruebe |
+
+Se mantienen separados a propósito: si el código predecible sirviera para registrarse,
+cualquiera podría crear cuentas pendientes en cualquier empresa (y averiguar qué empresas
+existen) adivinando `NASC01`, `NASC02`…
+
+**Código empresarial:** de 3 a 12 letras mayúsculas o dígitos, empezando por letra
+(`Patrones.CODIGO_EMPRESARIAL`, restricción `ck_empresas_codigo`); se acepta en minúsculas y se
+normaliza. Si el alta no lo indica, el servidor lo propone de forma determinista: prefijo de hasta
+4 letras del nombre sin tildes ni signos y el primer número libre en la BD (`NASCAR` → `NASC01`;
+`Nascimento` → `NASC02`; `3M Colombia` → `MCOL01`). `GET /codigo-sugerido` y
+`GET /codigo-disponible` permiten al formulario proponerlo y comprobarlo antes de guardar, pero
+la decisión final es del alta y de la restricción `UNIQUE`. No se edita (`updatable = false`).
+
+**Alta atómica y concurrencia:** empresa y administrador se crean en una sola transacción
+(`TransactionTemplate`). NIT, código, username o correo repetidos → `409` en `errors.nit`,
+`errors.codigo`, `errors['gerente.username']` o `errors['gerente.email']`, y no queda nada: ni
+empresa sin administrador ni administrador huérfano. Si dos altas simultáneas chocan por el
+código, la `UNIQUE` de la BD salta: un código **propuesto** por el servidor se reintenta con el
+siguiente libre en una transacción nueva (hasta 3 veces; tras una violación PostgreSQL no admite
+más sentencias en la transacción en curso); un código **elegido** por el SUPER_ADMIN nunca se
+cambia sin avisar: `409`. Rol, estado y empresa del administrador los fija el servidor (se
+ignoran si el JSON los trae).
+
+**Administrador principal:** el primer GERENTE de la empresa (el de id más bajo, es decir, el
+fundador creado con ella). Se calcula al consultar (una consulta por página de empresas, sin
+N+1), sin una FK circular entre `empresas` y `usuarios`. Se muestra en `gerente` en el listado y la
+ficha; se omite si la empresa no tiene gerente (p. ej. la "Empresa Base" de V5).
+
+**Contraseña inicial:** la define el SUPER_ADMIN en el alta (el frontend ofrece un generador de
+contraseñas aleatorias) y se guarda solo como hash BCrypt. Hoy no existe cambio ni recuperación
+de contraseña: hay que entregarla por un canal seguro (ver *Fuera de alcance*).
+
+**Ciclo de vida** (siempre SUPER_ADMIN y siempre registrado en el log con su username):
+
+- `PATCH /{id}/estado {activa}`: desactivar una empresa bloquea a **todos** sus usuarios desde su
+  siguiente petición (`403`, motivo `EMPRESA_INACTIVA`, también en el login), aunque su JWT siga
+  vigente; reactivarla les devuelve el acceso. No se borra ningún dato.
+- `PATCH /{id}/gerentes/{usuarioId}/estado {estado}`: desactivar o reactivar la cuenta de un
+  GERENTE de esa empresa (mismas transiciones que los trabajadores; fila bloqueada). Otra empresa,
+  otro rol o un id inexistente → `404`.
+
+**Supervisión:** el SUPER_ADMIN envía `X-Tenant-ID` y consulta los datos de esa empresa con los
+endpoints de siempre (catálogos, solicitudes, `/empresas/actual`); `TenantFilter` registra cada
+petición (`Soporte: <usuario> <método> <ruta> en la empresa <id>`). Sigue siendo SUPER_ADMIN
+(`/api/auth/me` no cambia y conserva sus permisos globales) y no suplanta a ningún usuario. La
+interfaz la presenta como **solo lectura**; la API conserva el modo soporte (escrituras del
+SUPER_ADMIN con `X-Tenant-ID`, quedan con su identidad como autor), sin pantalla que lo exponga.
+Empresa y usuarios de una empresa se consultan por el id de la ruta (`/empresas/{id}`,
+`/empresas/{id}/usuarios`): son tablas globales y la cabecera no altera el resultado.
+
+**Invitaciones:** ya no intervienen en el alta de empresas (nunca lo hicieron en el backend: la
+pantalla «Invitar usuarios» era la única herramienta del SUPER_ADMIN). Se conservan sin cambios
+para el alta de **trabajadores** por su GERENTE (`/api/auth/invitaciones` y `/registro`), que
+entran ACTIVOS. El frontend ya no muestra la pantalla de invitaciones al SUPER_ADMIN.
+
+**Migración V7 sobre una instalación existente:** no borra nada. Añade `empresas.codigo` y da a
+cada empresa existente `EMP` + su id con al menos tres cifras (`EMP001`, `EMP1234`): determinista
+y único. `codigo_empresa` (registro de trabajadores), usuarios e invitaciones no cambian.
+`ck_empresas_codigo` usa `regexp_like` (PostgreSQL 15+ y H2).
+
 ## Fuera de alcance de este hito
 
-Órdenes de compra; reactivación de registros dados de baja; búsqueda en catálogos; refresh
-tokens; listado y revocación de invitaciones; cambio de rol de un usuario (p. ej. ascender a
-GERENTE) y gestión de gerentes; edición, desactivación y regeneración del código de una empresa;
-nombre de la empresa en el login; límite de intentos de registro y de login; edición o
-cancelación de solicitudes.
+Órdenes de compra y recepciones; reactivación de registros dados de baja; búsqueda en catálogos
+y en el listado de empresas; refresh tokens; listado y revocación de invitaciones; cambio de rol
+de un usuario (p. ej. ascender a GERENTE) y alta de gerentes adicionales; cambio y recuperación de
+contraseña (también la inicial del administrador); edición de los datos de una empresa y
+regeneración de su código de registro; supervisión de solo lectura impuesta por el backend (hoy
+lo es en la interfaz); tabla de auditoría (hoy, registro en el log); nombre de la empresa en el
+login; límite de intentos de registro y de login; edición o cancelación de solicitudes.

@@ -21,6 +21,12 @@ public final class Patrones {
      */
     public static final String USERNAME = "^[a-z0-9](?:[a-z0-9._-]{1,48})[a-z0-9]$";
 
+    /**
+     * Código empresarial (p. ej. NASC01): de 3 a 12 letras mayúsculas o dígitos, empezando
+     * por letra. Se valida tras normalizar a mayúsculas. Coincide con {@code ck_empresas_codigo}.
+     */
+    public static final String CODIGO_EMPRESARIAL = "^[A-Z][A-Z0-9]{2,11}$";
+
     /** Exige dominio con punto (Hibernate Validator aceptaría "a@b"). */
     public static final String EMAIL = "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$";
 

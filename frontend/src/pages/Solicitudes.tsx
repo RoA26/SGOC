@@ -39,8 +39,9 @@ function estadoDeUrl(valor: string | null): EstadoSolicitud | null {
 
 /**
  * Solicitudes de compra: la necesidad interna, antes de cualquier orden de compra. USUARIO ve
- * y crea las suyas; GERENTE ve y revisa las de su empresa; SUPER_ADMIN las consulta (y las
- * revisa dentro de una empresa). El filtrado por usuario y empresa lo hace el backend.
+ * y crea las suyas; GERENTE ve y revisa las de su empresa; SUPER_ADMIN las consulta (de todas
+ * las empresas o de la que supervisa, en solo lectura). El filtrado por usuario y empresa lo
+ * hace el backend.
  *
  * La URL guarda el filtro (?estado=PENDIENTE) y permite abrir una solicitud (?ver=12) o el
  * formulario (?nueva=1) desde otras páginas.

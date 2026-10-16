@@ -32,14 +32,23 @@ public class Empresa {
     @Column(nullable = false, unique = true, length = 20)
     private String nit;
 
+    /**
+     * Código empresarial: identificador legible, único y estable de la organización (p. ej.
+     * {@code NASC01}). Es público: no es una credencial ni concede ningún permiso. Formato en
+     * {@code Patrones.CODIGO_EMPRESARIAL} (restricción {@code ck_empresas_codigo}).
+     */
+    @Column(nullable = false, unique = true, updatable = false, length = 12)
+    private String codigo;
+
     /** Una empresa inactiva bloquea el acceso de todos sus usuarios. */
     @Column(nullable = false)
     private boolean activa = true;
 
     /**
-     * Código permanente con el que los trabajadores se registran en esta empresa (quedan
-     * PENDIENTES hasta que el gerente los apruebe). Único y estable: no caduca ni se consume,
-     * a diferencia de un {@link CodigoInvitacion}.
+     * Código de registro de trabajadores: aleatorio y secreto (80 bits); quien lo conoce puede
+     * registrarse en esta empresa y queda PENDIENTE hasta que el gerente lo apruebe. Único y
+     * estable: no caduca ni se consume, a diferencia de un {@link CodigoInvitacion}. No debe
+     * confundirse con {@link #codigo}, el identificador público de la empresa.
      */
     @Column(name = "codigo_empresa", nullable = false, unique = true, updatable = false, length = 32)
     private String codigoEmpresa;
@@ -56,10 +65,15 @@ public class Empresa {
     protected Empresa() {
     }
 
-    /** @param codigoEmpresa ya normalizado (ver {@code CodigosInvitacion}) y único */
-    public Empresa(String nombre, String nit, String codigoEmpresa) {
+    /**
+     * @param codigo        código empresarial ya normalizado y único (ver {@code CodigosEmpresariales})
+     * @param codigoEmpresa código de registro de trabajadores, ya normalizado (ver
+     *                      {@code CodigosInvitacion}) y único
+     */
+    public Empresa(String nombre, String nit, String codigo, String codigoEmpresa) {
         this.nombre = Objects.requireNonNull(nombre, "nombre").strip();
         this.nit = Objects.requireNonNull(nit, "nit").strip();
+        this.codigo = Objects.requireNonNull(codigo, "codigo");
         this.codigoEmpresa = Objects.requireNonNull(codigoEmpresa, "codigoEmpresa");
     }
 
@@ -73,6 +87,10 @@ public class Empresa {
 
     public String getNit() {
         return nit;
+    }
+
+    public String getCodigo() {
+        return codigo;
     }
 
     public boolean isActiva() {
@@ -113,6 +131,6 @@ public class Empresa {
 
     @Override
     public String toString() {
-        return "Empresa{id=" + id + ", nit='" + nit + "', activa=" + activa + '}';
+        return "Empresa{id=" + id + ", codigo='" + codigo + "', nit='" + nit + "', activa=" + activa + '}';
     }
 }

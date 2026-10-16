@@ -12,6 +12,7 @@ import com.unisen.sgp.model.entity.Empresa;
 import com.unisen.sgp.model.entity.Rol;
 import com.unisen.sgp.repository.EmpresaRepository;
 import com.unisen.sgp.security.CodigosInvitacion;
+import com.unisen.sgp.service.CodigosEmpresariales;
 import com.unisen.sgp.service.UsuarioService;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,8 +67,10 @@ public abstract class ApiIntegrationTest {
         usuarioToken = login("compras");
     }
 
+    /** Con el código empresarial que propondría la aplicación (Unisen → UNIS01). */
     protected Empresa crearEmpresa(String nombre, String nit) {
-        return empresaRepository.save(new Empresa(nombre, nit, CodigosInvitacion.generar()));
+        String codigo = CodigosEmpresariales.sugerir(nombre, empresaRepository::findCodigosConPrefijo);
+        return empresaRepository.save(new Empresa(nombre, nit, codigo, CodigosInvitacion.generar()));
     }
 
     /** Crea un usuario y devuelve su token. Con {@code empresa} null, el rol debe ser SUPER_ADMIN. */

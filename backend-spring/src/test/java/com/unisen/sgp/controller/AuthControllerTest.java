@@ -75,7 +75,7 @@ class AuthControllerTest {
     @BeforeEach
     void setUp() {
         BaseDeDatosDePrueba.vaciar(jdbcTemplate);
-        empresa = empresaRepository.save(new Empresa("Unisen", "900000001-1", CodigosInvitacion.generar()));
+        empresa = empresaRepository.save(new Empresa("Unisen", "900000001-1", "UNIS01", CodigosInvitacion.generar()));
         ana = usuarioService.crearUsuario("Ana.Compras", "Ana.Compras@Unisen.com", "Ana Compras", PASSWORD,
                 Rol.USUARIO, empresa);
         inactivo = usuarioService.crearUsuario("baja", "baja@unisen.com", "Usuario de Baja", PASSWORD, Rol.USUARIO,

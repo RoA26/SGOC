@@ -23,7 +23,7 @@ const ID_AYUDA_SIN_PROVEEDORES = 'productos-sin-proveedores'
 type Editor = { producto?: Producto } | null
 
 export default function Productos() {
-  // GERENTE, o SUPER_ADMIN dentro de una empresa (en modo global el backend no admite escrituras).
+  // Solo el GERENTE de la empresa: el SUPER_ADMIN consulta (modo global o supervisión, solo lectura).
   const puedeGestionar = usePermisos().gestionarCatalogos
   const [pagina, setPagina] = useState(0)
   const { data, loading, error, reload } = usePaginatedResource(productoService.listar, pagina, TAMANO_PAGINA, ORDEN)

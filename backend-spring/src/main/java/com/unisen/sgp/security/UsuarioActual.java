@@ -20,4 +20,13 @@ public final class UsuarioActual {
         }
         throw new AuthenticationCredentialsNotFoundException("Se requiere autenticación.");
     }
+
+    /**
+     * Username de quien hace la petición, para los registros de auditoría. Nunca falla: escribir
+     * un log no debe poder interrumpir (ni deshacer) la operación que registra.
+     */
+    public static String paraAuditoria() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication == null ? "(anónimo)" : authentication.getName();
+    }
 }

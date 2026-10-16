@@ -5,7 +5,10 @@ import com.unisen.sgp.model.entity.Rol;
 import com.unisen.sgp.model.entity.Usuario;
 import java.time.Instant;
 
-/** Trabajador de la empresa tal como lo ve su gestor (sin datos de acceso). */
+/**
+ * Persona de una empresa tal como la ve quien la gestiona, sin datos de acceso: un trabajador para
+ * su gerente, o cualquier usuario (también gerentes) en la ficha de empresa del SUPER_ADMIN.
+ */
 public record TrabajadorResponseDTO(Long id, String username, String email, String nombre, Rol rol,
                                     EstadoUsuario estado, Instant creadoEn) {
 

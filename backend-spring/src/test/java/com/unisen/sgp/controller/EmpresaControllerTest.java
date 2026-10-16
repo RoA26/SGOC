@@ -54,6 +54,7 @@ class EmpresaControllerTest extends ApiIntegrationTest {
                 .andExpect(header().string(HttpHeaders.LOCATION, matchesPattern(".*/api/v1/empresas/\\d+$")))
                 .andExpect(jsonPath("$.nombre").value("Ferretería Andina"))
                 .andExpect(jsonPath("$.nit").value("901234567-8"))
+                .andExpect(jsonPath("$.codigo").value("FERR01"))
                 .andExpect(jsonPath("$.activa").value(true))
                 .andExpect(jsonPath("$.codigoEmpresa").value(matchesPattern(FORMATO_CODIGO)))
                 .andExpect(jsonPath("$.gerente.username").value("gerente.andina"))
@@ -179,7 +180,10 @@ class EmpresaControllerTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.page.totalElements").value(2))
                 .andExpect(jsonPath("$.content[0].nombre").value("Unisen"))
                 .andExpect(jsonPath("$.content[0].codigoEmpresa").value(empresa.getCodigoEmpresa()))
-                .andExpect(jsonPath("$.content[1].nombre").value("Zeta"));
+                .andExpect(jsonPath("$.content[0].codigo").value("UNIS01"))
+                .andExpect(jsonPath("$.content[0].gerente.username").value("admin"))
+                .andExpect(jsonPath("$.content[1].nombre").value("Zeta"))
+                .andExpect(jsonPath("$.content[1].gerente").doesNotExist());
         getJson(URL + "/" + empresa.getId(), superAdmin)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nit").value("900000001-1"));

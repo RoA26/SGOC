@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { BrandLogo } from '@/components/BrandLogo'
 import { ETIQUETA_ROL, useContextoEmpresa, usePermisos } from '@/features/auth/permisos'
+import { AvisoSupervision } from '@/features/empresa/AvisoSupervision'
 import { ContextoEmpresaPanel } from '@/features/empresa/ContextoEmpresaPanel'
 import { cn } from '@/lib/cn'
 import { useAuthStore } from '@/store/authStore'
@@ -19,7 +20,7 @@ export function AppLayout() {
   const [menuAbiertoEn, setMenuAbiertoEn] = useState<string | null>(null)
   const menuAbierto = menuAbiertoEn === pathname
 
-  // Si el SUPER_ADMIN cambia de empresa, la página se monta de nuevo y recarga sus datos.
+  // Si el SUPER_ADMIN entra en supervisión o vuelve al modo global, la página se monta de nuevo y recarga sus datos.
   const claveContexto = esSuperAdmin ? `empresa-${empresaId ?? 'global'}` : 'propia'
 
   return (
@@ -44,6 +45,7 @@ export function AppLayout() {
       {menuAbierto && <MenuMovil onClose={() => setMenuAbiertoEn(null)} />}
 
       <main className="mx-auto w-full max-w-6xl px-5 py-10">
+        <AvisoSupervision />
         <Outlet key={claveContexto} />
       </main>
     </div>
