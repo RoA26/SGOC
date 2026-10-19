@@ -1,29 +1,42 @@
 package com.unisen.sgp.controller;
 
 import com.unisen.sgp.model.dto.CancelacionOrdenDTO;
+import com.unisen.sgp.model.dto.DocumentoOrdenDTO;
+import com.unisen.sgp.model.dto.EventoHistorialDTO;
 import com.unisen.sgp.model.dto.OrdenCompraEdicionDTO;
 import com.unisen.sgp.model.dto.OrdenCompraRequestDTO;
 import com.unisen.sgp.model.dto.OrdenCompraResponseDTO;
+import com.unisen.sgp.model.dto.ProgramacionEntregaDTO;
+import com.unisen.sgp.model.dto.ProgramacionEntregaRequestDTO;
 import com.unisen.sgp.model.dto.RecepcionRequestDTO;
 import com.unisen.sgp.model.dto.RecepcionResponseDTO;
 import com.unisen.sgp.model.entity.EstadoOrdenCompra;
 import com.unisen.sgp.security.Permisos;
+import com.unisen.sgp.service.EntregaService;
+import com.unisen.sgp.service.HistorialOrdenService;
 import com.unisen.sgp.service.OrdenCompraService;
 import com.unisen.sgp.service.RecepcionService;
 import com.unisen.sgp.service.ResultadoIdempotente;
+import com.unisen.sgp.service.documento.DocumentoOrdenService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -44,10 +57,18 @@ public class OrdenCompraController {
 
     private final OrdenCompraService ordenService;
     private final RecepcionService recepcionService;
+    private final DocumentoOrdenService documentoService;
+    private final EntregaService entregaService;
+    private final HistorialOrdenService historialService;
 
-    public OrdenCompraController(OrdenCompraService ordenService, RecepcionService recepcionService) {
+    public OrdenCompraController(OrdenCompraService ordenService, RecepcionService recepcionService,
+                                 DocumentoOrdenService documentoService, EntregaService entregaService,
+                                 HistorialOrdenService historialService) {
         this.ordenService = ordenService;
         this.recepcionService = recepcionService;
+        this.documentoService = documentoService;
+        this.entregaService = entregaService;
+        this.historialService = historialService;
     }
 
     @GetMapping
@@ -118,6 +139,64 @@ public class OrdenCompraController {
         return ordenService.crearDesdeSolicitud(solicitudId);
     }
 
+    @PutMapping("/{id}/entrega")
+    @PreAuthorize(Permisos.ADMIN_EMPRESA)
+    @Operation(summary = "Programar o reprogramar la entrega (ADMIN_EMPRESA)",
+            description = "Fecha estimada (día, sin hora) y franja opcional. Cada cambio queda en el historial; "
+                    + "reprogramar exige motivo. confirmadaProveedor distingue la fecha confirmada por el proveedor "
+                    + "de una estimación interna. Repetir la programación vigente no crea una versión nueva.")
+    @ApiResponse(responseCode = "400", description = "Fecha pasada, franja incoherente o falta el motivo")
+    @ApiResponse(responseCode = "409", description = "La orden ya se recibió o se canceló")
+    public ProgramacionEntregaDTO programarEntrega(@PathVariable Long id,
+                                                   @Valid @RequestBody ProgramacionEntregaRequestDTO request) {
+        return entregaService.programar(id, request);
+    }
+
+    @GetMapping("/{id}/entrega/historial")
+    @PreAuthorize(Permisos.LECTURA_OPERATIVA)
+    @Operation(summary = "Historial de la programación de la entrega, de la primera versión a la vigente")
+    public List<ProgramacionEntregaDTO> historialEntrega(@PathVariable Long id) {
+        return entregaService.historial(id);
+    }
+
+    @GetMapping("/{id}/historial")
+    @PreAuthorize(Permisos.GESTION)
+    @Operation(summary = "Historial completo de la orden",
+            description = "Creación, aprobación de la solicitud de origen, emisión y documento, programaciones, "
+                    + "recepciones con incidencias y movimientos de inventario, cancelación; en orden cronológico.")
+    public List<EventoHistorialDTO> historial(@PathVariable Long id) {
+        return historialService.deOrden(id);
+    }
+
+    @GetMapping(value = "/{id}/documento")
+    @PreAuthorize(Permisos.GESTION)
+    @Operation(summary = "Descargar el documento Word (.docx) de una orden emitida",
+            description = "Se genera desde la instantánea inmutable guardada al emitir (versión vigente). "
+                    + "Las órdenes emitidas antes de V13 se reconstruyen y el documento lo indica.")
+    @ApiResponse(responseCode = "200", description = "Archivo .docx",
+            content = @Content(mediaType = DocumentoOrdenService.TIPO_DOCX))
+    @ApiResponse(responseCode = "404", description = "No existe en la empresa")
+    @ApiResponse(responseCode = "409", description = "La orden no se ha emitido")
+    public ResponseEntity<byte[]> documento(@PathVariable Long id) {
+        DocumentoOrdenService.Archivo archivo = documentoService.descargar(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(DocumentoOrdenService.TIPO_DOCX))
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(archivo.nombre(), StandardCharsets.UTF_8).build().toString())
+                .header("X-Documento-Version", Integer.toString(archivo.version()))
+                .header("X-Documento-Huella", archivo.huella())
+                .header("X-Documento-Reconstruido", Boolean.toString(archivo.reconstruido()))
+                .cacheControl(CacheControl.noStore())
+                .body(archivo.contenido());
+    }
+
+    @GetMapping("/{id}/documentos")
+    @PreAuthorize(Permisos.GESTION)
+    @Operation(summary = "Versiones documentales de la orden", description = "Vacío si aún no se emitió o se emitió antes de V13.")
+    public List<DocumentoOrdenDTO> documentos(@PathVariable Long id) {
+        return documentoService.versiones(id);
+    }
+
     @GetMapping("/{id}/recepciones")
     @PreAuthorize(Permisos.GESTION)
     @Operation(summary = "Recepciones de una orden, de la más antigua a la más reciente")
@@ -126,10 +205,12 @@ public class OrdenCompraController {
     }
 
     @PostMapping("/{id}/recepciones")
-    @PreAuthorize(Permisos.ADMIN_EMPRESA)
-    @Operation(summary = "Registrar una recepción (parcial o total)",
-            description = "Suma las unidades a las existencias y deja un movimiento por línea. Idempotente por "
-                    + "claveIdempotencia: repetirla con los mismos datos devuelve la recepción ya registrada (200).")
+    @PreAuthorize(Permisos.MIEMBRO_EMPRESA)
+    @Operation(summary = "Registrar una recepción (parcial o total), ADMIN_EMPRESA o TRABAJADOR",
+            description = "Suma las unidades aceptadas a las existencias y deja un movimiento por línea; las "
+                    + "incidencias (faltantes, daños, excedentes, producto incorrecto) no mueven inventario. Idempotente "
+                    + "por claveIdempotencia: repetirla con los mismos datos devuelve la recepción ya registrada (200). "
+                    + "El trabajador recibe la respuesta sin costos.")
     @ApiResponse(responseCode = "201", description = "Registrada")
     @ApiResponse(responseCode = "200", description = "Ya estaba registrada con esa clave (no se duplica)")
     @ApiResponse(responseCode = "400", description = "Línea ajena a la orden, repetida o mayor que lo pendiente")

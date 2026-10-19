@@ -55,7 +55,7 @@ src/main/resources
                        V6 estado de usuario y código de empresa · V7 código empresarial ·
                        V8 roles ADMIN_EMPRESA y TRABAJADOR · V9 nombres y apellidos ·
                        V10 revocación de invitaciones · V11 compras e inventario ·
-                       V12 código de barras
+                       V12 código de barras · V13 documentos, entregas e incidencias
 ```
 
 ## Puesta en marcha (local)
@@ -144,8 +144,15 @@ e indica qué variable falta.
 | PUT | `/api/v1/ordenes-compra/{id}` | Bearer **ADMIN_EMPRESA** | `200` · `409` si ya no es borrador |
 | POST | `/api/v1/ordenes-compra/{id}/emitir` · `/cancelar` | Bearer **ADMIN_EMPRESA** | `200` · `409` transición no permitida o catálogo cambiado |
 | POST | `/api/v1/ordenes-compra/desde-solicitud/{solicitudId}` | Bearer **ADMIN_EMPRESA** | `201` un borrador por proveedor · `404` · `409` no aprobada, ya tiene órdenes o productos dados de baja |
-| GET · POST | `/api/v1/ordenes-compra/{id}/recepciones` | GET gestión · POST **ADMIN_EMPRESA** | `201` registrada · `200` misma clave y mismos datos · `400` línea ajena, repetida o mayor que lo pendiente · `409` orden sin recepciones posibles o clave con otros datos |
-| GET | `/api/v1/recepciones` | Bearer **ADMIN_EMPRESA / SUPER_ADMIN con `X-Tenant-ID`** | `200` página |
+| GET · POST | `/api/v1/ordenes-compra/{id}/recepciones` | GET gestión · POST **ADMIN_EMPRESA o TRABAJADOR** | `201` registrada (sin costos para el trabajador) · `200` misma clave y mismos datos · `400` línea o incidencia ajena, repetida, mayor que lo pendiente o sin datos · `409` orden sin recepciones posibles o clave con otros datos |
+| GET | `/api/v1/recepciones[?desde=&hasta=&proveedorId=&ordenId=&registradaPorId=&conIncidencias=]` | Bearer **ADMIN_EMPRESA / SUPER_ADMIN con `X-Tenant-ID`** | `200` página con quién registró y las incidencias |
+| GET | `/api/v1/recepciones/mias` · `/{id}` | Mías: **ADMIN_EMPRESA o TRABAJADOR** · detalle: toda la empresa | `200` (sin costos para el trabajador) · `404` de otra empresa |
+| PUT | `/api/v1/ordenes-compra/{id}/entrega` | **ADMIN_EMPRESA** | `200` versión vigente · `400` fecha pasada, franja incoherente o reprogramación sin motivo · `404` · `409` recibida o cancelada |
+| GET | `/api/v1/ordenes-compra/{id}/entrega/historial` | Toda la empresa (el trabajador, solo órdenes emitidas) | `200` versiones |
+| GET | `/api/v1/ordenes-compra/{id}/documento` · `/documentos` | Gestión | `200` .docx (`X-Documento-Version`, `X-Documento-Huella`, `X-Documento-Reconstruido`) · `404` · `409` sin emitir |
+| GET | `/api/v1/ordenes-compra/{id}/historial` | Gestión | `200` eventos en orden cronológico |
+| GET | `/api/v1/entregas` · `/resumen` · `/{ordenId}` | Listado y detalle: toda la empresa (el trabajador, vistas de lo pendiente; otras → `403`) · resumen: gestión | `200` · `400` en modo global o con fechas incoherentes |
+| GET | `/api/v1/calendario?desde=&hasta=[&tipos=]` | Toda la empresa (SUPER_ADMIN supervisando) | `200` eventos · `400` sin período, más de 62 días o modo global |
 | GET | `/api/v1/inventario?estado=&q=` | Bearer (de la empresa) | `200` existencias de los productos activos (sin costos) |
 | GET | `/api/v1/inventario/movimientos?productoId=` | Bearer **ADMIN_EMPRESA / SUPER_ADMIN con `X-Tenant-ID`** | `200` kárdex |
 | POST | `/api/v1/inventario/ajustes` | Bearer **ADMIN_EMPRESA** | `201` · `200` misma clave · `400` · `409` existencias insuficientes |
@@ -262,9 +269,9 @@ volver a iniciar sesión.
 ## Tests
 
 ```bash
-./mvnw test        # 220 tests: H2 en modo PostgreSQL, sin dependencias externas
+./mvnw test        # 244 tests: H2 en modo PostgreSQL, sin dependencias externas
 
-# Contra PostgreSQL real (crea antes una BD vacía; Flyway aplica V1…V12 y quedan aplicadas):
+# Contra PostgreSQL real (crea antes una BD vacía; Flyway aplica V1…V13 y quedan aplicadas):
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/sgp_test \
 SPRING_DATASOURCE_USERNAME=sgp SPRING_DATASOURCE_PASSWORD=sgp ./mvnw test
 ```
@@ -272,8 +279,9 @@ SPRING_DATASOURCE_USERNAME=sgp SPRING_DATASOURCE_PASSWORD=sgp ./mvnw test
 Cubren `JwtUtil` (expiración, manipulación, otra clave, otro emisor, `alg: none`, claves
 débiles) y el flujo HTTP completo: login por username, validación, cuentas deshabilitadas,
 tokens antiguos, rutas protegidas, CORS, Swagger, health, el alta del administrador, las
-migraciones V3, V5, V6, V7, V8–V10 y V11–V12 sobre datos existentes, la analítica, las órdenes de
-compra, las recepciones y el inventario (incluidas carreras simultáneas e idempotencia), el
+migraciones V3, V5, V6, V7, V8–V10, V11–V12 y V13 sobre datos existentes, la analítica, las órdenes de
+compra, el documento Word, la programación de entregas, las recepciones del trabajador con
+incidencias, el calendario, el historial y el inventario (incluidas carreras simultáneas e idempotencia), el
 código de barras, el ciclo de invitaciones (permisos, caducidad,
 reutilización, duplicados sin consumir el código y dos canjes simultáneos), el aislamiento
 entre empresas, el onboarding del Hito 2 (ver [Identidad y onboarding](#identidad-y-onboarding))
@@ -616,6 +624,28 @@ Ajuste (motivo) ──→ existencias (±, nunca < 0) y un movimiento AJUSTE
 - **Analítica:** consultas agregadas en la BD; días de Colombia calculados desde horas UTC
   (`floor(extract(epoch) / 3600)`), porque H2 no aplica bien `AT TIME ZONE`.
 - **Valoración:** cada movimiento guarda su costo factual; el costo promedio es una decisión pendiente.
+
+## Fase 3: documento Word, entregas, recepción operativa y calendario
+
+```
+emitir ──→ instantánea JSON + SHA-256 (documentos_orden_compra v1) ──→ .docx en cada descarga
+programar / reprogramar (motivo) ──→ programaciones_entrega vN; la orden apunta a la vigente
+recepción (ADMIN_EMPRESA o TRABAJADOR) ──→ líneas aceptadas → existencias + kárdex
+                                       └─→ incidencias (faltante, dañado, excedente, incorrecto, otra): sin inventario
+calendario e historial ──→ derivados de órdenes, programaciones, recepciones y solicitudes (sin tablas propias)
+```
+
+- **Documento:** Apache POI (`poi-ooxml`). Se genera desde la instantánea, no desde el catálogo
+  vigente; no se guardan binarios. Las órdenes emitidas antes de V13 se reconstruyen al
+  descargar (sin escribir) y el documento lo advierte. Sin impuestos, descuentos, logo, dirección
+  de la empresa, unidad de medida ni firma: el sistema no los tiene.
+- **Fechas:** la fecha estimada es un `DATE` (día de Colombia) y la franja, opcional; una entrega
+  sin franja es "todo el día". "Retrasada" = fecha estimada vigente anterior a hoy con pendiente.
+- **Concurrencia:** programar y recibir bloquean la orden; la versión de la programación es única
+  por orden (`uq_programaciones_entrega_version`).
+- **Permisos:** registrar recepciones pasa a `MIEMBRO_EMPRESA` (ADMIN_EMPRESA y TRABAJADOR); las
+  lecturas operativas (`LECTURA_OPERATIVA`) no llevan costos; programar es del ADMIN_EMPRESA; el
+  SUPER_ADMIN sigue en solo lectura.
 
 ## Fuera de alcance de este hito
 

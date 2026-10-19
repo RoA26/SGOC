@@ -3,6 +3,8 @@ package com.unisen.sgp.repository;
 import com.unisen.sgp.model.entity.EstadoSolicitud;
 import com.unisen.sgp.model.entity.Solicitud;
 import jakarta.persistence.LockModeType;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,6 +28,10 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long>, Jpa
     @EntityGraph(attributePaths = {"solicitante", "revisadoPor"})
     Optional<Solicitud> findById(Long id);
 
+    @Override
+    @EntityGraph(attributePaths = "solicitante")
+    List<Solicitud> findAll(Specification<Solicitud> spec);
+
     /**
      * Para revisarla: bloquea la fila ({@code SELECT … FOR UPDATE}) hasta el fin de la
      * transacción. Si dos gestores la revisan a la vez, el segundo ya la ve revisada.
@@ -42,6 +48,12 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long>, Jpa
         /** Sin estado (null), no filtra. */
         public static Specification<Solicitud> conEstado(EstadoSolicitud estado) {
             return (root, query, cb) -> estado == null ? null : cb.equal(root.get("estado"), estado);
+        }
+
+        /** Creadas en [inicio, fin). */
+        public static Specification<Solicitud> creadaEntre(Instant inicio, Instant fin) {
+            return (root, query, cb) -> cb.and(cb.greaterThanOrEqualTo(root.get("fecha"), inicio),
+                    cb.lessThan(root.get("fecha"), fin));
         }
 
         public static Specification<Solicitud> deSolicitante(Long usuarioId) {

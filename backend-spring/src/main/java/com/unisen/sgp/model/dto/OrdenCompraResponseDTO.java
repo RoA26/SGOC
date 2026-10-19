@@ -9,7 +9,10 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
-/** Orden de compra con sus líneas. Los datos de emisión y cancelación se omiten mientras no existen. */
+/**
+ * Orden de compra con sus líneas y la programación vigente de su entrega. Los datos de emisión,
+ * cancelación y entrega se omiten mientras no existen.
+ */
 public record OrdenCompraResponseDTO(
         Long id,
         long numero,
@@ -28,7 +31,8 @@ public record OrdenCompraResponseDTO(
         Instant emitidaEn,
         UsuarioResumenDTO canceladaPor,
         Instant canceladaEn,
-        String motivoCancelacion) {
+        String motivoCancelacion,
+        ProgramacionEntregaDTO entrega) {
 
     /** {@code activo = false}: el proveedor se dio de baja después de crear la orden. */
     public record Proveedor(Long id, String nit, String razonSocial, boolean activo) {
@@ -77,6 +81,7 @@ public record OrdenCompraResponseDTO(
                 orden.getEmitidaEn(),
                 UsuarioResumenDTO.from(orden.getCanceladaPor()),
                 orden.getCanceladaEn(),
-                orden.getMotivoCancelacion());
+                orden.getMotivoCancelacion(),
+                ProgramacionEntregaDTO.from(orden.getProgramacionEntrega()));
     }
 }

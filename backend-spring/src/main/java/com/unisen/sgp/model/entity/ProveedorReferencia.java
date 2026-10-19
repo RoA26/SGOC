@@ -29,6 +29,16 @@ public class ProveedorReferencia extends EntidadDeEmpresa {
     @Column(nullable = false, insertable = false, updatable = false)
     private boolean activo;
 
+    /** Datos de contacto: los copia la instantánea del documento de la orden al emitirla. */
+    @Column(insertable = false, updatable = false)
+    private String email;
+
+    @Column(insertable = false, updatable = false)
+    private String telefono;
+
+    @Column(insertable = false, updatable = false)
+    private String direccion;
+
     /** Requerido por JPA. */
     protected ProveedorReferencia() {
     }
@@ -47,6 +57,18 @@ public class ProveedorReferencia extends EntidadDeEmpresa {
 
     public boolean isActivo() {
         return activo;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String getTelefono() {
+        return telefono;
+    }
+
+    public String getDireccion() {
+        return direccion;
     }
 
     @Override

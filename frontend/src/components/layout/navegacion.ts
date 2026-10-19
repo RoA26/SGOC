@@ -2,12 +2,15 @@ import {
   Boxes,
   Building,
   Building2,
+  CalendarDays,
   ClipboardList,
   FileText,
   House,
   Package,
   PackageCheck,
+  PackageOpen,
   Ticket,
+  Truck,
   type LucideIcon,
 } from 'lucide-react'
 import type { Permisos } from '@/features/auth/permisos'
@@ -27,8 +30,9 @@ export interface GrupoNavegacion {
 }
 
 /**
- * Menú del SGOC según el rol y lo que el backend permite. Órdenes de compra y recepciones son de
- * gestión (ADMIN_EMPRESA; el SUPER_ADMIN las consulta); el inventario lo consulta toda la empresa.
+ * Menú del SGOC según el rol y lo que el backend permite. Órdenes de compra, entregas y recepciones
+ * son de gestión (ADMIN_EMPRESA; el SUPER_ADMIN las consulta); el trabajador recibe la mercancía en
+ * "Recibir mercancía"; el calendario y el inventario los consulta toda la empresa.
  * Ocultar una opción no protege nada: el backend autoriza cada petición.
  */
 export function construirNavegacion(rol: Rol | null, permisos: Permisos): GrupoNavegacion[] {
@@ -39,9 +43,22 @@ export function construirNavegacion(rol: Rol | null, permisos: Permisos): GrupoN
   ]
   if (permisos.verCompras) {
     compras.push({ to: '/ordenes-compra', label: 'Órdenes de compra', icon: FileText })
+    compras.push({ to: '/entregas', label: 'Entregas', icon: Truck })
     compras.push({ to: '/recepciones', label: 'Recepciones', icon: PackageCheck })
   }
   grupos.push({ titulo: 'Compras', items: compras })
+
+  // Operación diaria. El trabajador recibe la mercancía; el gerente programa y supervisa desde Entregas.
+  const operacion: ItemNavegacion[] = []
+  if (permisos.registrarRecepciones && !permisos.supervisarEntregas) {
+    operacion.push({ to: '/recepcion', label: 'Recibir mercancía', icon: PackageOpen })
+  }
+  if (permisos.verCalendario) {
+    operacion.push({ to: '/calendario', label: 'Calendario', icon: CalendarDays })
+  }
+  if (operacion.length > 0) {
+    grupos.push({ titulo: 'Operación', items: operacion })
+  }
   if (rol !== null) {
     grupos.push({ titulo: 'Inventario', items: [{ to: '/inventario', label: 'Existencias', icon: Boxes }] })
   }

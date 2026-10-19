@@ -86,6 +86,33 @@ public class CalendarioNegocio {
                 dias <= DIAS_MAXIMOS_POR_DIA ? Granularidad.DIA : Granularidad.MES);
     }
 
+    /** Intervalo [inicio, fin) de instantes que cubre los días locales [desde, hasta]. */
+    public record Intervalo(LocalDate desde, LocalDate hasta, Instant inicio, Instant fin) {
+    }
+
+    /**
+     * Intervalo de días que puede incluir el futuro (calendario, filtros de entregas). Cualquiera
+     * de los extremos puede faltar en los filtros opcionales: entonces no se aplica.
+     *
+     * @throws CampoInvalidoException si desde es posterior a hasta o el intervalo supera {@code diasMaximos}
+     */
+    public Intervalo intervalo(LocalDate desde, LocalDate hasta, int diasMaximos) {
+        if (desde != null && hasta != null) {
+            if (desde.isAfter(hasta)) {
+                throw new CampoInvalidoException("desde", "La fecha inicial no puede ser posterior a la final.");
+            }
+            if (ChronoUnit.DAYS.between(desde, hasta) + 1 > diasMaximos) {
+                throw new CampoInvalidoException("desde", "El intervalo no puede superar " + diasMaximos + " días.");
+            }
+        }
+        return new Intervalo(desde, hasta, desde == null ? null : inicioDelDia(desde),
+                hasta == null ? null : inicioDelDia(hasta.plusDays(1)));
+    }
+
+    public Instant inicioDelDia(LocalDate dia) {
+        return dia.atStartOfDay(zona).toInstant();
+    }
+
     /**
      * Serie completa del período a partir de conteos por hora UTC (hora = segundos epoch / 3600):
      * un punto por día (o por mes) y 0 donde no hubo actividad. Los ceros son reales: el período

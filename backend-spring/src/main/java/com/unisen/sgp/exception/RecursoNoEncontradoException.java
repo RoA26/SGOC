@@ -15,6 +15,10 @@ public class RecursoNoEncontradoException extends RuntimeException {
         return new RecursoNoEncontradoException("No existe la orden de compra con id " + id + ".");
     }
 
+    public static RecursoNoEncontradoException recepcion(Long id) {
+        return new RecursoNoEncontradoException("No existe la recepción con id " + id + ".");
+    }
+
     /** Búsqueda por código (escáner): ningún producto de la empresa lo tiene. */
     public static RecursoNoEncontradoException productoConCodigo(String codigo) {
         return new RecursoNoEncontradoException("Ningún producto tiene el código «" + codigo + "».");

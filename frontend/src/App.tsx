@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { ROLES_GESTION, ROLES_INVITACION, ROLES_PLATAFORMA } from '@/features/auth/permisos'
+import { ROLES_EMPRESA, ROLES_GESTION, ROLES_INVITACION, ROLES_PLATAFORMA } from '@/features/auth/permisos'
 import { RutaConRol } from '@/features/auth/RutaConRol'
 import { RutaInvitado } from '@/features/auth/RutaInvitado'
 import { RutaProtegida } from '@/features/auth/RutaProtegida'
@@ -21,6 +21,10 @@ const Inventario = lazy(() => import('@/pages/Inventario'))
 const OrdenCompraDetalle = lazy(() => import('@/pages/OrdenCompraDetalle'))
 const OrdenesCompra = lazy(() => import('@/pages/OrdenesCompra'))
 const Recepciones = lazy(() => import('@/pages/Recepciones'))
+const Entregas = lazy(() => import('@/pages/Entregas'))
+const Calendario = lazy(() => import('@/pages/Calendario'))
+const RecepcionMercancia = lazy(() => import('@/pages/RecepcionMercancia'))
+const RecepcionOrden = lazy(() => import('@/pages/RecepcionOrden'))
 
 export default function App() {
   return (
@@ -39,6 +43,15 @@ export default function App() {
               <Route path="/perfil" element={<Perfil />} />
               {/* Existencias: toda la empresa (sin costos). Ajustes y kárdex, según el rol. */}
               <Route path="/inventario" element={<Inventario />} />
+              {/* Calendario operativo: toda la empresa (sin costos); la página avisa en el modo global. */}
+              <Route path="/calendario" element={<Calendario />} />
+
+              {/* Ficha operativa de una entrega: toda la empresa (registra quien tiene permiso; el SUPER_ADMIN la consulta). */}
+              <Route path="/recepcion/:ordenId" element={<RecepcionOrden />} />
+              {/* Recepción operativa: personas de la empresa (el trabajador recibe; el administrador también puede). */}
+              <Route element={<RutaConRol roles={ROLES_EMPRESA} />}>
+                <Route path="/recepcion" element={<RecepcionMercancia />} />
+              </Route>
 
               {/* Catálogo y compras: gestores (ADMIN_EMPRESA de su empresa; SUPER_ADMIN en modo global o supervisando, solo lectura). */}
               <Route element={<RutaConRol roles={ROLES_GESTION} />}>
@@ -47,6 +60,7 @@ export default function App() {
                 <Route path="/ordenes-compra" element={<OrdenesCompra />} />
                 <Route path="/ordenes-compra/:id" element={<OrdenCompraDetalle />} />
                 <Route path="/recepciones" element={<Recepciones />} />
+                <Route path="/entregas" element={<Entregas />} />
               </Route>
 
               {/* Invitaciones de trabajadores: solo el ADMIN_EMPRESA, para su empresa. */}

@@ -27,3 +27,25 @@ export function getApiErrorMessage(error: unknown): string {
   const firstFieldError = data.errors ? Object.values(data.errors)[0] : undefined
   return firstFieldError ?? data.detail ?? GENERIC_MESSAGE
 }
+
+/** Errores por campo de un ProblemDetail (`errors: { campo: mensaje }`), o vacío. */
+export function getFieldErrors(error: unknown): Record<string, string> {
+  if (!axios.isAxiosError<ProblemDetail>(error)) return {}
+  const data = error.response?.data
+  return typeof data === 'object' && data !== null && data.errors ? data.errors : {}
+}
+
+/**
+ * Con `responseType: 'blob'` (descargas), el cuerpo de un error también llega como Blob: se
+ * convierte a JSON para que getApiErrorMessage pueda leer el ProblemDetail.
+ */
+export async function leerErrorBlob(error: unknown): Promise<unknown> {
+  if (axios.isAxiosError(error) && error.response?.data instanceof Blob) {
+    try {
+      error.response.data = JSON.parse(await error.response.data.text())
+    } catch {
+      // No era JSON: se queda como estaba y el mensaje será el genérico.
+    }
+  }
+  return error
+}

@@ -1,5 +1,6 @@
 package com.unisen.sgp.model.entity;
 
+import com.unisen.sgp.exception.CampoInvalidoException;
 import com.unisen.sgp.exception.ConflictoException;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -85,6 +86,15 @@ public class OrdenCompra extends EntidadAuditable {
     @OneToMany(mappedBy = "orden", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id")
     private List<DetalleOrdenCompra> detalles = new ArrayList<>();
+
+    /**
+     * Programación de la entrega vigente (la última versión), o null si aún no se programó. Las
+     * anteriores siguen en {@code programaciones_entrega}; la FK compuesta garantiza en la BD que
+     * es una programación de esta misma orden.
+     */
+    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
+    @JoinColumn(name = "programacion_entrega_id")
+    private ProgramacionEntrega programacionEntrega;
 
     /** Requerido por JPA. */
     protected OrdenCompra() {
@@ -182,11 +192,47 @@ public class OrdenCompra extends EntidadAuditable {
         }
     }
 
-    /** Tras registrar lo recibido en las líneas: RECIBIDA si ya no falta nada, si no RECIBIDA_PARCIALMENTE. */
+    /**
+     * Tras registrar lo recibido en las líneas: RECIBIDA si ya no falta nada, RECIBIDA_PARCIALMENTE
+     * si llegó algo y falta el resto. Una entrega que solo reporta incidencias (nada aceptado) no
+     * cambia el estado: una orden EMITIDA sigue EMITIDA.
+     */
     public void actualizarEstadoPorRecepcion() {
         exigirQueAdmitaRecepcion();
-        boolean completa = detalles.stream().allMatch(DetalleOrdenCompra::estaCompleta);
-        this.estado = completa ? EstadoOrdenCompra.RECIBIDA : EstadoOrdenCompra.RECIBIDA_PARCIALMENTE;
+        if (detalles.stream().allMatch(DetalleOrdenCompra::estaCompleta)) {
+            this.estado = EstadoOrdenCompra.RECIBIDA;
+        } else if (detalles.stream().anyMatch(d -> d.getCantidadRecibida() > 0)) {
+            this.estado = EstadoOrdenCompra.RECIBIDA_PARCIALMENTE;
+        }
+    }
+
+    /** Se programa la entrega de una orden viva: en borrador (planificación) o pendiente de recibir. */
+    public boolean admiteProgramacion() {
+        return estado == EstadoOrdenCompra.BORRADOR || estado.admiteRecepcion();
+    }
+
+    /**
+     * Programa o reprograma la entrega: crea la versión siguiente y la deja vigente. La primera
+     * no necesita motivo; las siguientes sí. Repetir exactamente la programación vigente no
+     * crea una versión nueva.
+     *
+     * @return la programación vigente tras el cambio
+     * @throws ConflictoException si la orden ya se recibió o se canceló
+     */
+    public ProgramacionEntrega programarEntrega(ProgramacionEntrega.Datos datos, String motivo, Usuario usuario,
+                                                Instant ahora) {
+        if (!admiteProgramacion()) {
+            throw new ConflictoException("No se puede programar la entrega de una orden " + estado.descripcion() + ".");
+        }
+        if (programacionEntrega != null && programacionEntrega.datos().equals(datos)) {
+            return programacionEntrega;
+        }
+        int version = programacionEntrega == null ? 1 : programacionEntrega.getVersion() + 1;
+        if (version > 1 && motivo == null) {
+            throw new CampoInvalidoException("motivo", "Indica por qué cambia la programación de la entrega.");
+        }
+        this.programacionEntrega = new ProgramacionEntrega(this, version, datos, motivo, usuario, ahora);
+        return programacionEntrega;
     }
 
     /** Valor de la orden: suma de cantidad × costo unitario de sus líneas. */
@@ -247,6 +293,10 @@ public class OrdenCompra extends EntidadAuditable {
 
     public String getMotivoCancelacion() {
         return motivoCancelacion;
+    }
+
+    public ProgramacionEntrega getProgramacionEntrega() {
+        return programacionEntrega;
     }
 
     /** Solo lectura: las líneas se fijan con {@link #definirLineas}. */

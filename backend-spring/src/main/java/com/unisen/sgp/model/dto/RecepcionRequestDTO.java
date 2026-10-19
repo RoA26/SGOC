@@ -9,7 +9,8 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 /**
- * Recepción (parcial o total) de una orden emitida. La clave de idempotencia la genera el
+ * Recepción (parcial o total) de una orden emitida, con sus incidencias. La identidad de quien
+ * recibe, su empresa y la fecha las pone el servidor: no se aceptan del cliente. La clave de idempotencia la genera el
  * cliente una vez por intento de registro (p. ej. un UUID): si la petición se repite con la
  * misma clave, se devuelve la recepción ya registrada en lugar de duplicar la mercancía.
  */
@@ -23,12 +24,19 @@ public record RecepcionRequestDTO(
         @Size(max = 500, message = "Las observaciones no pueden superar 500 caracteres.")
         String observaciones,
 
+        @Schema(description = "Unidades aceptadas por línea (entran al inventario). Puede ir vacío si la entrega "
+                + "solo trae incidencias (p. ej. todo llegó dañado).")
         @NotNull(message = "Indica al menos una línea recibida.")
-        @Size(min = 1, max = 100, message = "La recepción debe tener entre 1 y 100 líneas.")
-        List<@Valid @NotNull(message = "Línea vacía.") LineaRecepcionDTO> detalles) {
+        @Size(max = 100, message = "La recepción no puede tener más de 100 líneas.")
+        List<@Valid @NotNull(message = "Línea vacía.") LineaRecepcionDTO> detalles,
+
+        @Schema(description = "Faltantes, daños, excedentes, productos incorrectos y otras novedades (opcional)")
+        @Size(max = 100, message = "La recepción no puede tener más de 100 incidencias.")
+        List<@Valid @NotNull(message = "Incidencia vacía.") IncidenciaRecepcionDTO> incidencias) {
 
     public RecepcionRequestDTO {
         claveIdempotencia = Textos.limpiar(claveIdempotencia);
         observaciones = Textos.vacioANull(observaciones);
+        incidencias = incidencias == null ? List.of() : incidencias;
     }
 }

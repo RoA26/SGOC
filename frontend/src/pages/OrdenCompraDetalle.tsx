@@ -1,9 +1,13 @@
-import { ArrowLeft, Ban, CheckCircle2, Eye, Loader2, PackageCheck, Pencil, Send } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Ban, CalendarPlus, CheckCircle2, Eye, FileDown, Loader2, PackageCheck, Pencil, Send } from 'lucide-react'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { usePermisos } from '@/features/auth/permisos'
+import { FechaEntrega } from '@/features/entregas/FechaEntrega'
+import { ProgramarEntregaModal } from '@/features/entregas/ProgramarEntregaModal'
+import { RecepcionDetalleModal } from '@/features/entregas/RecepcionDetalle'
 import { CancelarOrdenModal } from '@/features/ordenes/CancelarOrdenModal'
+import { HistorialOrden } from '@/features/ordenes/HistorialOrden'
 import { EstadoOrdenBadge } from '@/features/ordenes/EstadoOrdenBadge'
 import { OrdenFormModal } from '@/features/ordenes/OrdenFormModal'
 import { RecepcionModal } from '@/features/ordenes/RecepcionModal'
@@ -15,7 +19,7 @@ import { formatearCOP } from '@/lib/moneda'
 import { formatearNumero } from '@/lib/numeros'
 import { numeroOrden, ordenCompraService, type OrdenCompra } from '@/services/ordenCompraService'
 
-type Dialogo = 'editar' | 'emitir' | 'cancelar' | 'recibir' | null
+type Dialogo = 'editar' | 'emitir' | 'cancelar' | 'recibir' | 'programar' | null
 
 /**
  * Ficha de una orden de compra: líneas con lo recibido y lo pendiente, su historial de
@@ -30,6 +34,11 @@ export default function OrdenCompraDetalle() {
   const [dialogo, setDialogo] = useState<Dialogo>(null)
   const [emitiendo, setEmitiendo] = useState(false)
   const [errorEmision, setErrorEmision] = useState<string | null>(null)
+  const [descargando, setDescargando] = useState(false)
+  const [errorDocumento, setErrorDocumento] = useState<string | null>(null)
+  const [recepcionAbierta, setRecepcionAbierta] = useState<number | null>(null)
+  // Cambia tras cada acción: el historial se vuelve a pedir.
+  const [version, setVersion] = useState(0)
 
   const pedirOrden = useCallback((signal: AbortSignal) => ordenCompraService.obtener(id, signal), [id])
   const { datos: cargada, error, recargar } = useRecurso(pedirOrden, `orden-${id}`)
@@ -47,7 +56,26 @@ export default function OrdenCompraDetalle() {
   function trasAccion(nueva: OrdenCompra, mensaje: string) {
     setActualizada(nueva)
     setDialogo(null)
+    setVersion((v) => v + 1)
     mostrarAviso(mensaje)
+  }
+
+  async function descargar() {
+    if (!orden) return
+    setDescargando(true)
+    setErrorDocumento(null)
+    try {
+      const { nombre, reconstruido } = await ordenCompraService.descargarDocumento(orden.id)
+      mostrarAviso(
+        reconstruido
+          ? `${nombre} descargado. La orden es anterior a los documentos de emisión: se reconstruyó y el documento lo indica.`
+          : `${nombre} descargado (versión emitida).`,
+      )
+    } catch (err) {
+      setErrorDocumento(getApiErrorMessage(err))
+    } finally {
+      setDescargando(false)
+    }
   }
 
   async function emitir() {
@@ -101,6 +129,12 @@ export default function OrdenCompraDetalle() {
         </div>
         {gestionar ? (
           <div className="flex flex-wrap gap-2">
+            {orden.emitidaEn && (
+              <button type="button" className="u-btn u-btn--ghost" onClick={() => void descargar()} disabled={descargando} aria-busy={descargando}>
+                {descargando ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <FileDown className="size-4" aria-hidden="true" />}
+                Descargar Word
+              </button>
+            )}
             {borrador && (
               <>
                 <button type="button" className="u-btn u-btn--ghost" onClick={() => setDialogo('editar')}>
@@ -134,10 +168,18 @@ export default function OrdenCompraDetalle() {
             )}
           </div>
         ) : (
-          <p className="flex items-center gap-2 text-sm text-foreground-muted">
-            <Eye className="size-4" aria-hidden="true" />
-            Consulta de solo lectura
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            {orden.emitidaEn && (
+              <button type="button" className="u-btn u-btn--ghost" onClick={() => void descargar()} disabled={descargando} aria-busy={descargando}>
+                {descargando ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <FileDown className="size-4" aria-hidden="true" />}
+                Descargar Word
+              </button>
+            )}
+            <p className="flex items-center gap-2 text-sm text-foreground-muted">
+              <Eye className="size-4" aria-hidden="true" />
+              Consulta de solo lectura
+            </p>
+          </div>
         )}
       </div>
 
@@ -149,6 +191,12 @@ export default function OrdenCompraDetalle() {
           </p>
         )}
       </div>
+
+      {errorDocumento && (
+        <p role="alert" className="u-alert u-alert--error mb-6">
+          No se pudo descargar el documento: {errorDocumento}
+        </p>
+      )}
 
       {orden.estado === 'CANCELADA' && (
         <p className="u-alert u-alert--error mb-6">
@@ -181,6 +229,29 @@ export default function OrdenCompraDetalle() {
           </div>
         )}
       </dl>
+
+      <section aria-labelledby="entrega" className="u-card mb-6 flex flex-col gap-4 p-5 text-sm sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-2">
+          <h2 id="entrega" className="text-xs text-foreground-muted">
+            Entrega
+          </h2>
+          <FechaEntrega programacion={orden.entrega} />
+          {orden.entrega?.referenciaProveedor && <p className="text-foreground-muted">Referencia del proveedor: {orden.entrega.referenciaProveedor}</p>}
+          {orden.entrega?.observaciones && <p className="whitespace-pre-line text-foreground-muted">{orden.entrega.observaciones}</p>}
+          {!orden.entrega && admiteRecepcion && (
+            <p className="flex items-center gap-1.5 text-warning">
+              <AlertTriangle className="size-4" aria-hidden="true" />
+              Emitida sin fecha estimada: prográmala para que aparezca en el calendario.
+            </p>
+          )}
+        </div>
+        {permisos.programarEntregas && (borrador || admiteRecepcion) && (
+          <button type="button" className="u-btn u-btn--ghost shrink-0" onClick={() => setDialogo('programar')}>
+            <CalendarPlus className="size-4" aria-hidden="true" />
+            {orden.entrega ? 'Reprogramar' : 'Programar entrega'}
+          </button>
+        )}
+      </section>
 
       <section aria-labelledby="lineas" className="u-card overflow-hidden">
         <h2 id="lineas" className="sr-only">
@@ -263,11 +334,22 @@ export default function OrdenCompraDetalle() {
             {recepciones.datos.map((recepcion) => (
               <li key={recepcion.id} className="px-5 py-3 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium text-foreground">
+                  <button
+                    type="button"
+                    className="text-left font-medium text-foreground hover:underline"
+                    onClick={() => setRecepcionAbierta(recepcion.id)}
+                  >
                     {formatearFechaHora(recepcion.recibidaEn)} · {recepcion.recibidaPor.nombre}
-                  </p>
+                  </button>
                   <p className="text-foreground-muted tabular-nums">
-                    {formatearNumero(recepcion.unidades)} unidades · {formatearCOP(recepcion.valor)}
+                    {formatearNumero(recepcion.unidades)} unidades
+                    {recepcion.valor !== undefined && ` · ${formatearCOP(recepcion.valor)}`}
+                    {recepcion.incidencias.length > 0 && (
+                      <span className="ml-2 inline-flex items-center gap-1 text-warning">
+                        <AlertTriangle className="size-3.5" aria-hidden="true" />
+                        {recepcion.incidencias.length} incidencias
+                      </span>
+                    )}
                   </p>
                 </div>
                 <p className="mt-1 text-foreground-muted">
@@ -280,6 +362,26 @@ export default function OrdenCompraDetalle() {
         )}
       </section>
 
+      <HistorialOrden ordenId={orden.id} version={version} />
+
+      {dialogo === 'programar' && (
+        <ProgramarEntregaModal
+          ordenId={orden.id}
+          numero={orden.numero}
+          proveedor={orden.proveedor.razonSocial}
+          vigente={orden.entrega}
+          onClose={() => setDialogo(null)}
+          onGuardada={(entrega) => {
+            setActualizada({ ...orden, entrega })
+            setDialogo(null)
+            setVersion((v) => v + 1)
+            mostrarAviso(`Entrega ${entrega.version > 1 ? 'reprogramada' : 'programada'} (versión ${entrega.version}).`)
+          }}
+        />
+      )}
+      {recepcionAbierta !== null && (
+        <RecepcionDetalleModal recepcionId={recepcionAbierta} onClose={() => setRecepcionAbierta(null)} />
+      )}
       {dialogo === 'editar' && (
         <OrdenFormModal orden={orden} onClose={() => setDialogo(null)} onSaved={(nueva) => trasAccion(nueva, 'Cambios guardados.')} />
       )}
@@ -311,6 +413,7 @@ export default function OrdenCompraDetalle() {
           onRegistrada={(recepcion) => {
             setDialogo(null)
             setActualizada(null)
+            setVersion((v) => v + 1)
             recargar()
             recepciones.recargar()
             mostrarAviso(`Recepción registrada: ${formatearNumero(recepcion.unidades)} unidades sumadas a las existencias.`)

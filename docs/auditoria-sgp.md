@@ -379,3 +379,132 @@ afirma su cumplimiento) y diez decisiones pendientes.
 | Actualización V10 → V12 en PostgreSQL con los datos de la Fase 1 | Correcta |
 | Frontend `npm run lint`, `tsc -b` y `npm run build` | Sin avisos ni errores |
 | Recorrido en navegador (Playwright) sobre los datos migrados | 12/12 comprobaciones, sin errores de consola (modo oscuro, claro y móvil de 390 px) |
+
+## Fase 3: documento Word, entregas, recepción operativa y calendario
+
+Fecha: 19/10/2026. Base: `main` = `fec3689` (Fase 2), sin cambios pendientes.
+
+### 3.0 Diagnóstico
+
+| Requisito | Estado encontrado | Decisión |
+| --- | --- | --- |
+| Documento Word de la orden emitida | No existía (ni biblioteca ni endpoint) | Apache POI `poi-ooxml` 5.5.1; instantánea inmutable al emitir |
+| Modificación de órdenes emitidas | No existe: las líneas y observaciones se congelan al emitir | Una versión documental por emisión; la tabla admite versiones futuras |
+| Datos de empresa para el documento | Solo nombre, NIT y código; sin dirección ni logo (la marca Unisen es de la plataforma) | No se inventan: el documento muestra lo que hay |
+| Unidad de medida, impuestos, descuentos, cargo | No existen en el modelo | No se muestran; el total es la suma de líneas (regla vigente) |
+| Programación de entregas | No existía | Historial de solo inserción (`programaciones_entrega`), la orden apunta a la vigente |
+| Auditoría reutilizable | Solo columnas de autoría (quién/cuándo) y registro en el log; no hay tabla de eventos | El historial se deriva de los datos; solo se añade la tabla de programaciones (no hay otra fuente para los cambios de fecha) |
+| Recepción por el trabajador | `POST …/recepciones` exigía ADMIN_EMPRESA; las respuestas llevaban costos | `MIEMBRO_EMPRESA` (pedido explícito del requerimiento) y vistas sin costos |
+| Faltantes, daños, productos incorrectos | Solo observaciones de texto | `incidencias_recepcion`, informativas (no mueven inventario) |
+| Exceso de entrega | Rechazado (CHECK recibido ≤ pedido) | Se mantiene; el excedente se informa como incidencia, sin entrar al inventario |
+| Calendario | No existía | Eventos derivados; sin tabla de calendario |
+| Pruebas de frontend | No había framework | Vitest + Testing Library (jsdom) |
+| Entorno de esta sesión | Java 17 en la máquina (el proyecto exige 21); el PostgreSQL local en ejecución es de otro proyecto | JDK 21 temporal y un contenedor PostgreSQL 16 propio y efímero |
+
+### 3.1 Migración V13 (no destructiva)
+
+- `documentos_orden_compra`: instantánea JSON (`contenido`), versión, motivo (`EMISION`), huella
+  SHA-256, quién y cuándo. Única por (orden, versión). FK compuestas a orden y usuario.
+- `programaciones_entrega`: versión, `fecha_estimada DATE`, franja opcional (`hora_desde` <
+  `hora_hasta`, ambas o ninguna), `confirmada_proveedor`, referencia, observaciones, motivo
+  (obligatorio desde la versión 2), quién y cuándo. `ordenes_compra.programacion_entrega_id`
+  apunta a la vigente con una FK `(empresa_id, id, programacion_entrega_id)` que impide apuntar a la
+  programación de otra orden o de otra empresa.
+- `incidencias_recepcion`: tipo (FALTANTE, DANADO, EXCEDENTE, PRODUCTO_INCORRECTO, OTRO), línea y
+  cantidad (obligatorias en los tres primeros) o descripción (en los dos últimos).
+- Datos existentes: ninguno cambia. Las órdenes emitidas antes de V13 no tienen instantánea; su Word
+  se reconstruye al descargar (sin escribir en la BD) y lo indica en el propio documento.
+
+### 3.2 Matriz de permisos resultante (verificada en el backend)
+
+| Recurso | SUPER_ADMIN | ADMIN_EMPRESA | TRABAJADOR |
+| --- | --- | --- | --- |
+| Descargar el Word y ver versiones documentales | Supervisando o global | Su empresa | 403 (lleva costos) |
+| Programar / reprogramar entrega | 403 | Su empresa | 403 |
+| Historial de programación | Supervisando | Su empresa | Órdenes emitidas de su empresa |
+| Historial completo de la orden | Supervisando o global | Su empresa | 403 |
+| Entregas: listado y detalle (sin costos) | Supervisando (global → 400) | Todas las vistas | Solo vistas de lo pendiente (otras → 403); borradores y canceladas → 404 |
+| Resumen de entregas | Supervisando | Sí | 403 |
+| Registrar recepción | 403 | Sí | Sí (respuesta sin costos) |
+| Recepciones: listado con costos y filtros | Supervisando o global | Sí | 403 |
+| Mis recepciones · detalle de una recepción | — · supervisando | Sí · sí | Sí · sí (sin costos) |
+| Calendario | Supervisando (global → 400) | Todos los tipos | Entregas, recepciones y sus solicitudes pendientes |
+
+### 3.3 Entrega A — auditoría y documento Word
+
+1. **Implementado:** instantánea al emitir (misma transacción que la emisión), `.docx` generado en
+   cada descarga desde la instantánea (empresa compradora, número, fecha, proveedor con sus datos
+   disponibles, entrega vigente al emitir, líneas con código, código de barras, descripción,
+   cantidad, precio unitario y subtotal, total en COP, observaciones, quién emitió y con qué rol,
+   pie con versión, huella y paginación), versiones documentales y botón *Descargar Word* en la ficha.
+2. **Reutilizado:** `ProveedorReferencia`/`ProductoReferencia` (documentos históricos), el filtro de
+   empresa (`@TenantId`), `NegocioProperties` (zona horaria) y el bloqueo de la orden al emitir.
+3. **Almacenamiento:** sin binarios ni infraestructura nueva: la instantánea (≤ 200 000 caracteres)
+   basta para regenerar el mismo documento.
+4. **Pruebas:** `DocumentoOrdenTest` (5): .docx válido (ZIP con `word/document.xml`, legible por POI)
+   con los datos correctos y sin datos inventados, inmutabilidad frente a cambios del catálogo,
+   solo órdenes emitidas, reconstrucción sin escritura, autorización por rol y aislamiento (404).
+5. **Limitaciones:** sin PDF (se exporta desde Word o LibreOffice); sin logo ni dirección de la
+   empresa (no existen en el modelo).
+
+### 3.4 Entrega B — programación de entregas y calendario
+
+1. **Implementado:** `PUT /ordenes-compra/{id}/entrega` (versión nueva por cambio, motivo al
+   reprogramar, fecha no pasada salvo la vigente, máximo dos años, idempotente si no cambia nada,
+   orden bloqueada), historial, `GET /calendario` (máx. 62 días, eventos ordenados, todo el día
+   cuando no hay hora) y la página *Calendario* (mes, semana y día, navegación, filtros por tipo y
+   estado, detalle con acciones según el rol, estados vacío y de error, móvil).
+2. **Qué fecha representa cada evento:** emisión = instante de emisión; entrega = fecha estimada
+   vigente (con franja si se acordó); recepción = instante real del registro; solicitud = creación.
+3. **Pruebas:** `EntregaTest` (7) y `CalendarioHistorialTest` (4), incluidas 4 reprogramaciones
+   simultáneas (versiones 1–5 sin huecos ni repetidas) y el aislamiento entre empresas.
+
+### 3.5 Entrega C — recepción del trabajador y supervisión del gerente
+
+1. **Implementado:** *Recibir mercancía* (pendientes por fecha estimada, retrasadas primero; filtros;
+   ficha con lo pendiente; registro por producto de recibidas, dañadas y faltantes; excedentes,
+   productos incorrectos y otras novedades; resumen antes de confirmar; resultado; *Mis
+   recepciones*), *Entregas* (cifras, vistas, filtros por fecha estimada, proveedor y número,
+   programar y reprogramar, alertas) y *Recepciones* (filtros, incidencias, quién registró, detalle).
+2. **Reglas:** aceptado ≤ pendiente; aceptado + dañado + faltante ≤ pendiente; el excedente no entra
+   al inventario; una entrega solo con incidencias no cambia el estado de la orden; quién, la
+   empresa y la hora salen del servidor (los campos enviados por el cliente se ignoran).
+3. **Pruebas:** `RecepcionOperativaTest` (7): identidad del servidor, sin costos, incidencias y
+   validaciones, idempotencia con incidencias, trabajador y administrador recibiendo a la vez (3
+   rondas, una sola recepción), trazabilidad movimiento → recepción → orden, inmutabilidad (405) y
+   aislamiento.
+
+### 3.6 Entrega D — historial, inventario y extremo a extremo
+
+1. **Historial:** `GET /ordenes-compra/{id}/historial` reconstruye solicitud, aprobación, creación,
+   emisión, documento, programaciones, recepciones (parciales, final o solo incidencias) con sus
+   movimientos de kárdex y la cancelación, en un número fijo de consultas.
+2. **Inventario:** sin cambios en la valoración ni en las reglas; cada movimiento de recepción sigue
+   enlazado a su línea de recepción (y por ella a la orden).
+
+### 3.7 Validación ejecutada en esta sesión (resultados reales)
+
+| Verificación | Resultado |
+| --- | --- |
+| Backend antes de los cambios, H2 | 220 tests, 0 fallos |
+| Backend final, H2 (`./mvnw test`) | 244 tests, 0 fallos (220 anteriores, 2 adaptados al nuevo permiso y mensaje, 24 nuevos) |
+| Backend final, PostgreSQL 16.15 (contenedor efímero) | 244 tests, 0 fallos |
+| Actualización real V12 → V13 en PostgreSQL con datos de la Fase 2 | Correcta: solo V13 aplicada, orden, recepción, existencias y kárdex intactos; el backend arrancó sobre esa BD (validación del esquema), descargó el Word reconstruido de la orden antigua (`X-Documento-Reconstruido: true`), programó la entrega y un trabajador recibió el saldo (orden RECIBIDA, existencias 4 → 10) |
+| Frontend `npm run lint`, `tsc -b`, `npm run build` | Sin avisos ni errores |
+| Frontend `npm test` (Vitest) | 26 pruebas, 0 fallos (fechas, filtros, validación de la recepción, menú por rol, calendario, recepción del trabajador, entregas y guardas de ruta) |
+| Navegador (Playwright + Chromium) contra backend y PostgreSQL reales | 23/23 comprobaciones, sin errores de consola (escritorio, móvil 390 px claro y oscuro) |
+| Documento generado, abierto con LibreOffice y convertido a PDF | Correcto (revisión visual) |
+
+### 3.8 Decisiones pendientes
+
+1. **Excedentes:** aceptar unidades de más (con qué tope, quién lo autoriza y cómo se valora).
+2. **Corrección de una recepción confirmada:** hoy se corrige con un ajuste de inventario; un
+   proceso de anulación o nota de corrección con auditoría propia está por definir.
+3. **Cierre de órdenes con saldo pendiente** (ya pendiente desde la Fase 2), relevante para los
+   faltantes que el proveedor no repondrá.
+4. **Impuestos y descuentos** en la orden y en el documento.
+5. **Identidad documental de la empresa:** dirección, teléfono, logo y, si se requiere, cargo del
+   firmante; y unidad de medida de los productos.
+6. **PDF** y envío del documento al proveedor.
+7. **Programación por el SUPER_ADMIN:** sigue sin escritura (decisión vigente); confirmar si debe
+   cambiar.

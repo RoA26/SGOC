@@ -21,8 +21,17 @@ public final class Permisos {
      */
     public static final String ADMIN_EMPRESA = "hasRole('ADMIN_EMPRESA')";
 
-    /** Personas de una empresa (no el SUPER_ADMIN): p. ej. crear solicitudes. */
+    /**
+     * Personas de una empresa (no el SUPER_ADMIN): crear solicitudes y registrar la recepción
+     * operativa de mercancía (el trabajador recibe; el administrador también puede hacerlo).
+     */
     public static final String MIEMBRO_EMPRESA = "hasAnyRole('ADMIN_EMPRESA', 'TRABAJADOR')";
+
+    /**
+     * Lectura operativa sin costos (entregas pendientes, calendario, detalle de recepciones):
+     * toda la empresa. El SUPER_ADMIN, solo dentro de una empresa (supervisión).
+     */
+    public static final String LECTURA_OPERATIVA = "hasAnyRole('SUPER_ADMIN', 'ADMIN_EMPRESA', 'TRABAJADOR')";
 
     private Permisos() {
     }

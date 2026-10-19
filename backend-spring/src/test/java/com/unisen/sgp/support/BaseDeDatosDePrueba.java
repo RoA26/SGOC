@@ -14,9 +14,14 @@ public final class BaseDeDatosDePrueba {
      */
     public static void vaciar(JdbcTemplate jdbcTemplate) {
         jdbcTemplate.update("DELETE FROM movimientos_inventario");
+        jdbcTemplate.update("DELETE FROM incidencias_recepcion");
         jdbcTemplate.update("DELETE FROM detalles_recepcion");
         jdbcTemplate.update("DELETE FROM recepciones");
         jdbcTemplate.update("DELETE FROM existencias");
+        jdbcTemplate.update("DELETE FROM documentos_orden_compra");
+        // La orden apunta a su programación vigente y la programación a su orden: se rompe el ciclo.
+        jdbcTemplate.update("UPDATE ordenes_compra SET programacion_entrega_id = NULL");
+        jdbcTemplate.update("DELETE FROM programaciones_entrega");
         jdbcTemplate.update("DELETE FROM detalles_orden_compra");
         jdbcTemplate.update("DELETE FROM ordenes_compra");
         jdbcTemplate.update("DELETE FROM detalles_solicitud");

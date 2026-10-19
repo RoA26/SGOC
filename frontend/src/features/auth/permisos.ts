@@ -70,6 +70,14 @@ export interface Permisos {
   gestionarCompras: boolean
   /** Ajustes manuales de inventario (Permisos.ADMIN_EMPRESA en el backend). */
   ajustarInventario: boolean
+  /** Registra la mercancía recibida (Permisos.MIEMBRO_EMPRESA: trabajador y administrador). */
+  registrarRecepciones: boolean
+  /** Programa y reprograma entregas (Permisos.ADMIN_EMPRESA). */
+  programarEntregas: boolean
+  /** Supervisión de entregas: todas las vistas, resumen, discrepancias (Permisos.GESTION). */
+  supervisarEntregas: boolean
+  /** Calendario operativo: toda la empresa; el SUPER_ADMIN, solo supervisando una (en modo global no hay). */
+  verCalendario: boolean
 }
 
 /**
@@ -77,10 +85,14 @@ export interface Permisos {
  * en solo lectura: así una consulta de soporte nunca modifica datos por accidente. (La API
  * conserva el modo soporte con X-Tenant-ID para él; la interfaz no lo expone.)
  */
-export function calcularPermisos({ rol }: ContextoEmpresa): Permisos {
+export function calcularPermisos({ rol, modoGlobal }: ContextoEmpresa): Permisos {
   const gestor = rol !== null && ROLES_GESTION.includes(rol)
   const adminEmpresa = rol === 'ADMIN_EMPRESA'
   return {
+    registrarRecepciones: rol !== null && ROLES_EMPRESA.includes(rol),
+    programarEntregas: adminEmpresa,
+    supervisarEntregas: gestor,
+    verCalendario: rol !== null && !modoGlobal,
     verTodasLasSolicitudes: gestor,
     revisarSolicitudes: adminEmpresa,
     crearSolicitudes: rol !== null && ROLES_EMPRESA.includes(rol),

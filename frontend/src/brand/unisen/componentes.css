@@ -134,3 +134,9 @@
   background: var(--unisen-color-success-surface);
   color: var(--unisen-color-success);
 }
+
+.u-alert--warning {
+  border-color: var(--unisen-color-warning-border);
+  background: var(--unisen-color-warning-surface);
+  color: var(--unisen-color-warning);
+}

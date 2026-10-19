@@ -61,6 +61,44 @@ public abstract class ComprasApiTest extends ApiIntegrationTest {
                 json(Map.of("claveIdempotencia", clave, "detalles", detalles)));
     }
 
+    /**
+     * Programa la entrega con una fecha relativa a hoy (zona del negocio), sin franja salvo que se
+     * indique. {@code extra} añade o sustituye campos (horaDesde, motivo, confirmadaProveedor…).
+     */
+    protected ResultActions programar(long ordenId, String token, int diasDesdeHoy, Map<String, Object> extra)
+            throws Exception {
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("fechaEstimada", hoy().plusDays(diasDesdeHoy).toString());
+        body.putAll(extra);
+        return putJson(ORDENES + "/" + ordenId + "/entrega", token, json(body));
+    }
+
+    /** Hoy en la zona del negocio (America/Bogota), como el backend. */
+    protected static java.time.LocalDate hoy() {
+        return java.time.LocalDate.now(java.time.ZoneId.of("America/Bogota"));
+    }
+
+    /**
+     * Simula el paso del tiempo: mueve la fecha estimada vigente de la orden (la API no admite
+     * programar en el pasado). SQL directo sobre el historial, solo en tests.
+     */
+    protected void moverFechaEstimada(long ordenId, int diasDesdeHoy) {
+        jdbcTemplate.update("UPDATE programaciones_entrega SET fecha_estimada = ? WHERE id = "
+                + "(SELECT programacion_entrega_id FROM ordenes_compra WHERE id = ?)",
+                java.sql.Date.valueOf(hoy().plusDays(diasDesdeHoy)), ordenId);
+    }
+
+    /** Recepción con líneas ({@code [detalleOrdenId, cantidad]}) e incidencias como mapas. */
+    protected ResultActions recibirConIncidencias(long ordenId, String token, String clave, List<long[]> lineas,
+                                                  List<Map<String, Object>> incidencias) throws Exception {
+        List<Map<String, Object>> detalles = new ArrayList<>();
+        for (long[] linea : lineas) {
+            detalles.add(Map.of("detalleOrdenId", linea[0], "cantidad", linea[1]));
+        }
+        return postJson(ORDENES + "/" + ordenId + "/recepciones", token,
+                json(Map.of("claveIdempotencia", clave, "detalles", detalles, "incidencias", incidencias)));
+    }
+
     protected ResultActions ajustar(String token, long productoId, int cantidad, String motivo) throws Exception {
         return ajustarConClave(token, productoId, cantidad, motivo, UUID.randomUUID().toString());
     }

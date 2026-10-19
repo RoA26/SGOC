@@ -100,6 +100,12 @@ directamente) o con el código de registro secreto de su empresa (quedan pendien
 administrador los aprueba). Detalle en
 [backend-spring/README.md](backend-spring/README.md#gestión-centralizada-de-empresas).
 
+**Al actualizar a la Fase 3 (V13):** nada se borra ni cambia. V13 añade las instantáneas de los
+documentos de las órdenes (`documentos_orden_compra`), el historial de programación de entregas
+(`programaciones_entrega`, con `ordenes_compra.programacion_entrega_id` apuntando a la vigente) y
+las incidencias de recepción. Las órdenes emitidas antes de V13 no tienen instantánea: su Word se
+reconstruye al descargarlo con los datos vigentes y el propio documento lo indica.
+
 **Al actualizar a la Fase 2 (V11–V12):** nada se borra. V11 crea órdenes de compra,
 recepciones, existencias y movimientos de inventario; cada producto existente recibe su fila de
 existencias con 0 unidades (regístralas con un ajuste de *Inventario inicial*) y `stock_minimo`
@@ -215,7 +221,13 @@ Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, si
 | GET | `/api/v1/analitica/empresa?desde=&hasta=` · `/personal` | Indicadores de la empresa (gestión) y personales (sin ventas) |
 | GET · POST · PUT | `/api/v1/ordenes-compra[/{id}]` | Gestión consulta; ADMIN_EMPRESA crea y edita borradores (un proveedor por orden) |
 | POST | `/api/v1/ordenes-compra/{id}/emitir` · `/cancelar` · `/desde-solicitud/{solicitudId}` | ADMIN_EMPRESA: transiciones validadas y borradores desde una solicitud aprobada |
-| GET · POST | `/api/v1/ordenes-compra/{id}/recepciones` · `GET /api/v1/recepciones` | Recepciones parciales o totales, idempotentes (`claveIdempotencia`) |
+| GET · POST | `/api/v1/ordenes-compra/{id}/recepciones` · `GET /api/v1/recepciones[?desde=&hasta=&proveedorId=&ordenId=&registradaPorId=&conIncidencias=]` | Recepciones parciales o totales con incidencias (faltante, dañado, excedente, producto incorrecto, otra), idempotentes (`claveIdempotencia`). Registran ADMIN_EMPRESA y TRABAJADOR; el listado con costos es de gestión |
+| GET | `/api/v1/ordenes-compra/{id}/documento` · `/documentos` | Gestión: Word (.docx) de la orden emitida, generado desde la instantánea inmutable de la emisión; versiones documentales |
+| PUT · GET | `/api/v1/ordenes-compra/{id}/entrega` · `/entrega/historial` | ADMIN_EMPRESA programa o reprograma (con motivo) la fecha estimada, franja opcional, confirmación del proveedor, referencia y observaciones; historial de versiones (toda la empresa) |
+| GET | `/api/v1/ordenes-compra/{id}/historial` | Gestión: secuencia completa (solicitud, emisión, documento, programaciones, recepciones con incidencias y kárdex, cancelación) |
+| GET | `/api/v1/entregas[?vista=&desde=&hasta=&proveedorId=&numero=]` · `/resumen` · `/{ordenId}` | Entregas sin costos (el trabajador, solo las pendientes); cifras de supervisión (gestión); detalle operativo de una orden |
+| GET | `/api/v1/recepciones/mias` · `/{id}` | Recepciones registradas por quien pregunta; detalle (sin costos para el trabajador) |
+| GET | `/api/v1/calendario?desde=&hasta=[&tipos=]` | Eventos derivados (emisiones, entregas, recepciones, solicitudes pendientes), máx. 62 días, siempre dentro de una empresa |
 | GET | `/api/v1/inventario[?estado=&q=]` · `/movimientos` | Existencias (toda la empresa) y kárdex (gestión) |
 | POST | `/api/v1/inventario/ajustes` | ADMIN_EMPRESA: ajuste con motivo, sin existencias negativas, idempotente |
 | GET | `/api/v1/productos/buscar?codigo=` | Escáner: código de barras exacto y, si no, SKU, en la empresa del contexto |
@@ -232,9 +244,9 @@ El SGOC es multi-empresa: cada empresa cliente ve solo sus datos y el backend lo
 
 | Rol | Empresa de trabajo | Menú |
 | --- | --- | --- |
-| `TRABAJADOR` («Trabajador») | La suya (de la sesión) | Inicio · Mis solicitudes · Existencias |
-| `ADMIN_EMPRESA` («Administrador») | La suya (de la sesión) | Inicio · Solicitudes · Órdenes de compra · Recepciones · Existencias · Productos · Proveedores · Invitar usuarios |
-| `SUPER_ADMIN` | Ninguna (modo global) o la que supervisa | Inicio · Solicitudes · Órdenes de compra · Recepciones · Existencias · Productos · Proveedores (consulta) · Empresas |
+| `TRABAJADOR` («Trabajador») | La suya (de la sesión) | Inicio · Mis solicitudes · Recibir mercancía · Calendario · Existencias |
+| `ADMIN_EMPRESA` («Administrador») | La suya (de la sesión) | Inicio · Solicitudes · Órdenes de compra · Entregas · Recepciones · Calendario · Existencias · Productos · Proveedores · Invitar usuarios |
+| `SUPER_ADMIN` | Ninguna (modo global) o la que supervisa | Inicio · Solicitudes · Órdenes de compra · Entregas · Recepciones · Calendario (supervisando) · Existencias · Productos · Proveedores (consulta) · Empresas |
 
 - **Panel lateral:** muestra el nombre comercial y el código de la empresa, el nombre real del
   usuario (enlace a *Mi perfil*) y su rol, según `GET /api/auth/me`, que la interfaz consulta al
@@ -247,7 +259,7 @@ El SGOC es multi-empresa: cada empresa cliente ve solo sus datos y el backend lo
   **solo lectura** (sigue siendo SUPER_ADMIN: no hay suplantación de ningún usuario). La elección
   dura la pestaña (sessionStorage), se borra al cerrar sesión y *Volver al modo global* la quita.
   ADMIN_EMPRESA y TRABAJADOR nunca envían la cabecera (el backend la ignoraría).
-- **Rutas protegidas:** `/productos`, `/proveedores`, `/ordenes-compra[/:id]` y `/recepciones` para ADMIN_EMPRESA y SUPER_ADMIN; `/inventario` para todos;
+- **Rutas protegidas:** `/productos`, `/proveedores`, `/ordenes-compra[/:id]`, `/entregas` y `/recepciones` para ADMIN_EMPRESA y SUPER_ADMIN; `/recepcion` para ADMIN_EMPRESA y TRABAJADOR; `/recepcion/:ordenId` para todos (el SUPER_ADMIN, en consulta); `/inventario` y `/calendario` para todos;
   `/admin/invitaciones` solo para ADMIN_EMPRESA; `/perfil` para todos; `/admin/empresas[/:id]` solo para SUPER_ADMIN; el
   resto vuelve al inicio.
 - **Sesiones anteriores** (con el rol `ADMIN`, que ya no existe) se descartan y piden iniciar
@@ -261,6 +273,26 @@ El SGOC es multi-empresa: cada empresa cliente ve solo sus datos y el backend lo
 Una solicitud aprobada ofrece al administrador *Generar órdenes de compra* (un borrador por
 proveedor); la orden se edita, se emite y recibe mercancía en una o varias entregas, que suman
 existencias y quedan en el kárdex.
+
+**Entregas y recepción:** el administrador programa la fecha estimada de llegada de cada orden
+(un día; franja horaria opcional, sin ella es «todo el día»), marca si el proveedor la confirmó y
+la reprograma con motivo; cada cambio queda en el historial. En **Entregas** (`/entregas`) supervisa
+lo pendiente, retrasado, sin programar, recibido en parte, completo o con incidencias, con filtros
+por fecha estimada, proveedor y número. El trabajador, en **Recibir mercancía** (`/recepcion`), ve lo
+que está por llegar y lo retrasado, abre una orden, cuenta por producto lo recibido, lo dañado y lo
+que faltó, informa excedentes y productos incorrectos, revisa un resumen y confirma; después
+consulta sus recepciones. Solo lo aceptado entra al inventario; nada se recibe por encima de lo
+pendiente; quién, la empresa y la hora los pone el servidor. Una recepción confirmada no se edita.
+
+**Calendario (`/calendario`):** vistas de mes, semana y día con eventos derivados de los datos
+reales: entregas en su fecha estimada vigente (retrasadas resaltadas), recepciones en su hora real,
+órdenes emitidas (gestión) y solicitudes por aprobar (el trabajador, las suyas). Filtros por tipo y
+estado, acciones según el rol (abrir la orden y reprogramar, o ir a registrar la recepción).
+
+**Documento Word:** la ficha de una orden emitida ofrece *Descargar Word*: un .docx con la empresa,
+el proveedor, la entrega, las líneas y el total tal como se emitieron (instantánea inmutable con
+huella SHA-256), sin impuestos ni descuentos (no hay reglas aprobadas) ni datos que el sistema no
+tiene (dirección de la empresa, logo, unidad de medida, firma).
 
 **Inicio:** un dashboard por contexto con cifras que calcula el backend (nunca inventadas):
 plataforma para el SUPER_ADMIN en modo global (empresas, órdenes emitidas, evolución, top 5 y
@@ -323,6 +355,9 @@ revocar una vigente, con confirmación.
 | Cambio de contraseña (también la inicial del administrador) y recuperación | Sin definir: hoy no hay ningún mecanismo |
 | Empresa de cada solicitud en modo global | `empresaId`/`empresaNombre` en `SolicitudResponseDTO` |
 | Impuestos y descuentos en las órdenes; cierre de una orden con saldo pendiente | Pendiente de decisión |
+| Aceptar excedentes; corregir o anular una recepción confirmada; devoluciones al proveedor | Pendiente de decisión: hoy el excedente se informa como incidencia y una corrección es un ajuste de inventario |
+| Datos de la empresa para el documento (dirección, logo) y unidad de medida de los productos | Sin modelo: el documento no los muestra |
+| Exportación a PDF de la orden | Sin definir (el .docx se abre e imprime a PDF desde Word o LibreOffice) |
 | Valoración del inventario (costo promedio) | Propuesta documentada en `docs/pos-diseno.md`, pendiente de validación contable |
 | Ventas (POS) | Solo diseño: `docs/pos-diseno.md` |
 | Gestión de administradores (alta de más administradores, cambio de rol) | Sin definir; el SUPER_ADMIN ya desactiva o reactiva sus cuentas y los trabajadores se gestionan con `/api/v1/trabajadores` |
@@ -332,6 +367,6 @@ revocar una vigente, con confirmación.
 ## Calidad
 
 ```bash
-cd backend-spring && ./mvnw test                  # 220 tests
-cd frontend && npm run lint && npm run build      # oxlint + TypeScript estricto
+cd backend-spring && ./mvnw test                  # 244 tests (H2; también contra PostgreSQL)
+cd frontend && npm run lint && npm test && npm run build   # oxlint, Vitest + Testing Library, TypeScript estricto
 ```

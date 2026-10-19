@@ -90,7 +90,7 @@ class RecepcionInventarioTest extends ComprasApiTest {
 
         recibir(id, adminToken, new long[] {linea, 6})
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errors['detalles[0].cantidad']").value("Solo quedan 5 unidades pendientes de «Tornillo»."));
+                .andExpect(jsonPath("$.errors['detalles[0].cantidad']").value("Solo quedan 5 unidades pendientes de «Tornillo». Si llegaron de más, infórmalo como excedente."));
         recibir(id, adminToken, new long[] {lineaDeOtra, 1})
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors['detalles[0].detalleOrdenId']").value("La línea no pertenece a esta orden."));
@@ -246,12 +246,16 @@ class RecepcionInventarioTest extends ComprasApiTest {
         getJson(INVENTARIO, usuarioToken).andExpect(status().isOk());
         getJson(INVENTARIO + "/movimientos", usuarioToken).andExpect(status().isForbidden());
         ajustar(usuarioToken, tornillo, 5, "Intento").andExpect(status().isForbidden());
-        JsonNode orden = ordenEmitida(proveedor, tornillo, 5);
-        recibir(orden.get("id").asLong(), usuarioToken, new long[] {orden.at("/detalles/0/id").asLong(), 5})
-                .andExpect(status().isForbidden());
+        // La supervisión de recepciones (con costos) es de gestión; el trabajador registra las suyas (RecepcionOperativaTest).
         getJson("/api/v1/recepciones", usuarioToken).andExpect(status().isForbidden());
 
         String superAdmin = crearUsuarioYEntrar("plataforma", Rol.SUPER_ADMIN, null);
+        // El SUPER_ADMIN supervisa en solo lectura: no registra recepciones.
+        JsonNode orden = ordenEmitida(proveedor, tornillo, 5);
+        postEnEmpresa(ORDENES + "/" + orden.get("id").asLong() + "/recepciones", superAdmin, empresa.getId(),
+                json(Map.of("claveIdempotencia", UUID.randomUUID().toString(),
+                        "detalles", List.of(Map.of("detalleOrdenId", orden.at("/detalles/0/id").asLong(), "cantidad", 5)))))
+                .andExpect(status().isForbidden());
         getEnEmpresa(INVENTARIO + "/movimientos", superAdmin, empresa.getId()).andExpect(status().isOk());
         postEnEmpresa(INVENTARIO + "/ajustes", superAdmin, empresa.getId(), json(Map.of("productoId", tornillo,
                 "cantidad", 5, "motivo", "Soporte", "claveIdempotencia", UUID.randomUUID().toString())))

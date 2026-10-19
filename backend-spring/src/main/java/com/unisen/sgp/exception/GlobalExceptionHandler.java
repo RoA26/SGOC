@@ -61,6 +61,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                     "Las existencias no pueden quedar negativas."),
             new Restriccion("ck_detalles_orden_compra_recibida", "detalles",
                     "No se puede recibir más de lo pedido."),
+            new Restriccion("uq_programaciones_entrega_version", "fechaEstimada",
+                    "Otra persona cambió la programación a la vez. Revisa la vigente e inténtalo de nuevo."),
+            new Restriccion("uq_documentos_orden_compra_version", "documento",
+                    "El documento de esta orden ya se generó."),
+            new Restriccion("ck_incidencias_recepcion_datos", "incidencias",
+                    "Una incidencia no tiene los datos que exige su tipo."),
             new Restriccion("uq_empresas_nit", "nit", "Ya existe una empresa con este NIT."),
             // Antes que uq_empresas_codigo: se busca por subcadena y aquel nombre es prefijo de este.
             new Restriccion("uq_empresas_codigo_empresa", "codigoEmpresa",

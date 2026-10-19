@@ -19,7 +19,8 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Entrada de mercancía de una orden emitida (parcial o total). Es un hecho: una vez
+ * Entrada de mercancía de una orden emitida (parcial o total), con las novedades de la entrega
+ * ({@link IncidenciaRecepcion}). Es un hecho: una vez
  * registrada no se modifica (columnas {@code updatable = false}; una corrección es un ajuste de
  * inventario). La clave de
  * idempotencia, única por empresa, evita registrarla dos veces si el cliente repite la petición.
@@ -56,6 +57,10 @@ public class Recepcion extends EntidadDeEmpresa {
     @OrderBy("id")
     private List<DetalleRecepcion> detalles = new ArrayList<>();
 
+    @OneToMany(mappedBy = "recepcion", cascade = CascadeType.PERSIST)
+    @OrderBy("id")
+    private List<IncidenciaRecepcion> incidencias = new ArrayList<>();
+
     /** Requerido por JPA. */
     protected Recepcion() {
     }
@@ -78,6 +83,17 @@ public class Recepcion extends EntidadDeEmpresa {
         DetalleRecepcion detalle = new DetalleRecepcion(this, lineaOrden, cantidad);
         detalles.add(detalle);
         return detalle;
+    }
+
+    /** Añade una novedad de la entrega (no mueve existencias). */
+    public IncidenciaRecepcion reportar(TipoIncidencia tipo, DetalleOrdenCompra lineaOrden, Integer cantidad,
+                                        String descripcion) {
+        if (lineaOrden != null && !lineaOrden.getOrden().equals(orden)) {
+            throw new IllegalArgumentException("La línea no pertenece a la orden de la recepción.");
+        }
+        IncidenciaRecepcion incidencia = new IncidenciaRecepcion(this, tipo, lineaOrden, cantidad, descripcion);
+        incidencias.add(incidencia);
+        return incidencia;
     }
 
     public Long getId() {
@@ -106,6 +122,10 @@ public class Recepcion extends EntidadDeEmpresa {
 
     public List<DetalleRecepcion> getDetalles() {
         return Collections.unmodifiableList(detalles);
+    }
+
+    public List<IncidenciaRecepcion> getIncidencias() {
+        return Collections.unmodifiableList(incidencias);
     }
 
     @Override

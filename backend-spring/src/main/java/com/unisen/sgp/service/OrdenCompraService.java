@@ -29,6 +29,7 @@ import com.unisen.sgp.repository.SolicitudRepository;
 import com.unisen.sgp.repository.UsuarioRepository;
 import com.unisen.sgp.security.Permisos;
 import com.unisen.sgp.security.UsuarioActual;
+import com.unisen.sgp.service.documento.DocumentoOrdenService;
 import com.unisen.sgp.tenant.TenantContextHolder;
 import java.time.Clock;
 import java.time.Instant;
@@ -69,17 +70,20 @@ public class OrdenCompraService {
     private final SolicitudRepository solicitudRepository;
     private final EmpresaRepository empresaRepository;
     private final UsuarioRepository usuarioRepository;
+    private final DocumentoOrdenService documentoService;
     private final Clock clock;
 
     public OrdenCompraService(OrdenCompraRepository ordenRepository, ProveedorReferenciaRepository proveedorRepository,
                               ProductoReferenciaRepository productoRepository, SolicitudRepository solicitudRepository,
-                              EmpresaRepository empresaRepository, UsuarioRepository usuarioRepository, Clock clock) {
+                              EmpresaRepository empresaRepository, UsuarioRepository usuarioRepository,
+                              DocumentoOrdenService documentoService, Clock clock) {
         this.ordenRepository = ordenRepository;
         this.proveedorRepository = proveedorRepository;
         this.productoRepository = productoRepository;
         this.solicitudRepository = solicitudRepository;
         this.empresaRepository = empresaRepository;
         this.usuarioRepository = usuarioRepository;
+        this.documentoService = documentoService;
         this.clock = clock;
     }
 
@@ -131,7 +135,8 @@ public class OrdenCompraService {
 
     /**
      * Emite un borrador. Se vuelve a comprobar el catálogo: el proveedor y los productos deben
-     * seguir activos y los productos, pertenecer aún a ese proveedor.
+     * seguir activos y los productos, pertenecer aún a ese proveedor. En la misma transacción se
+     * guarda la instantánea del documento (versión 1): o quedan las dos cosas o ninguna.
      */
     @PreAuthorize(Permisos.ADMIN_EMPRESA)
     @Transactional
@@ -141,8 +146,11 @@ public class OrdenCompraService {
         if (orden.getEstado() == EstadoOrdenCompra.BORRADOR) {
             comprobarCatalogoVigente(orden);
         }
-        orden.emitir(usuarioActual(), ahora());
+        Usuario emisor = usuarioActual();
+        Instant ahora = ahora();
+        orden.emitir(emisor, ahora);
         OrdenCompra emitida = ordenRepository.saveAndFlush(orden);
+        documentoService.registrarEmision(emitida, emisor, ahora);
         log.info("Orden de compra {} emitida por {}", emitida.getNumero(), UsuarioActual.paraAuditoria());
         return OrdenCompraResponseDTO.from(emitida);
     }
