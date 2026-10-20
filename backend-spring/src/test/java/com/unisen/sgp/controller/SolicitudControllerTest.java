@@ -192,7 +192,7 @@ class SolicitudControllerTest extends ApiIntegrationTest {
     @Test
     void cadaUsuarioVeSoloSusSolicitudesYLosGestoresTodas() throws Exception {
         String otroToken = tokenDe("otro", Rol.TRABAJADOR);
-        String gerenteToken = tokenDe("gerente", Rol.ADMIN_EMPRESA);
+        String gerenteToken = tokenDe("gerente", Rol.ADMINISTRADOR_COMERCIAL);
         long propia = crearSolicitud(usuarioToken, new long[] {tornillo, 1});
         long ajena = crearSolicitud(otroToken, new long[] {tuerca, 2});
         crearSolicitud(adminToken, new long[] {tornillo, 3});
@@ -274,7 +274,7 @@ class SolicitudControllerTest extends ApiIntegrationTest {
 
     @Test
     void gerenteRechazaConMotivoObligatorio() throws Exception {
-        String gerenteToken = tokenDe("gerente", Rol.ADMIN_EMPRESA);
+        String gerenteToken = tokenDe("gerente", Rol.ADMINISTRADOR_COMERCIAL);
         long id = crearSolicitud(usuarioToken, new long[] {tuerca, 5});
 
         patchJson(URL + "/" + id + "/estado", gerenteToken, "{\"estado\": \"RECHAZADA\", \"comentario\": \"   \"}")
@@ -306,7 +306,7 @@ class SolicitudControllerTest extends ApiIntegrationTest {
     @Test
     void dosRevisionesSimultaneasSoloAplicanUna() throws Exception {
         long id = crearSolicitud(usuarioToken, new long[] {tornillo, 1});
-        String gerenteToken = tokenDe("gerente", Rol.ADMIN_EMPRESA);
+        String gerenteToken = tokenDe("gerente", Rol.ADMINISTRADOR_COMERCIAL);
         CountDownLatch salida = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
@@ -331,18 +331,18 @@ class SolicitudControllerTest extends ApiIntegrationTest {
         }
     }
 
-    // ------------------------------------------------ ADMIN_EMPRESA y catálogos
+    // ------------------------------------------------ ADMINISTRADOR_COMERCIAL y catálogos
 
     @Test
     void gerenteGestionaCatalogosEInvitacionesDeSuEmpresa() throws Exception {
-        String gerenteToken = tokenDe("gerente", Rol.ADMIN_EMPRESA);
+        String gerenteToken = tokenDe("gerente", Rol.ADMINISTRADOR_COMERCIAL);
         postJson("/api/v1/proveedores", gerenteToken, """
                 {"nit": "800000001", "razonSocial": "Ferretería Central", "email": "ventas@ferre.com"}
                 """).andExpect(status().isCreated());
         mockMvc.perform(post("/api/auth/invitaciones").header("Authorization", "Bearer " + gerenteToken))
                 .andExpect(status().isCreated());
         getJson("/api/auth/me", gerenteToken)
-                .andExpect(jsonPath("$.rol").value("ADMIN_EMPRESA"))
+                .andExpect(jsonPath("$.rol").value("ADMINISTRADOR_COMERCIAL"))
                 .andExpect(jsonPath("$.empresaId").value(empresa.getId()));
     }
 

@@ -1,6 +1,11 @@
 # Diseño del punto de venta (POS) — Entrega E
 
-Estado: **propuesta para revisión. No hay código del POS en el repositorio.** Este documento
+> **Histórico (20/10/2026):** el POS ya está implementado; la versión vigente, con sus diferencias
+> respecto de esta propuesta (sin cajas ni turnos, numeración por empresa, rol `TRABAJADOR` como
+> vendedor, costo promedio provisional, devoluciones parciales), está en
+> [modulo-comercial.md](modulo-comercial.md). Se conserva como registro del diseño original.
+
+Estado original: **propuesta para revisión.** Este documento
 fija entidades, contratos, flujo, permisos, concurrencia y comprobantes para aprobarlos antes de
 implementar. Se apoya en lo que ya existe y está probado: existencias por producto con bloqueo
 de fila, kárdex inmutable (`movimientos_inventario`), claves de idempotencia, búsqueda por código

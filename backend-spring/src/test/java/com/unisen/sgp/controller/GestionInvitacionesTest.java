@@ -44,7 +44,7 @@ class GestionInvitacionesTest extends ApiIntegrationTest {
     @BeforeEach
     void crearOtraEmpresa() throws Exception {
         norte = crearEmpresa("Norte", "900000002-2");
-        adminNorte = crearUsuarioYEntrar("admin.norte", Rol.ADMIN_EMPRESA, norte);
+        adminNorte = crearUsuarioYEntrar("admin.norte", Rol.ADMINISTRADOR_COMERCIAL, norte);
     }
 
     // ------------------------------------------------------------ helpers

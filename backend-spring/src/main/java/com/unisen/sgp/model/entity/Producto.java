@@ -2,6 +2,8 @@ package com.unisen.sgp.model.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -48,8 +50,24 @@ public class Producto extends EntidadAuditable {
     @Column(length = 1000)
     private String descripcion;
 
+    /** Precio de referencia de COMPRA (estimado de solicitudes y costo propuesto en las órdenes). */
     @Column(nullable = false, precision = 14, scale = 2)
     private BigDecimal precio;
+
+    /**
+     * Precio de venta unitario SIN IVA; null = el producto aún no está a la venta. Solo lo cambia
+     * el administrador comercial ({@link #definirCondicionesVenta}), con historial.
+     */
+    @Column(name = "precio_venta", precision = 14, scale = 2)
+    private BigDecimal precioVenta;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tratamiento_iva", length = 12)
+    private TratamientoIva tratamientoIva;
+
+    /** Tarifa del IVA en %; 0 para exentos y excluidos. */
+    @Column(name = "tarifa_iva", precision = 5, scale = 2)
+    private BigDecimal tarifaIva;
 
     /** Con existencias iguales o inferiores, el producto está en stock crítico. 0 = sin mínimo. */
     @Column(name = "stock_minimo", nullable = false)
@@ -88,6 +106,28 @@ public class Producto extends EntidadAuditable {
         this.proveedor = Objects.requireNonNull(proveedor, "proveedor");
     }
 
+    /**
+     * Fija el precio de venta (sin IVA) y el tratamiento del IVA. La coherencia la garantizan
+     * también ck_productos_iva y ck_productos_venta_clasificada.
+     */
+    public void definirCondicionesVenta(BigDecimal precioVenta, TratamientoIva tratamiento, BigDecimal tarifa) {
+        Objects.requireNonNull(precioVenta, "precioVenta");
+        Objects.requireNonNull(tratamiento, "tratamiento");
+        Objects.requireNonNull(tarifa, "tarifa");
+        if (precioVenta.signum() <= 0) {
+            throw new IllegalArgumentException("El precio de venta debe ser mayor que 0.");
+        }
+        boolean tarifaValida = tratamiento.cobraImpuesto()
+                ? tarifa.signum() > 0 && tarifa.compareTo(BigDecimal.valueOf(100)) < 0
+                : tarifa.signum() == 0;
+        if (!tarifaValida) {
+            throw new IllegalArgumentException("Tarifa " + tarifa + " incompatible con " + tratamiento);
+        }
+        this.precioVenta = precioVenta.setScale(2, RoundingMode.HALF_UP);
+        this.tratamientoIva = tratamiento;
+        this.tarifaIva = tarifa.setScale(2, RoundingMode.HALF_UP);
+    }
+
     /** Datos editables del producto (ya validados y normalizados por el DTO). */
     public record Datos(String sku, String codigoBarras, String nombre, String descripcion, BigDecimal precio,
                         int stockMinimo) {
@@ -115,6 +155,18 @@ public class Producto extends EntidadAuditable {
 
     public BigDecimal getPrecio() {
         return precio;
+    }
+
+    public BigDecimal getPrecioVenta() {
+        return precioVenta;
+    }
+
+    public TratamientoIva getTratamientoIva() {
+        return tratamientoIva;
+    }
+
+    public BigDecimal getTarifaIva() {
+        return tarifaIva;
     }
 
     public int getStockMinimo() {

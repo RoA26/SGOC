@@ -213,7 +213,7 @@ public class RecepcionService {
                     .toList());
             for (DetalleRecepcion linea : lineas) {
                 Existencia existencia = existencias.get(linea.getDetalleOrden().getProducto().getId());
-                int saldo = existencia.aplicar(linea.getCantidad(), ahora);
+                int saldo = existencia.entrada(linea.getCantidad(), linea.getDetalleOrden().getCostoUnitario(), ahora);
                 movimientoRepository.save(MovimientoInventario.deRecepcion(linea, saldo, usuario, ahora));
             }
         }

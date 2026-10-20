@@ -60,7 +60,7 @@ public class AnaliticaController {
 
     @GetMapping("/empresa")
     @PreAuthorize(Permisos.GESTION)
-    @Operation(summary = "Indicadores de la empresa (ADMIN_EMPRESA, o SUPER_ADMIN con X-Tenant-ID: <id>)",
+    @Operation(summary = "Indicadores de la empresa (ADMINISTRADOR_COMERCIAL, o SUPER_ADMIN con X-Tenant-ID: <id>)",
             description = PERIODO)
     @ApiResponse(responseCode = "400", description = "Período no válido o SUPER_ADMIN sin empresa")
     public AnaliticaDTO.DeEmpresa empresa(
@@ -71,7 +71,7 @@ public class AnaliticaController {
 
     @GetMapping("/personal")
     @PreAuthorize(Permisos.MIEMBRO_EMPRESA)
-    @Operation(summary = "Indicadores personales (TRABAJADOR o ADMIN_EMPRESA)",
+    @Operation(summary = "Indicadores personales (TRABAJADOR o ADMINISTRADOR_COMERCIAL)",
             description = "Productos disponibles y críticos de su empresa y sus propias solicitudes. Sin ventas.")
     public AnaliticaDTO.Personal personal() {
         return analiticaService.personal();

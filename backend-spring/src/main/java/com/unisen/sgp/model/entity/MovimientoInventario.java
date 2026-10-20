@@ -56,6 +56,14 @@ public class MovimientoInventario extends EntidadDeEmpresa {
     @JoinColumn(name = "detalle_recepcion_id", updatable = false)
     private DetalleRecepcion detalleRecepcion;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "detalle_venta_id", updatable = false)
+    private DetalleVenta detalleVenta;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "detalle_devolucion_id", updatable = false)
+    private DetalleDevolucionVenta detalleDevolucion;
+
     @Column(updatable = false, length = MOTIVO_MAX_LENGTH)
     private String motivo;
 
@@ -106,6 +114,37 @@ public class MovimientoInventario extends EntidadDeEmpresa {
         movimiento.motivo = Objects.requireNonNull(motivo, "motivo");
         movimiento.claveIdempotencia = Objects.requireNonNull(claveIdempotencia, "claveIdempotencia");
         return movimiento;
+    }
+
+    /** Salida por una línea de venta, con el costo histórico aplicado (null si se desconoce). */
+    public static MovimientoInventario deVenta(DetalleVenta linea, int saldoResultante, Usuario usuario, Instant fecha) {
+        MovimientoInventario movimiento = new MovimientoInventario(linea.getProducto(), TipoMovimiento.VENTA,
+                -linea.getCantidad(), saldoResultante, costoDosDecimales(linea.getCostoUnitario()), usuario, fecha);
+        movimiento.detalleVenta = linea;
+        return movimiento;
+    }
+
+    /** Entrada por unidades devueltas que vuelven al inventario, al costo histórico de la venta. */
+    public static MovimientoInventario deDevolucion(DetalleDevolucionVenta linea, int saldoResultante, Usuario usuario,
+                                                    Instant fecha) {
+        MovimientoInventario movimiento = new MovimientoInventario(linea.getDetalleVenta().getProducto(),
+                TipoMovimiento.DEVOLUCION_VENTA, linea.getCantidad(), saldoResultante,
+                costoDosDecimales(linea.getCostoUnitario()), usuario, fecha);
+        movimiento.detalleDevolucion = linea;
+        return movimiento;
+    }
+
+    /** La columna del kárdex tiene 2 decimales; el costo exacto queda en la línea de venta. */
+    private static BigDecimal costoDosDecimales(BigDecimal costo) {
+        return costo == null ? null : costo.setScale(2, java.math.RoundingMode.HALF_UP).max(new BigDecimal("0.01"));
+    }
+
+    public DetalleVenta getDetalleVenta() {
+        return detalleVenta;
+    }
+
+    public DetalleDevolucionVenta getDetalleDevolucion() {
+        return detalleDevolucion;
     }
 
     public Long getId() {

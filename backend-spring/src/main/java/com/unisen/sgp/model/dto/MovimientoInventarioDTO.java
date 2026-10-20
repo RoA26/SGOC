@@ -6,7 +6,7 @@ import com.unisen.sgp.model.entity.TipoMovimiento;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/** Fila del kárdex. En las recepciones incluye la orden de origen. */
+/** Fila del kárdex. En las recepciones incluye la orden de origen; en ventas y devoluciones, la venta. */
 public record MovimientoInventarioDTO(
         Long id,
         OrdenCompraResponseDTO.Producto producto,
@@ -19,13 +19,19 @@ public record MovimientoInventarioDTO(
         Long ordenId,
         Long ordenNumero,
         UsuarioResumenDTO usuario,
-        Instant fecha) {
+        Instant fecha,
+        /** Venta de origen (salidas por venta y entradas por devolución o anulación). */
+        Long ventaId,
+        String ventaNumero) {
 
     /** Debe invocarse dentro de la transacción: recorre asociaciones LAZY (cargadas por lotes). */
     public static MovimientoInventarioDTO from(MovimientoInventario movimiento) {
         DetalleRecepcion linea = movimiento.getDetalleRecepcion();
         var recepcion = linea == null ? null : linea.getRecepcion();
         var orden = recepcion == null ? null : recepcion.getOrden();
+        var lineaVenta = movimiento.getDetalleVenta() != null ? movimiento.getDetalleVenta()
+                : movimiento.getDetalleDevolucion() != null ? movimiento.getDetalleDevolucion().getDetalleVenta() : null;
+        var venta = lineaVenta == null ? null : lineaVenta.getVenta();
         return new MovimientoInventarioDTO(
                 movimiento.getId(),
                 OrdenCompraResponseDTO.Producto.from(movimiento.getProducto()),
@@ -38,6 +44,8 @@ public record MovimientoInventarioDTO(
                 orden == null ? null : orden.getId(),
                 orden == null ? null : orden.getNumero(),
                 UsuarioResumenDTO.from(movimiento.getUsuario()),
-                movimiento.getFecha());
+                movimiento.getFecha(),
+                venta == null ? null : venta.getId(),
+                venta == null ? null : VentaDTO.numeroVisible(venta.getNumero()));
     }
 }

@@ -60,7 +60,7 @@ describe('Entregas (supervisión del gerente)', () => {
   })
 
   it('muestra cifras, situación, discrepancias y filtra por vista, fechas y proveedor', async () => {
-    iniciarSesionComo('ADMIN_EMPRESA')
+    iniciarSesionComo('ADMINISTRADOR_COMERCIAL')
     const user = userEvent.setup()
     renderizar()
     expect(await screen.findByRole('link', { name: /Requieren intervención/ })).toHaveTextContent('2')
@@ -82,7 +82,7 @@ describe('Entregas (supervisión del gerente)', () => {
   })
 
   it('programa una entrega y exige motivo al reprogramar', async () => {
-    iniciarSesionComo('ADMIN_EMPRESA')
+    iniciarSesionComo('ADMINISTRADOR_COMERCIAL')
     programarMock.mockResolvedValue({ ...ENTREGAS[1]!.programacion!, version: 2 })
     const user = userEvent.setup()
     renderizar()

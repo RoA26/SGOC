@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Invitaciones de trabajadores de la empresa de la petición: generarlas, listarlas y revocarlas.
- * Solo gestores (ADMIN_EMPRESA de su empresa, o SUPER_ADMIN con X-Tenant-ID) y siempre con una
+ * Solo gestores (ADMINISTRADOR_COMERCIAL de su empresa, o SUPER_ADMIN con X-Tenant-ID) y siempre con una
  * empresa concreta en el contexto; {@code @TenantId} limita cada consulta a esa empresa, así que una
  * invitación de otra empresa no existe para quien la pide (404). El canje vive en {@link AuthService}.
  */

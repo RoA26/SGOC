@@ -44,7 +44,7 @@ class PerfilYSesionTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.usuario.apellidos").value("Unisen"))
                 .andExpect(jsonPath("$.usuario.nombre").value("Admin Unisen"))
                 .andExpect(jsonPath("$.usuario.datosPersonalesCompletos").value(true))
-                .andExpect(jsonPath("$.usuario.rol").value("ADMIN_EMPRESA"))
+                .andExpect(jsonPath("$.usuario.rol").value("ADMINISTRADOR_COMERCIAL"))
                 .andExpect(jsonPath("$.usuario.empresaNombre").value("Unisen"))
                 .andExpect(jsonPath("$.usuario.empresaCodigo").value("UNIS01"));
 
@@ -131,7 +131,7 @@ class PerfilYSesionTest extends ApiIntegrationTest {
                 .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtProperties.secret())), Jwts.SIG.HS256)
                 .compact();
 
-        getJson(ME, tokenAntiguo).andExpect(status().isOk()).andExpect(jsonPath("$.rol").value("ADMIN_EMPRESA"));
+        getJson(ME, tokenAntiguo).andExpect(status().isOk()).andExpect(jsonPath("$.rol").value("ADMINISTRADOR_COMERCIAL"));
         // Sus permisos son los de la BD: administra su empresa, nada global.
         postJson("/api/v1/proveedores", tokenAntiguo,
                 "{\"nit\": \"900123456-7\", \"razonSocial\": \"Aceros\", \"email\": \"v@aceros.com\"}")

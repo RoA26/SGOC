@@ -27,9 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
  * <ul>
  *   <li><b>Global</b> (SUPER_ADMIN): todas las empresas. Exige el modo global explícito; con una
  *       empresa en el contexto se rechaza en lugar de devolver solo la suya.</li>
- *   <li><b>Empresa</b> (ADMIN_EMPRESA, o SUPER_ADMIN en supervisión): la empresa del contexto, que
+ *   <li><b>Empresa</b> (ADMINISTRADOR_COMERCIAL, o SUPER_ADMIN en supervisión): la empresa del contexto, que
  *       fija el backend; el cliente no puede elegir otra.</li>
- *   <li><b>Personal</b> (TRABAJADOR y ADMIN_EMPRESA): disponibilidad de productos y sus propias
+ *   <li><b>Personal</b> (TRABAJADOR y ADMINISTRADOR_COMERCIAL): disponibilidad de productos y sus propias
  *       solicitudes.</li>
  * </ul>
  *

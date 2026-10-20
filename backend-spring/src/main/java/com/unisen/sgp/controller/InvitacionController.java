@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Invitaciones de trabajadores de la empresa en la que se trabaja (ADMIN_EMPRESA, o SUPER_ADMIN
+ * Invitaciones de trabajadores de la empresa en la que se trabaja (ADMINISTRADOR_COMERCIAL, o SUPER_ADMIN
  * con X-Tenant-ID). La autorización (rol y empresa) vive en {@link InvitacionService}.
  */
 @RestController
@@ -42,7 +42,7 @@ public class InvitacionController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Generar código de invitación (ADMIN_EMPRESA, o SUPER_ADMIN con X-Tenant-ID)",
+    @Operation(summary = "Generar código de invitación (ADMINISTRADOR_COMERCIAL, o SUPER_ADMIN con X-Tenant-ID)",
             description = "Devuelve un código de un solo uso para la empresa actual. El cuerpo es opcional; por defecto "
                     + "caduca en 72 horas. Es la única vez que se devuelve el código completo.")
     @ApiResponse(responseCode = "201", description = "Código generado")

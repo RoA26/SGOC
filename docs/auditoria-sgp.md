@@ -508,3 +508,22 @@ Fecha: 19/10/2026. Base: `main` = `fec3689` (Fase 2), sin cambios pendientes.
 6. **PDF** y envío del documento al proveedor.
 7. **Programación por el SUPER_ADMIN:** sigue sin escritura (decisión vigente); confirmar si debe
    cambiar.
+
+## Módulo comercial (V14–V16): roles, precios, POS, comprobantes, devoluciones, reportes y seed
+
+Fecha: 20/10/2026. Base: `main` = `c1e6121`, sin cambios pendientes (copia en la etiqueta
+`backup/pre-modulo-comercial-2026-10-19`). Reglas, fórmulas, decisiones y cuentas de demostración en
+[modulo-comercial.md](modulo-comercial.md).
+
+| Entrega | Resultado |
+| --- | --- |
+| A — Rol y PDF | V14 `ADMIN_EMPRESA → ADMINISTRADOR_COMERCIAL` (sin pérdida de cuentas; tokens antiguos con permisos de la BD). PDF de la orden con OpenPDF desde la instantánea (misma huella que el Word) |
+| B — Modelo comercial | V15: precio de venta sin IVA y tratamiento del IVA por producto, historial de precios, política, autorizaciones de un solo uso; V16: costo promedio inicial desde el kárdex (método provisional) |
+| C — POS | Cotización y venta transaccional, idempotente, con existencias bloqueadas en orden de producto, pagos mixtos, límites de descuento por rol |
+| D — Documentos e historial | Comprobante PDF interno (no es factura electrónica), historial, devoluciones parciales/totales con reingreso opcional, anulación del mismo día, reportes con datos históricos |
+| E — Seed | Cinco empresas ficticias (perfil `demo`), idempotente, bloqueada con perfil de producción |
+
+Validación ejecutada en esta sesión: backend 303 tests en H2 y la misma suite en PostgreSQL 16
+(contenedor efímero); frontend lint, `tsc -b`, 46 pruebas Vitest y build. Detalle de resultados y
+pasos de prueba en el informe final de la sesión y en `modulo-comercial.md`.
+

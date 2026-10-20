@@ -18,7 +18,7 @@ import { formatearFecha } from '@/lib/fechas'
 import type { PageParams } from '@/services/types'
 
 const TAMANO_PAGINA = 10
-/** Administradores primero (ADMIN_EMPRESA < TRABAJADOR) y después por nombre. */
+/** Administradores primero (ADMINISTRADOR_COMERCIAL < TRABAJADOR) y después por nombre. */
 const ORDEN_USUARIOS = ['rol,asc', 'nombre,asc']
 
 type Carga<T> = { estado: 'cargando' } | { estado: 'error'; mensaje: string } | { estado: 'listo'; datos: T }

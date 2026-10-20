@@ -60,8 +60,8 @@ public class InventarioController {
     }
 
     @PostMapping("/ajustes")
-    @PreAuthorize(Permisos.ADMIN_EMPRESA)
-    @Operation(summary = "Registrar un ajuste de inventario (ADMIN_EMPRESA)",
+    @PreAuthorize(Permisos.ADMINISTRADOR_COMERCIAL)
+    @Operation(summary = "Registrar un ajuste de inventario (ADMINISTRADOR_COMERCIAL)",
             description = "Cantidad con signo y motivo obligatorio. Idempotente por claveIdempotencia.")
     @ApiResponse(responseCode = "201", description = "Registrado")
     @ApiResponse(responseCode = "200", description = "Ya estaba registrado con esa clave (no se duplica)")

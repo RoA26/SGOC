@@ -44,7 +44,7 @@ interface CrearEmpresaModalProps {
 }
 
 /**
- * Alta de una empresa y de su administrador inicial (ADMIN_EMPRESA): o se crean los dos o ninguno.
+ * Alta de una empresa y de su administrador inicial (ADMINISTRADOR_COMERCIAL): o se crean los dos o ninguno.
  * El código empresarial se propone a partir del nombre (NASCAR → NASC01) y se puede cambiar; su
  * disponibilidad se comprueba mientras se escribe, pero quien decide es el backend al guardar.
  */

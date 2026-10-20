@@ -55,7 +55,10 @@ src/main/resources
                        V6 estado de usuario y código de empresa · V7 código empresarial ·
                        V8 roles ADMIN_EMPRESA y TRABAJADOR · V9 nombres y apellidos ·
                        V10 revocación de invitaciones · V11 compras e inventario ·
-                       V12 código de barras · V13 documentos, entregas e incidencias
+                       V12 código de barras · V13 documentos, entregas e incidencias ·
+                       V14 rol ADMINISTRADOR_COMERCIAL · V15 modelo comercial y ventas
+src/main/java/db/migration/
+                       V16 costo promedio inicial (migración Java sobre el kárdex)
 ```
 
 ## Puesta en marcha (local)
@@ -107,8 +110,8 @@ e indica qué variable falta.
 | --- | --- | --- | --- |
 | POST | `/api/auth/login` | Pública | `{username, password}` → `200` `{accessToken, tokenType, expiresIn, usuario}` |
 | POST | `/api/auth/registro` | Pública (requiere `codigoEmpresa` o `codigoInvitacion`) | `201` `{id, username, email, nombre, rol, empresaId, estado}`: PENDIENTE con código de empresa, ACTIVO con invitación · `400` · `409` username/correo en uso |
-| POST | `/api/auth/invitaciones` | Bearer **ADMIN_EMPRESA / SUPER_ADMIN** | `201` `{codigo, fechaExpiracion}` para la empresa actual · `400` · `403` |
-| GET · DELETE | `/api/auth/invitaciones` · `/{id}` | Bearer **ADMIN_EMPRESA / SUPER_ADMIN con `X-Tenant-ID: <id>`** | `200` página de invitaciones de la empresa con su `estado` (sin el código completo) · revocar una vigente → `200` · `404` de otra empresa · `409` usada, revocada o caducada |
+| POST | `/api/auth/invitaciones` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN** | `201` `{codigo, fechaExpiracion}` para la empresa actual · `400` · `403` |
+| GET · DELETE | `/api/auth/invitaciones` · `/{id}` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN con `X-Tenant-ID: <id>`** | `200` página de invitaciones de la empresa con su `estado` (sin el código completo) · revocar una vigente → `200` · `404` de otra empresa · `409` usada, revocada o caducada |
 | GET | `/api/auth/me` | Bearer | `200` `{id, username, email, nombre, nombres, apellidos, datosPersonalesCompletos, rol, empresaId, empresaNombre, empresaCodigo, estado}`, leído de la BD |
 | PATCH | `/api/auth/me` | Bearer | `{nombres, apellidos}` → `200` perfil actualizado (solo la propia cuenta) · `400` |
 | POST | `/api/v1/empresas` | Bearer **SUPER_ADMIN** | `201` empresa + `codigo` (indicado o propuesto) + `codigoEmpresa` + `administrador` (todo o nada) · `400` · `403` · `409` NIT, código o administrador duplicado |
@@ -118,44 +121,44 @@ e indica qué variable falta.
 | GET | `/api/v1/empresas/{id}/usuarios` | Bearer **SUPER_ADMIN** | `200` página de usuarios de esa empresa (administradores primero) con su estado · `404` |
 | PATCH | `/api/v1/empresas/{id}/estado` | Bearer **SUPER_ADMIN** | `{activa}` → `200` · `400` · `404` · `409` ya estaba así |
 | PATCH | `/api/v1/empresas/{id}/administradores/{usuarioId}/estado` | Bearer **SUPER_ADMIN** | `{estado: ACTIVO \| INACTIVO}` → `200` · `404` si no es administrador de esa empresa · `409` |
-| GET | `/api/v1/empresas/actual` | Bearer **ADMIN_EMPRESA / SUPER_ADMIN con `X-Tenant-ID`** | `200` empresa en la que se trabaja, con su `codigo` y su `codigoEmpresa` · `400` sin empresa |
-| GET | `/api/v1/trabajadores?estado=` | Bearer **ADMIN_EMPRESA / SUPER_ADMIN con `X-Tenant-ID`** | `200` página de trabajadores (rol TRABAJADOR) de esa empresa · `400` sin empresa · `403` |
-| PATCH | `/api/v1/trabajadores/{id}/estado` | Bearer **ADMIN_EMPRESA / SUPER_ADMIN con `X-Tenant-ID`** | `{estado}` → `200` · `400` · `403` · `404` si no es trabajador de esa empresa · `409` transición no permitida |
+| GET | `/api/v1/empresas/actual` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN con `X-Tenant-ID`** | `200` empresa en la que se trabaja, con su `codigo` y su `codigoEmpresa` · `400` sin empresa |
+| GET | `/api/v1/trabajadores?estado=` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN con `X-Tenant-ID`** | `200` página de trabajadores (rol TRABAJADOR) de esa empresa · `400` sin empresa · `403` |
+| PATCH | `/api/v1/trabajadores/{id}/estado` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN con `X-Tenant-ID`** | `{estado}` → `200` · `400` · `403` · `404` si no es trabajador de esa empresa · `409` transición no permitida |
 | GET | `/api/v1/proveedores` | Bearer | `200` página de proveedores activos |
 | GET | `/api/v1/proveedores/{id}` | Bearer | `200` proveedor · `404` |
-| POST | `/api/v1/proveedores` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `201` + `Location` · `400` · `409` NIT duplicado |
-| PUT | `/api/v1/proveedores/{id}` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `200` · `400` · `404` · `409` |
-| DELETE | `/api/v1/proveedores/{id}` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `204` baja lógica · `409` si tiene productos activos u órdenes de compra abiertas |
+| POST | `/api/v1/proveedores` | Bearer **ADMINISTRADOR_COMERCIAL/SUPER_ADMIN** | `201` + `Location` · `400` · `409` NIT duplicado |
+| PUT | `/api/v1/proveedores/{id}` | Bearer **ADMINISTRADOR_COMERCIAL/SUPER_ADMIN** | `200` · `400` · `404` · `409` |
+| DELETE | `/api/v1/proveedores/{id}` | Bearer **ADMINISTRADOR_COMERCIAL/SUPER_ADMIN** | `204` baja lógica · `409` si tiene productos activos u órdenes de compra abiertas |
 | GET | `/api/v1/productos` | Bearer | `200` página de productos activos con su proveedor |
 | GET | `/api/v1/productos/{id}` | Bearer | `200` producto · `404` |
 | GET | `/api/v1/productos/buscar?codigo=` | Bearer (con empresa en el contexto) | `200` `{producto, existencias, estadoStock, coincidePor}` (código de barras exacto y, si no, SKU) · `400` sin empresa o código vacío · `404` · `409` solo coincide uno dado de baja |
-| POST | `/api/v1/productos` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `201` (con su fila de existencias a 0; `codigoBarras` y `stockMinimo` opcionales) · `400` (incluye proveedor inexistente) · `409` SKU o código de barras duplicado |
-| PUT | `/api/v1/productos/{id}` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `200` · `400` · `404` · `409` |
-| DELETE | `/api/v1/productos/{id}` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `204` baja lógica · `409` si está en solicitudes pendientes o aprobadas, en órdenes abiertas o le quedan existencias |
-| GET | `/api/v1/solicitudes?estado=` | Bearer | `200` página: TRABAJADOR solo las suyas, ADMIN_EMPRESA/SUPER_ADMIN todas (de la empresa) |
+| POST | `/api/v1/productos` | Bearer **ADMINISTRADOR_COMERCIAL/SUPER_ADMIN** | `201` (con su fila de existencias a 0; `codigoBarras` y `stockMinimo` opcionales) · `400` (incluye proveedor inexistente) · `409` SKU o código de barras duplicado |
+| PUT | `/api/v1/productos/{id}` | Bearer **ADMINISTRADOR_COMERCIAL/SUPER_ADMIN** | `200` · `400` · `404` · `409` |
+| DELETE | `/api/v1/productos/{id}` | Bearer **ADMINISTRADOR_COMERCIAL/SUPER_ADMIN** | `204` baja lógica · `409` si está en solicitudes pendientes o aprobadas, en órdenes abiertas o le quedan existencias |
+| GET | `/api/v1/solicitudes?estado=` | Bearer | `200` página: TRABAJADOR solo las suyas, ADMINISTRADOR_COMERCIAL/SUPER_ADMIN todas (de la empresa) |
 | GET | `/api/v1/solicitudes/{id}` | Bearer | `200` con sus líneas · `404` si no existe o es de otro TRABAJADOR |
 | POST | `/api/v1/solicitudes` | Bearer | `201` PENDIENTE con el usuario autenticado · `400` |
-| PATCH | `/api/v1/solicitudes/{id}/estado` | Bearer **ADMIN_EMPRESA/SUPER_ADMIN** | `200` · `400` · `403` · `404` · `409` ya revisada |
+| PATCH | `/api/v1/solicitudes/{id}/estado` | Bearer **ADMINISTRADOR_COMERCIAL/SUPER_ADMIN** | `200` · `400` · `403` · `404` · `409` ya revisada |
 | GET | `/api/v1/analitica/global?desde=&hasta=` · `/global/empresas` | Bearer **SUPER_ADMIN con `X-Tenant-ID: global`** | `200` indicadores de la plataforma / página de órdenes por empresa · `400` período no válido o petición dentro de una empresa · `403` |
-| GET | `/api/v1/analitica/empresa?desde=&hasta=` | Bearer **ADMIN_EMPRESA / SUPER_ADMIN con `X-Tenant-ID: <id>`** | `200` inventario, compras, recepciones y estados de la empresa · `400` · `403` |
-| GET | `/api/v1/analitica/personal` | Bearer **ADMIN_EMPRESA / TRABAJADOR** | `200` disponibilidad de productos y solicitudes propias (sin ventas) |
-| GET | `/api/v1/ordenes-compra?estado=&proveedorId=&solicitudId=` · `/{id}` | Bearer **ADMIN_EMPRESA / SUPER_ADMIN con `X-Tenant-ID`** | `200` página / orden con líneas, total, recibido y pendiente · `404` |
-| POST | `/api/v1/ordenes-compra` | Bearer **ADMIN_EMPRESA** | `201` BORRADOR numerado · `400` proveedor o productos inválidos, de otro proveedor o repetidos |
-| PUT | `/api/v1/ordenes-compra/{id}` | Bearer **ADMIN_EMPRESA** | `200` · `409` si ya no es borrador |
-| POST | `/api/v1/ordenes-compra/{id}/emitir` · `/cancelar` | Bearer **ADMIN_EMPRESA** | `200` · `409` transición no permitida o catálogo cambiado |
-| POST | `/api/v1/ordenes-compra/desde-solicitud/{solicitudId}` | Bearer **ADMIN_EMPRESA** | `201` un borrador por proveedor · `404` · `409` no aprobada, ya tiene órdenes o productos dados de baja |
-| GET · POST | `/api/v1/ordenes-compra/{id}/recepciones` | GET gestión · POST **ADMIN_EMPRESA o TRABAJADOR** | `201` registrada (sin costos para el trabajador) · `200` misma clave y mismos datos · `400` línea o incidencia ajena, repetida, mayor que lo pendiente o sin datos · `409` orden sin recepciones posibles o clave con otros datos |
-| GET | `/api/v1/recepciones[?desde=&hasta=&proveedorId=&ordenId=&registradaPorId=&conIncidencias=]` | Bearer **ADMIN_EMPRESA / SUPER_ADMIN con `X-Tenant-ID`** | `200` página con quién registró y las incidencias |
-| GET | `/api/v1/recepciones/mias` · `/{id}` | Mías: **ADMIN_EMPRESA o TRABAJADOR** · detalle: toda la empresa | `200` (sin costos para el trabajador) · `404` de otra empresa |
-| PUT | `/api/v1/ordenes-compra/{id}/entrega` | **ADMIN_EMPRESA** | `200` versión vigente · `400` fecha pasada, franja incoherente o reprogramación sin motivo · `404` · `409` recibida o cancelada |
+| GET | `/api/v1/analitica/empresa?desde=&hasta=` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN con `X-Tenant-ID: <id>`** | `200` inventario, compras, recepciones y estados de la empresa · `400` · `403` |
+| GET | `/api/v1/analitica/personal` | Bearer **ADMINISTRADOR_COMERCIAL / TRABAJADOR** | `200` disponibilidad de productos y solicitudes propias (sin ventas) |
+| GET | `/api/v1/ordenes-compra?estado=&proveedorId=&solicitudId=` · `/{id}` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN con `X-Tenant-ID`** | `200` página / orden con líneas, total, recibido y pendiente · `404` |
+| POST | `/api/v1/ordenes-compra` | Bearer **ADMINISTRADOR_COMERCIAL** | `201` BORRADOR numerado · `400` proveedor o productos inválidos, de otro proveedor o repetidos |
+| PUT | `/api/v1/ordenes-compra/{id}` | Bearer **ADMINISTRADOR_COMERCIAL** | `200` · `409` si ya no es borrador |
+| POST | `/api/v1/ordenes-compra/{id}/emitir` · `/cancelar` | Bearer **ADMINISTRADOR_COMERCIAL** | `200` · `409` transición no permitida o catálogo cambiado |
+| POST | `/api/v1/ordenes-compra/desde-solicitud/{solicitudId}` | Bearer **ADMINISTRADOR_COMERCIAL** | `201` un borrador por proveedor · `404` · `409` no aprobada, ya tiene órdenes o productos dados de baja |
+| GET · POST | `/api/v1/ordenes-compra/{id}/recepciones` | GET gestión · POST **ADMINISTRADOR_COMERCIAL o TRABAJADOR** | `201` registrada (sin costos para el trabajador) · `200` misma clave y mismos datos · `400` línea o incidencia ajena, repetida, mayor que lo pendiente o sin datos · `409` orden sin recepciones posibles o clave con otros datos |
+| GET | `/api/v1/recepciones[?desde=&hasta=&proveedorId=&ordenId=&registradaPorId=&conIncidencias=]` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN con `X-Tenant-ID`** | `200` página con quién registró y las incidencias |
+| GET | `/api/v1/recepciones/mias` · `/{id}` | Mías: **ADMINISTRADOR_COMERCIAL o TRABAJADOR** · detalle: toda la empresa | `200` (sin costos para el trabajador) · `404` de otra empresa |
+| PUT | `/api/v1/ordenes-compra/{id}/entrega` | **ADMINISTRADOR_COMERCIAL** | `200` versión vigente · `400` fecha pasada, franja incoherente o reprogramación sin motivo · `404` · `409` recibida o cancelada |
 | GET | `/api/v1/ordenes-compra/{id}/entrega/historial` | Toda la empresa (el trabajador, solo órdenes emitidas) | `200` versiones |
 | GET | `/api/v1/ordenes-compra/{id}/documento` · `/documentos` | Gestión | `200` .docx (`X-Documento-Version`, `X-Documento-Huella`, `X-Documento-Reconstruido`) · `404` · `409` sin emitir |
 | GET | `/api/v1/ordenes-compra/{id}/historial` | Gestión | `200` eventos en orden cronológico |
 | GET | `/api/v1/entregas` · `/resumen` · `/{ordenId}` | Listado y detalle: toda la empresa (el trabajador, vistas de lo pendiente; otras → `403`) · resumen: gestión | `200` · `400` en modo global o con fechas incoherentes |
 | GET | `/api/v1/calendario?desde=&hasta=[&tipos=]` | Toda la empresa (SUPER_ADMIN supervisando) | `200` eventos · `400` sin período, más de 62 días o modo global |
 | GET | `/api/v1/inventario?estado=&q=` | Bearer (de la empresa) | `200` existencias de los productos activos (sin costos) |
-| GET | `/api/v1/inventario/movimientos?productoId=` | Bearer **ADMIN_EMPRESA / SUPER_ADMIN con `X-Tenant-ID`** | `200` kárdex |
-| POST | `/api/v1/inventario/ajustes` | Bearer **ADMIN_EMPRESA** | `201` · `200` misma clave · `400` · `409` existencias insuficientes |
+| GET | `/api/v1/inventario/movimientos?productoId=` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN con `X-Tenant-ID`** | `200` kárdex |
+| POST | `/api/v1/inventario/ajustes` | Bearer **ADMINISTRADOR_COMERCIAL** | `201` · `200` misma clave · `400` · `409` existencias insuficientes |
 | GET | `/actuator/health` | Pública | `200` `{status: "UP"}` |
 | * | cualquier otra | Bearer | `401` sin token válido · `403` con token válido de una cuenta no autorizada |
 
@@ -199,12 +202,12 @@ Los errores siguen RFC 9457 (`application/problem+json`):
 ## Usuarios e invitaciones (Hito 4)
 
 El alta es **cerrada**: solo se puede crear una cuenta con un código de invitación que genera
-un gestor (ADMIN_EMPRESA de la empresa, o SUPER_ADMIN con `X-Tenant-ID`) para su empresa.
+un gestor (ADMINISTRADOR_COMERCIAL de la empresa, o SUPER_ADMIN con `X-Tenant-ID`) para su empresa.
 
 ```bash
-# 1. Un ADMIN_EMPRESA genera un código para su empresa (cuerpo opcional; por defecto caduca en 72 h, máximo 720 h)
+# 1. Un ADMINISTRADOR_COMERCIAL genera un código para su empresa (cuerpo opcional; por defecto caduca en 72 h, máximo 720 h)
 curl -X POST http://localhost:8081/api/auth/invitaciones \
-  -H "Authorization: Bearer <token de ADMIN_EMPRESA>" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <token de ADMINISTRADOR_COMERCIAL>" -H 'Content-Type: application/json' \
   -d '{"horasValidez": 48}'
 # → 201 {"codigo":"7KQ2-M9XA-4HPR-T3VW","fechaExpiracion":"2026-10-09T10:00:00Z"}
 
@@ -343,7 +346,7 @@ curl -X PATCH http://localhost:8081/api/v1/solicitudes/5/estado -H "Authorizatio
   hace N+1.
 
 **Roles:** ver la sección *SaaS multi-empresa*. Aún no hay pantalla para asignar roles:
-`UPDATE usuarios SET rol = 'ADMIN_EMPRESA' WHERE username = '…';`
+`UPDATE usuarios SET rol = 'ADMINISTRADOR_COMERCIAL' WHERE username = '…';`
 
 ## SaaS multi-empresa (tenants)
 
@@ -353,7 +356,7 @@ por ella de forma nativa con `@TenantId`.
 | Rol | Empresa | Puede |
 | --- | --- | --- |
 | `SUPER_ADMIN` | Ninguna | Operar la plataforma. Sin `X-Tenant-ID` ve los datos de todas las empresas (solo lectura); con `X-Tenant-ID: <id>` trabaja dentro de esa empresa (soporte) |
-| `ADMIN_EMPRESA` | La suya | Trabajadores (aprobar, rechazar, desactivar), catálogos, invitaciones y revisión de solicitudes de su empresa |
+| `ADMINISTRADOR_COMERCIAL` | La suya | Trabajadores (aprobar, rechazar, desactivar), catálogos, invitaciones y revisión de solicitudes de su empresa |
 | `TRABAJADOR` (trabajador) | La suya | Crear solicitudes y ver las suyas; consultar catálogos |
 
 **Cómo se fija la empresa de cada petición:**
@@ -362,7 +365,7 @@ por ella de forma nativa con `@TenantId`.
    `empresaId` (ausente para SUPER_ADMIN); si no coincide con la empresa actual del usuario, el
    token se rechaza (`401`). Si la cuenta no está ACTIVA o su empresa está desactivada, `403`.
 2. `TenantFilter` (justo después) guarda la empresa en `TenantContextHolder` (`ThreadLocal`):
-   la del usuario para ADMIN_EMPRESA y TRABAJADOR (la cabecera `X-Tenant-ID` se ignora) y la de
+   la del usuario para ADMINISTRADOR_COMERCIAL y TRABAJADOR (la cabecera `X-Tenant-ID` se ignora) y la de
    `X-Tenant-ID` para el SUPER_ADMIN, si la envía (`400` si no es un id de empresa existente).
    Login y registro nunca fijan empresa, aunque la petición lleve un token: se comportan como
    una petición anónima. El contexto se borra siempre al terminar la petición.
@@ -396,12 +399,13 @@ estrategia de tenants): solo añade el estado de la cuenta, el código permanent
 tres operaciones.
 
 ```
-SUPER_ADMIN ── POST /api/v1/empresas ──→ Empresa + codigoEmpresa + ADMIN_EMPRESA fundador (ACTIVO)
+SUPER_ADMIN ── POST /api/v1/empresas ──→ Empresa + codigoEmpresa + ADMINISTRADOR_COMERCIAL fundador (ACTIVO)
 Trabajador ─── POST /api/auth/registro {codigoEmpresa} ──→ TRABAJADOR PENDIENTE (sin acceso)
-ADMIN_EMPRESA ────── PATCH /api/v1/trabajadores/{id}/estado ──→ ACTIVO · RECHAZADO · INACTIVO
+ADMINISTRADOR_COMERCIAL ────── PATCH /api/v1/trabajadores/{id}/estado ──→ ACTIVO · RECHAZADO · INACTIVO
 ```
 
-**Roles:** desde V8, `ADMIN_EMPRESA` (antes `GERENTE`) y `TRABAJADOR` (antes `USUARIO`); ver
+**Roles:** desde V8, `ADMIN_EMPRESA` (antes `GERENTE`) y `TRABAJADOR` (antes `USUARIO`); desde
+V14, `ADMIN_EMPRESA` se llama `ADMINISTRADOR_COMERCIAL` (ver [docs/modulo-comercial.md](../docs/modulo-comercial.md)); ver
 [Fase 1](#fase-1-identidad-normalizada-invitaciones-y-modo-global-explícito).
 
 **Estados de la cuenta** (`usuarios.estado`, fuente de verdad; `activo` se conserva como reflejo
@@ -411,7 +415,7 @@ de `estado = 'ACTIVO'` y una restricción impide que diverjan):
 | --- | --- | --- |
 | — | PENDIENTE | El trabajador, al registrarse con el código de su empresa |
 | — | ACTIVO | Administrador inicial, invitación de un gestor, SUPER_ADMIN inicial |
-| PENDIENTE | ACTIVO (aprobar) · RECHAZADO (rechazar) | ADMIN_EMPRESA de esa empresa, o SUPER_ADMIN con `X-Tenant-ID` |
+| PENDIENTE | ACTIVO (aprobar) · RECHAZADO (rechazar) | ADMINISTRADOR_COMERCIAL de esa empresa, o SUPER_ADMIN con `X-Tenant-ID` |
 | ACTIVO | INACTIVO (pierde la autorización) | Ídem |
 | INACTIVO · RECHAZADO | ACTIVO (reactivar o corregir un rechazo) | Ídem |
 
@@ -439,16 +443,16 @@ curl -X POST http://localhost:8081/api/v1/empresas -H "Authorization: Bearer $SU
   -H 'Content-Type: application/json' -d '{"nombre":"Ferretería Andina","nit":"901234567-8",
   "administrador":{"nombres":"Laura","apellidos":"Andina Ruiz","username":"admin.andina",
   "email":"administracion@andina.com","password":"ClaveAdmin2026"}}'
-# → 201 {"id":2,"codigo":"FERR01","codigoEmpresa":"4HPR-T3VW-7KQ2-M9XA","administrador":{"rol":"ADMIN_EMPRESA","estado":"ACTIVO",…},…}
+# → 201 {"id":2,"codigo":"FERR01","codigoEmpresa":"4HPR-T3VW-7KQ2-M9XA","administrador":{"rol":"ADMINISTRADOR_COMERCIAL","estado":"ACTIVO",…},…}
 
 # 2. Trabajador: se registra con el código de su empresa
 curl -X POST http://localhost:8081/api/auth/registro -H 'Content-Type: application/json' \
   -d '{"nombres":"Pedro","apellidos":"Bodega","username":"pedro","email":"pedro@andina.com","password":"ClaveTrabajador2026","codigoEmpresa":"4HPR-T3VW-7KQ2-M9XA"}'
 # → 201 {"rol":"TRABAJADOR","estado":"PENDIENTE","empresaId":2,…}; su login responde 403 (motivo PENDIENTE)
 
-# 3. ADMIN_EMPRESA: revisa los pendientes de SU empresa y aprueba
-curl "http://localhost:8081/api/v1/trabajadores?estado=PENDIENTE" -H "Authorization: Bearer $ADMIN_EMPRESA"
-curl -X PATCH http://localhost:8081/api/v1/trabajadores/5/estado -H "Authorization: Bearer $ADMIN_EMPRESA" \
+# 3. ADMINISTRADOR_COMERCIAL: revisa los pendientes de SU empresa y aprueba
+curl "http://localhost:8081/api/v1/trabajadores?estado=PENDIENTE" -H "Authorization: Bearer $ADMINISTRADOR_COMERCIAL"
+curl -X PATCH http://localhost:8081/api/v1/trabajadores/5/estado -H "Authorization: Bearer $ADMINISTRADOR_COMERCIAL" \
   -H 'Content-Type: application/json' -d '{"estado":"ACTIVO"}'
 ```
 
@@ -488,7 +492,7 @@ de sus administradores. Reutiliza la multi-empresa existente (`@TenantId` + `X-T
 hay una segunda estrategia de tenants.
 
 ```
-SUPER_ADMIN ── POST /api/v1/empresas ──→ Empresa (codigo NASC01) + ADMIN_EMPRESA principal (ACTIVO), todo o nada
+SUPER_ADMIN ── POST /api/v1/empresas ──→ Empresa (codigo NASC01) + ADMINISTRADOR_COMERCIAL principal (ACTIVO), todo o nada
 SUPER_ADMIN ── GET /api/v1/empresas[/{id}[/usuarios]] ──→ listado, ficha y usuarios con su estado
 SUPER_ADMIN ── X-Tenant-ID: <id> ──→ supervisión: datos de esa empresa, con su propia identidad
 ```
@@ -522,7 +526,7 @@ más sentencias en la transacción en curso); un código **elegido** por el SUPE
 cambia sin avisar: `409`. Rol, estado y empresa del administrador los fija el servidor (se
 ignoran si el JSON los trae).
 
-**Administrador principal:** el primer ADMIN_EMPRESA de la empresa (el de id más bajo, es decir, el
+**Administrador principal:** el primer ADMINISTRADOR_COMERCIAL de la empresa (el de id más bajo, es decir, el
 fundador creado con ella). Se calcula al consultar (una consulta por página de empresas, sin
 N+1), sin una FK circular entre `empresas` y `usuarios`. Se muestra en `administrador` en el listado y la
 ficha; se omite si la empresa no tiene administrador (p. ej. la "Empresa Base" de V5).
@@ -537,7 +541,7 @@ de contraseña: hay que entregarla por un canal seguro (ver *Fuera de alcance*).
   siguiente petición (`403`, motivo `EMPRESA_INACTIVA`, también en el login), aunque su JWT siga
   vigente; reactivarla les devuelve el acceso. No se borra ningún dato.
 - `PATCH /{id}/administradores/{usuarioId}/estado {estado}`: desactivar o reactivar la cuenta de un
-  ADMIN_EMPRESA de esa empresa (mismas transiciones que los trabajadores; fila bloqueada). Otra empresa,
+  ADMINISTRADOR_COMERCIAL de esa empresa (mismas transiciones que los trabajadores; fila bloqueada). Otra empresa,
   otro rol o un id inexistente → `404`.
 
 **Supervisión:** el SUPER_ADMIN envía `X-Tenant-ID` y consulta los datos de esa empresa con los
@@ -551,7 +555,7 @@ Empresa y usuarios de una empresa se consultan por el id de la ruta (`/empresas/
 
 **Invitaciones:** ya no intervienen en el alta de empresas (nunca lo hicieron en el backend: la
 pantalla «Invitar usuarios» era la única herramienta del SUPER_ADMIN). Se conservan sin cambios
-para el alta de **trabajadores** por su ADMIN_EMPRESA (`/api/auth/invitaciones` y `/registro`), que
+para el alta de **trabajadores** por su ADMINISTRADOR_COMERCIAL (`/api/auth/invitaciones` y `/registro`), que
 entran ACTIVOS. El frontend ya no muestra la pantalla de invitaciones al SUPER_ADMIN.
 
 **Migración V7 sobre una instalación existente:** no borra nada. Añade `empresas.codigo` y da a
@@ -565,7 +569,7 @@ Diagnóstico y plan completos en [`docs/auditoria-sgp.md`](../docs/auditoria-sgp
 
 **Roles (V8).** `SUPER_ADMIN` (administración global), `ADMIN_EMPRESA` (administra solo su
 empresa; antes `GERENTE`) y `TRABAJADOR` (antes `USUARIO`). Se renombraron los valores
-persistidos, las autoridades de Spring (`ROLE_ADMIN_EMPRESA`), `Permisos` y el contrato JSON
+persistidos, las autoridades de Spring (`ROLE_ADMIN_EMPRESA`; desde V14, `ROLE_ADMINISTRADOR_COMERCIAL`), `Permisos` y el contrato JSON
 (`administrador` en lugar de `gerente`, ruta `/administradores/{id}/estado`). Ninguna cuenta pierde
 el acceso: los JWT emitidos antes siguen valiendo porque el rol se lee de la BD en cada petición
 (probado con un token que aún dice `rol: GERENTE`). Backend y BD se despliegan juntos; volver
@@ -601,7 +605,7 @@ entrar. La interfaz consulta `/me` al cargar y al volver a la pestaña.
 o `X-Tenant-ID: global` (modo global, solo lectura). Sin cabecera, `400 Contexto de empresa
 requerido`: una ruta nueva (p. ej. ventas) nunca pierde el filtro de empresa por omisión. Cada
 petición en modo global o en supervisión queda registrada (`Modo global: …`, `Supervisión: …`).
-La cabecera sigue ignorándose para ADMIN_EMPRESA y TRABAJADOR (`global` incluido).
+La cabecera sigue ignorándose para ADMINISTRADOR_COMERCIAL y TRABAJADOR (`global` incluido).
 
 ## Fase 2: analítica, compras, inventario y código de barras
 
@@ -630,7 +634,7 @@ Ajuste (motivo) ──→ existencias (±, nunca < 0) y un movimiento AJUSTE
 ```
 emitir ──→ instantánea JSON + SHA-256 (documentos_orden_compra v1) ──→ .docx en cada descarga
 programar / reprogramar (motivo) ──→ programaciones_entrega vN; la orden apunta a la vigente
-recepción (ADMIN_EMPRESA o TRABAJADOR) ──→ líneas aceptadas → existencias + kárdex
+recepción (ADMINISTRADOR_COMERCIAL o TRABAJADOR) ──→ líneas aceptadas → existencias + kárdex
                                        └─→ incidencias (faltante, dañado, excedente, incorrecto, otra): sin inventario
 calendario e historial ──→ derivados de órdenes, programaciones, recepciones y solicitudes (sin tablas propias)
 ```
@@ -643,15 +647,15 @@ calendario e historial ──→ derivados de órdenes, programaciones, recepcio
   sin franja es "todo el día". "Retrasada" = fecha estimada vigente anterior a hoy con pendiente.
 - **Concurrencia:** programar y recibir bloquean la orden; la versión de la programación es única
   por orden (`uq_programaciones_entrega_version`).
-- **Permisos:** registrar recepciones pasa a `MIEMBRO_EMPRESA` (ADMIN_EMPRESA y TRABAJADOR); las
-  lecturas operativas (`LECTURA_OPERATIVA`) no llevan costos; programar es del ADMIN_EMPRESA; el
+- **Permisos:** registrar recepciones pasa a `MIEMBRO_EMPRESA` (ADMINISTRADOR_COMERCIAL y TRABAJADOR); las
+  lecturas operativas (`LECTURA_OPERATIVA`) no llevan costos; programar es del ADMINISTRADOR_COMERCIAL; el
   SUPER_ADMIN sigue en solo lectura.
 
 ## Fuera de alcance de este hito
 
 Ventas/POS (solo diseño); impuestos y descuentos en órdenes; valoración del inventario; reactivación de registros dados de baja; búsqueda en catálogos
 y en el listado de empresas; refresh tokens; cambio de rol
-de un usuario (p. ej. ascender a ADMIN_EMPRESA) y alta de administradores adicionales; cambio y recuperación de
+de un usuario (p. ej. ascender a ADMINISTRADOR_COMERCIAL) y alta de administradores adicionales; cambio y recuperación de
 contraseña (también la inicial del administrador); edición de los datos de una empresa y
 regeneración de su código de registro; supervisión de solo lectura impuesta por el backend en los
 módulos anteriores a la Fase 2 (en compras e inventario ya la impone); tabla de auditoría (hoy, registro en el log); nombre de la empresa en el

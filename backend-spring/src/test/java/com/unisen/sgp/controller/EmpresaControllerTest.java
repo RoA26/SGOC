@@ -64,7 +64,7 @@ class EmpresaControllerTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.administrador.nombres").value("Laura"))
                 .andExpect(jsonPath("$.administrador.apellidos").value("Andina Ruiz"))
                 .andExpect(jsonPath("$.administrador.empresaNombre").value("Ferretería Andina"))
-                .andExpect(jsonPath("$.administrador.rol").value("ADMIN_EMPRESA"))
+                .andExpect(jsonPath("$.administrador.rol").value("ADMINISTRADOR_COMERCIAL"))
                 .andExpect(jsonPath("$.administrador.estado").value("ACTIVO"))
                 .andExpect(jsonPath("$.administrador.password").doesNotExist()));
 
@@ -77,7 +77,7 @@ class EmpresaControllerTest extends ApiIntegrationTest {
                 empresaId)).isEqualTo(codigo);
         Map<String, Object> administrador = jdbcTemplate.queryForMap(
                 "SELECT rol, estado, activo, empresa_id, password_hash FROM usuarios WHERE username = 'admin.andina'");
-        assertThat(administrador.get("rol")).isEqualTo("ADMIN_EMPRESA");
+        assertThat(administrador.get("rol")).isEqualTo("ADMINISTRADOR_COMERCIAL");
         assertThat(administrador.get("estado")).isEqualTo("ACTIVO");
         assertThat(administrador.get("activo")).isEqualTo(true);
         assertThat(((Number) administrador.get("empresa_id")).longValue()).isEqualTo(empresaId);
@@ -113,7 +113,7 @@ class EmpresaControllerTest extends ApiIntegrationTest {
     void siElAdministradorNoSePuedeCrearNoQuedaNingunaEmpresa() throws Exception {
         int empresasAntes = contar("SELECT COUNT(*) FROM empresas");
 
-        // "admin" ya existe (ADMIN_EMPRESA de Unisen): la empresa se inserta primero y luego se deshace.
+        // "admin" ya existe (ADMINISTRADOR_COMERCIAL de Unisen): la empresa se inserta primero y luego se deshace.
         postJson(URL, superAdmin, empresa("Huérfana", "811111111-1", "admin", "nuevo@huerfana.com"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errors['administrador.username']").value("Ese nombre de usuario ya está en uso."));
@@ -129,7 +129,7 @@ class EmpresaControllerTest extends ApiIntegrationTest {
         postJson(URL, superAdmin, empresa("Huérfana", "811111111-1", "nuevo.gerente", "nuevo@huerfana.com"))
                 .andExpect(status().isCreated());
         assertThat(contar("SELECT COUNT(*) FROM usuarios u JOIN empresas e ON e.id = u.empresa_id "
-                + "WHERE e.nit = '811111111-1' AND u.rol = 'ADMIN_EMPRESA'")).isEqualTo(1);
+                + "WHERE e.nit = '811111111-1' AND u.rol = 'ADMINISTRADOR_COMERCIAL'")).isEqualTo(1);
     }
 
     @Test

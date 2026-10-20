@@ -22,7 +22,7 @@ interface DetalleSolicitudModalProps {
 }
 
 /**
- * Detalle de una solicitud y su punto en el flujo de compra. Al ADMIN_EMPRESA, si está pendiente, le
+ * Detalle de una solicitud y su punto en el flujo de compra. Al ADMINISTRADOR_COMERCIAL, si está pendiente, le
  * permite aprobarla o rechazarla (con motivo obligatorio al rechazar); el SUPER_ADMIN solo la
  * consulta. Una solicitud aprobada no es todavía una orden de compra.
  */
@@ -226,7 +226,7 @@ export function DetalleSolicitudModal({ solicitud, onClose, onRevisada }: Detall
 }
 
 /**
- * Una solicitud aprobada pasa a orden de compra: el ADMIN_EMPRESA genera los borradores (uno por
+ * Una solicitud aprobada pasa a orden de compra: el ADMINISTRADOR_COMERCIAL genera los borradores (uno por
  * proveedor) y los revisa antes de emitirlos. La gestión ve las órdenes ya generadas; el
  * trabajador, que Compras se encarga.
  */

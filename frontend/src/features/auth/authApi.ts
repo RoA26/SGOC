@@ -27,7 +27,7 @@ export async function registrarUsuario(data: RegistroRequest): Promise<UsuarioRe
 }
 
 /**
- * POST /api/auth/invitaciones (ADMIN_EMPRESA de su empresa). Genera un código de un solo uso.
+ * POST /api/auth/invitaciones (ADMINISTRADOR_COMERCIAL de su empresa). Genera un código de un solo uso.
  *
  * @param horasValidez de 1 a 720; si se omite, el backend aplica 72 horas.
  * @throws 403 si el usuario no gestiona la empresa; 400 si el SUPER_ADMIN no ha elegido empresa.

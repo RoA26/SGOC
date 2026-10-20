@@ -52,7 +52,7 @@ export interface ProductoEnAlerta {
   estado: EstadoStock
 }
 
-/** AnaliticaDTO.DeEmpresa (ADMIN_EMPRESA, o SUPER_ADMIN supervisando). */
+/** AnaliticaDTO.DeEmpresa (ADMINISTRADOR_COMERCIAL, o SUPER_ADMIN supervisando). */
 export interface AnaliticaEmpresa {
   periodo: Periodo
   inventario: {

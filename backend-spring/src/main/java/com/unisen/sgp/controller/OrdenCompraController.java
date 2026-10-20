@@ -93,8 +93,8 @@ public class OrdenCompraController {
     }
 
     @PostMapping
-    @PreAuthorize(Permisos.ADMIN_EMPRESA)
-    @Operation(summary = "Crear una orden en borrador (ADMIN_EMPRESA)",
+    @PreAuthorize(Permisos.ADMINISTRADOR_COMERCIAL)
+    @Operation(summary = "Crear una orden en borrador (ADMINISTRADOR_COMERCIAL)",
             description = "Todos los productos deben ser del proveedor elegido. Sin costo, se usa el precio del producto.")
     @ApiResponse(responseCode = "201", description = "Creada en BORRADOR con su número correlativo")
     @ApiResponse(responseCode = "400", description = "Proveedor o productos inválidos, de otro proveedor o repetidos")
@@ -106,7 +106,7 @@ public class OrdenCompraController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize(Permisos.ADMIN_EMPRESA)
+    @PreAuthorize(Permisos.ADMINISTRADOR_COMERCIAL)
     @Operation(summary = "Editar un borrador (observaciones y líneas)")
     @ApiResponse(responseCode = "409", description = "La orden ya no está en borrador")
     public OrdenCompraResponseDTO actualizar(@PathVariable Long id, @Valid @RequestBody OrdenCompraEdicionDTO request) {
@@ -114,7 +114,7 @@ public class OrdenCompraController {
     }
 
     @PostMapping("/{id}/emitir")
-    @PreAuthorize(Permisos.ADMIN_EMPRESA)
+    @PreAuthorize(Permisos.ADMINISTRADOR_COMERCIAL)
     @Operation(summary = "Emitir un borrador", description = "BORRADOR → EMITIDA. Desde aquí las líneas no cambian.")
     @ApiResponse(responseCode = "409", description = "No está en borrador o su catálogo cambió")
     public OrdenCompraResponseDTO emitir(@PathVariable Long id) {
@@ -122,7 +122,7 @@ public class OrdenCompraController {
     }
 
     @PostMapping("/{id}/cancelar")
-    @PreAuthorize(Permisos.ADMIN_EMPRESA)
+    @PreAuthorize(Permisos.ADMINISTRADOR_COMERCIAL)
     @Operation(summary = "Cancelar una orden", description = "Desde BORRADOR o EMITIDA sin mercancía recibida.")
     @ApiResponse(responseCode = "409", description = "Ya recibió mercancía o está en un estado final")
     public OrdenCompraResponseDTO cancelar(@PathVariable Long id, @Valid @RequestBody CancelacionOrdenDTO request) {
@@ -130,7 +130,7 @@ public class OrdenCompraController {
     }
 
     @PostMapping("/desde-solicitud/{solicitudId}")
-    @PreAuthorize(Permisos.ADMIN_EMPRESA)
+    @PreAuthorize(Permisos.ADMINISTRADOR_COMERCIAL)
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Generar borradores desde una solicitud aprobada",
             description = "Una orden por proveedor de los productos de la solicitud.")
@@ -140,8 +140,8 @@ public class OrdenCompraController {
     }
 
     @PutMapping("/{id}/entrega")
-    @PreAuthorize(Permisos.ADMIN_EMPRESA)
-    @Operation(summary = "Programar o reprogramar la entrega (ADMIN_EMPRESA)",
+    @PreAuthorize(Permisos.ADMINISTRADOR_COMERCIAL)
+    @Operation(summary = "Programar o reprogramar la entrega (ADMINISTRADOR_COMERCIAL)",
             description = "Fecha estimada (día, sin hora) y franja opcional. Cada cambio queda en el historial; "
                     + "reprogramar exige motivo. confirmadaProveedor distingue la fecha confirmada por el proveedor "
                     + "de una estimación interna. Repetir la programación vigente no crea una versión nueva.")
@@ -178,9 +178,25 @@ public class OrdenCompraController {
     @ApiResponse(responseCode = "404", description = "No existe en la empresa")
     @ApiResponse(responseCode = "409", description = "La orden no se ha emitido")
     public ResponseEntity<byte[]> documento(@PathVariable Long id) {
-        DocumentoOrdenService.Archivo archivo = documentoService.descargar(id);
+        return descarga(documentoService.descargar(id, DocumentoOrdenService.Formato.DOCX));
+    }
+
+    @GetMapping(value = "/{id}/documento/pdf")
+    @PreAuthorize(Permisos.GESTION)
+    @Operation(summary = "Descargar el PDF de una orden emitida (formato prioritario para compartir)",
+            description = "Mismo contenido, versión y huella que el Word: ambos se generan desde la instantánea "
+                    + "inmutable de la emisión. Las órdenes emitidas antes de V13 se reconstruyen y el PDF lo indica.")
+    @ApiResponse(responseCode = "200", description = "Archivo PDF",
+            content = @Content(mediaType = DocumentoOrdenService.TIPO_PDF))
+    @ApiResponse(responseCode = "404", description = "No existe en la empresa")
+    @ApiResponse(responseCode = "409", description = "La orden no se ha emitido")
+    public ResponseEntity<byte[]> documentoPdf(@PathVariable Long id) {
+        return descarga(documentoService.descargar(id, DocumentoOrdenService.Formato.PDF));
+    }
+
+    private static ResponseEntity<byte[]> descarga(DocumentoOrdenService.Archivo archivo) {
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(DocumentoOrdenService.TIPO_DOCX))
+                .contentType(MediaType.parseMediaType(archivo.tipo()))
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename(archivo.nombre(), StandardCharsets.UTF_8).build().toString())
                 .header("X-Documento-Version", Integer.toString(archivo.version()))
@@ -206,7 +222,7 @@ public class OrdenCompraController {
 
     @PostMapping("/{id}/recepciones")
     @PreAuthorize(Permisos.MIEMBRO_EMPRESA)
-    @Operation(summary = "Registrar una recepción (parcial o total), ADMIN_EMPRESA o TRABAJADOR",
+    @Operation(summary = "Registrar una recepción (parcial o total), ADMINISTRADOR_COMERCIAL o TRABAJADOR",
             description = "Suma las unidades aceptadas a las existencias y deja un movimiento por línea; las "
                     + "incidencias (faltantes, daños, excedentes, producto incorrecto) no mueven inventario. Idempotente "
                     + "por claveIdempotencia: repetirla con los mismos datos devuelve la recepción ya registrada (200). "

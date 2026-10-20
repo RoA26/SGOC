@@ -67,7 +67,7 @@ class DocumentoOrdenTest extends ComprasApiTest {
                 .contains("TOR-01", "Tornillo hexagonal", "TUE-01", "Tuerca")
                 .contains("1.500", "$ 1.250", "$ 10.000", "$ 300", "$ 450.000")
                 .contains("Total COP", "$ 460.000", "sin impuestos ni descuentos")
-                .contains("Admin Unisen", "Administrador de empresa");
+                .contains("Admin Unisen", "Administrador comercial");
         // No se inventan datos que el sistema no tiene.
         assertThat(texto).doesNotContain("IVA").doesNotContain("Firma");
 
@@ -146,7 +146,7 @@ class DocumentoOrdenTest extends ComprasApiTest {
 
         // Otra empresa nunca la descarga manipulando el id, ni su administrador ni el SUPER_ADMIN supervisándola.
         Empresa norte = crearEmpresa("Norte", "900999999-9");
-        String intruso = crearUsuarioYEntrar("admin.norte", Rol.ADMIN_EMPRESA, norte);
+        String intruso = crearUsuarioYEntrar("admin.norte", Rol.ADMINISTRADOR_COMERCIAL, norte);
         getJson(ORDENES + "/" + id + "/documento", intruso).andExpect(status().isNotFound());
         getJson(ORDENES + "/" + id + "/documentos", intruso).andExpect(status().isNotFound());
         getEnEmpresa(ORDENES + "/" + id + "/documento", plataforma, norte.getId()).andExpect(status().isNotFound());

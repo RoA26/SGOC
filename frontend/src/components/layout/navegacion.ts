@@ -5,7 +5,11 @@ import {
   CalendarDays,
   ClipboardList,
   FileText,
+  ChartColumn,
   House,
+  Receipt,
+  ShoppingCart,
+  Tags,
   Package,
   PackageCheck,
   PackageOpen,
@@ -31,7 +35,7 @@ export interface GrupoNavegacion {
 
 /**
  * Menú del SGOC según el rol y lo que el backend permite. Órdenes de compra, entregas y recepciones
- * son de gestión (ADMIN_EMPRESA; el SUPER_ADMIN las consulta); el trabajador recibe la mercancía en
+ * son de gestión (ADMINISTRADOR_COMERCIAL; el SUPER_ADMIN las consulta); el trabajador recibe la mercancía en
  * "Recibir mercancía"; el calendario y el inventario los consulta toda la empresa.
  * Ocultar una opción no protege nada: el backend autoriza cada petición.
  */
@@ -47,6 +51,19 @@ export function construirNavegacion(rol: Rol | null, permisos: Permisos): GrupoN
     compras.push({ to: '/recepciones', label: 'Recepciones', icon: PackageCheck })
   }
   grupos.push({ titulo: 'Compras', items: compras })
+
+  // Ventas: la caja para quien vende; historial (el trabajador, las suyas); la gestión comercial y
+  // los reportes (con costos y rentabilidad) solo para la gestión dentro de una empresa.
+  const ventas: ItemNavegacion[] = []
+  if (permisos.vender) ventas.push({ to: '/pos', label: 'Punto de venta', icon: ShoppingCart })
+  if (permisos.verVentas) {
+    ventas.push({ to: '/ventas', label: permisos.verComercial ? 'Ventas' : 'Mis ventas', icon: Receipt })
+  }
+  if (permisos.verComercial) {
+    ventas.push({ to: '/reportes', label: 'Reportes', icon: ChartColumn })
+    ventas.push({ to: '/comercial', label: 'Gestión comercial', icon: Tags })
+  }
+  if (ventas.length > 0) grupos.push({ titulo: 'Ventas', items: ventas })
 
   // Operación diaria. El trabajador recibe la mercancía; el gerente programa y supervisa desde Entregas.
   const operacion: ItemNavegacion[] = []
@@ -72,7 +89,7 @@ export function construirNavegacion(rol: Rol | null, permisos: Permisos): GrupoN
       ],
     })
   }
-  // SUPER_ADMIN: empresas y sus administradores. ADMIN_EMPRESA: invitar trabajadores a su empresa.
+  // SUPER_ADMIN: empresas y sus administradores. ADMINISTRADOR_COMERCIAL: invitar trabajadores a su empresa.
   if (permisos.gestionarEmpresas) {
     grupos.push({ titulo: 'Administración', items: [{ to: '/admin/empresas', label: 'Empresas', icon: Building }] })
   } else if (permisos.gestionarInvitaciones) {

@@ -11,7 +11,7 @@ public final class Permisos {
      * Coincide con {@code Rol.esGestor()}. El SUPER_ADMIN la ejerce solo con un contexto de
      * empresa (los servicios exigen {@code TenantContextHolder.requerirEmpresa()}).
      */
-    public static final String GESTION = "hasAnyRole('SUPER_ADMIN', 'ADMIN_EMPRESA')";
+    public static final String GESTION = "hasAnyRole('SUPER_ADMIN', 'ADMINISTRADOR_COMERCIAL')";
 
     /**
      * Operaciones de compras e inventario que mueven mercancía o compromisos con proveedores
@@ -19,19 +19,19 @@ public final class Permisos {
      * consulta en supervisión, pero no las ejecuta (las FK compuestas de autoría lo exigen
      * también en la BD).
      */
-    public static final String ADMIN_EMPRESA = "hasRole('ADMIN_EMPRESA')";
+    public static final String ADMINISTRADOR_COMERCIAL = "hasRole('ADMINISTRADOR_COMERCIAL')";
 
     /**
      * Personas de una empresa (no el SUPER_ADMIN): crear solicitudes y registrar la recepción
      * operativa de mercancía (el trabajador recibe; el administrador también puede hacerlo).
      */
-    public static final String MIEMBRO_EMPRESA = "hasAnyRole('ADMIN_EMPRESA', 'TRABAJADOR')";
+    public static final String MIEMBRO_EMPRESA = "hasAnyRole('ADMINISTRADOR_COMERCIAL', 'TRABAJADOR')";
 
     /**
      * Lectura operativa sin costos (entregas pendientes, calendario, detalle de recepciones):
      * toda la empresa. El SUPER_ADMIN, solo dentro de una empresa (supervisión).
      */
-    public static final String LECTURA_OPERATIVA = "hasAnyRole('SUPER_ADMIN', 'ADMIN_EMPRESA', 'TRABAJADOR')";
+    public static final String LECTURA_OPERATIVA = "hasAnyRole('SUPER_ADMIN', 'ADMINISTRADOR_COMERCIAL', 'TRABAJADOR')";
 
     private Permisos() {
     }

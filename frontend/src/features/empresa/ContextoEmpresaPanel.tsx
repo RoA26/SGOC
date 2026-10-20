@@ -7,7 +7,7 @@ import { etiquetaEmpresa } from './etiquetas'
 import type { EmpresaSupervisada } from './types'
 
 /**
- * Empresa sobre la que se trabaja. ADMIN_EMPRESA y TRABAJADOR ven la suya, con el nombre comercial
+ * Empresa sobre la que se trabaja. ADMINISTRADOR_COMERCIAL y TRABAJADOR ven la suya, con el nombre comercial
  * que devuelve el backend (GET /api/auth/me). El SUPER_ADMIN
  * está en modo global o supervisando una empresa que eligió en «Empresas»; desde aquí vuelve al
  * modo global.

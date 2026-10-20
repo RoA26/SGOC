@@ -54,7 +54,7 @@ describe('Calendario', () => {
   })
 
   it('pide el período visible, pinta los eventos y navega entre meses', async () => {
-    iniciarSesionComo('ADMIN_EMPRESA')
+    iniciarSesionComo('ADMINISTRADOR_COMERCIAL')
     const user = userEvent.setup()
     renderizar()
 
@@ -79,7 +79,7 @@ describe('Calendario', () => {
   })
 
   it('filtra por tipo de evento y por estado', async () => {
-    iniciarSesionComo('ADMIN_EMPRESA')
+    iniciarSesionComo('ADMINISTRADOR_COMERCIAL')
     const user = userEvent.setup()
     renderizar()
     await screen.findByRole('button', { name: /Entrega OC-00001,/ })
@@ -97,7 +97,7 @@ describe('Calendario', () => {
   })
 
   it('el gerente abre la orden y puede reprogramar; el trabajador va a registrar la recepción', async () => {
-    iniciarSesionComo('ADMIN_EMPRESA')
+    iniciarSesionComo('ADMINISTRADOR_COMERCIAL')
     const user = userEvent.setup()
     const { unmount } = renderizar()
     await user.click(await screen.findByRole('button', { name: /Entrega OC-00001,/ }))

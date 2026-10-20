@@ -22,7 +22,7 @@ const ESTADOS_SOLICITUD: readonly EstadoSolicitud[] = ['PENDIENTE', 'APROBADA', 
 const recepciones = (n: number) => `${formatearNumero(n)} ${n === 1 ? 'recepción' : 'recepciones'}`
 
 /**
- * Dashboard de una empresa (ADMIN_EMPRESA, o SUPER_ADMIN supervisándola en solo lectura):
+ * Dashboard de una empresa (ADMINISTRADOR_COMERCIAL, o SUPER_ADMIN supervisándola en solo lectura):
  * inventario, compras del período, recepciones y el estado de solicitudes y órdenes. La empresa
  * la fija el backend; el cliente no la elige.
  */

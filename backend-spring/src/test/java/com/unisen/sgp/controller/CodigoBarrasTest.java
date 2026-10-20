@@ -62,7 +62,7 @@ class CodigoBarrasTest extends ComprasApiTest {
 
         // Otra empresa puede usar el mismo código (otro catálogo).
         Empresa norte = crearEmpresa("Ferretería Norte", "800000002-2");
-        String adminNorte = crearUsuarioYEntrar("admin.norte", Rol.ADMIN_EMPRESA, norte);
+        String adminNorte = crearUsuarioYEntrar("admin.norte", Rol.ADMINISTRADOR_COMERCIAL, norte);
         long proveedorNorte = leer(postJson("/api/v1/proveedores", adminNorte,
                 "{\"nit\": \"900333333-3\", \"razonSocial\": \"Norteños\", \"email\": \"n@n.com\"}")).get("id").asLong();
         postJson(PRODUCTOS, adminNorte, """

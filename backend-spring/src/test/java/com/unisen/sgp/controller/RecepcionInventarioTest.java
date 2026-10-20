@@ -269,7 +269,7 @@ class RecepcionInventarioTest extends ComprasApiTest {
     void otraEmpresaNoVeNiMueveElInventarioAjeno() throws Exception {
         ajustar(adminToken, tornillo, 7, "Conteo").andExpect(status().isCreated());
         Empresa norte = crearEmpresa("Ferretería Norte", "800000002-2");
-        String intruso = crearUsuarioYEntrar("admin.norte", Rol.ADMIN_EMPRESA, norte);
+        String intruso = crearUsuarioYEntrar("admin.norte", Rol.ADMINISTRADOR_COMERCIAL, norte);
 
         getJson(INVENTARIO, intruso).andExpect(jsonPath("$.page.totalElements").value(0));
         getJson(INVENTARIO + "/movimientos", intruso).andExpect(jsonPath("$.page.totalElements").value(0));

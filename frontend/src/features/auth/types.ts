@@ -3,11 +3,11 @@
 /**
  * Roles del backend (enum Rol):
  * - SUPER_ADMIN: administración global de la plataforma, sin empresa. Elige contexto con X-Tenant-ID.
- * - ADMIN_EMPRESA: administra su empresa (trabajadores, invitaciones, catálogos, revisión de solicitudes).
+ * - ADMINISTRADOR_COMERCIAL: administra su empresa (trabajadores, invitaciones, catálogos, revisión de solicitudes).
  * - TRABAJADOR: crea solicitudes en su empresa y consulta las suyas.
  * Hasta la migración V8 se llamaban GERENTE y USUARIO (ver store/authStore.ts).
  */
-export type Rol = 'SUPER_ADMIN' | 'ADMIN_EMPRESA' | 'TRABAJADOR'
+export type Rol = 'SUPER_ADMIN' | 'ADMINISTRADOR_COMERCIAL' | 'TRABAJADOR'
 
 export interface LoginRequest {
   username: string

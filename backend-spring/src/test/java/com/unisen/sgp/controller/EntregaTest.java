@@ -182,7 +182,7 @@ class EntregaTest extends ComprasApiTest {
         programar(id, adminToken, 2, Map.of()).andExpect(status().isOk());
 
         Empresa norte = crearEmpresa("Norte", "900999999-9");
-        String intruso = crearUsuarioYEntrar("admin.norte", Rol.ADMIN_EMPRESA, norte);
+        String intruso = crearUsuarioYEntrar("admin.norte", Rol.ADMINISTRADOR_COMERCIAL, norte);
         String trabajadorNorte = crearUsuarioYEntrar("ana.norte", Rol.TRABAJADOR, norte);
         getJson(ENTREGAS, intruso).andExpect(jsonPath("$.page.totalElements").value(0));
         getJson(ENTREGAS, trabajadorNorte).andExpect(jsonPath("$.page.totalElements").value(0));

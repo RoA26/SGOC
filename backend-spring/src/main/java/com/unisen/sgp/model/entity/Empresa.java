@@ -44,6 +44,10 @@ public class Empresa {
     @Column(nullable = false)
     private boolean activa = true;
 
+    /** Empresa ficticia creada por la seed de demostración (perfil demo); nunca una real. */
+    @Column(nullable = false)
+    private boolean demo;
+
     /**
      * Código de registro de trabajadores: aleatorio y secreto (80 bits); quien lo conoce puede
      * registrarse en esta empresa y queda PENDIENTE hasta que el administrador lo apruebe. Único y
@@ -79,6 +83,15 @@ public class Empresa {
 
     public Long getId() {
         return id;
+    }
+
+    public boolean isDemo() {
+        return demo;
+    }
+
+    /** Solo la seed de demostración, al crear la empresa. */
+    public void marcarDemo() {
+        this.demo = true;
     }
 
     public String getNombre() {

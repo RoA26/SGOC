@@ -25,7 +25,7 @@ function estadoDeUrl(valor: string | null): EstadoOrdenCompra | null {
 }
 
 /**
- * Órdenes de compra de la empresa (las filtra el backend por el contexto). El ADMIN_EMPRESA las
+ * Órdenes de compra de la empresa (las filtra el backend por el contexto). El ADMINISTRADOR_COMERCIAL las
  * crea y gestiona; el SUPER_ADMIN las consulta. La URL guarda los filtros (?estado=, ?solicitudId=).
  */
 export default function OrdenesCompra() {

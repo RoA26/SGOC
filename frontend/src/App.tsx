@@ -25,6 +25,11 @@ const Entregas = lazy(() => import('@/pages/Entregas'))
 const Calendario = lazy(() => import('@/pages/Calendario'))
 const RecepcionMercancia = lazy(() => import('@/pages/RecepcionMercancia'))
 const RecepcionOrden = lazy(() => import('@/pages/RecepcionOrden'))
+const PuntoVenta = lazy(() => import('@/pages/PuntoVenta'))
+const Ventas = lazy(() => import('@/pages/Ventas'))
+const VentaDetalle = lazy(() => import('@/pages/VentaDetalle'))
+const GestionComercial = lazy(() => import('@/pages/GestionComercial'))
+const Reportes = lazy(() => import('@/pages/Reportes'))
 
 export default function App() {
   return (
@@ -51,9 +56,14 @@ export default function App() {
               {/* Recepción operativa: personas de la empresa (el trabajador recibe; el administrador también puede). */}
               <Route element={<RutaConRol roles={ROLES_EMPRESA} />}>
                 <Route path="/recepcion" element={<RecepcionMercancia />} />
+                {/* Punto de venta: venden las personas de la empresa (nunca el SUPER_ADMIN). */}
+                <Route path="/pos" element={<PuntoVenta />} />
               </Route>
+              {/* Ventas: el trabajador ve las suyas; la gestión, todas (el backend lo impone). */}
+              <Route path="/ventas" element={<Ventas />} />
+              <Route path="/ventas/:id" element={<VentaDetalle />} />
 
-              {/* Catálogo y compras: gestores (ADMIN_EMPRESA de su empresa; SUPER_ADMIN en modo global o supervisando, solo lectura). */}
+              {/* Catálogo y compras: gestores (ADMINISTRADOR_COMERCIAL de su empresa; SUPER_ADMIN en modo global o supervisando, solo lectura). */}
               <Route element={<RutaConRol roles={ROLES_GESTION} />}>
                 <Route path="/productos" element={<Productos />} />
                 <Route path="/proveedores" element={<Proveedores />} />
@@ -61,9 +71,12 @@ export default function App() {
                 <Route path="/ordenes-compra/:id" element={<OrdenCompraDetalle />} />
                 <Route path="/recepciones" element={<Recepciones />} />
                 <Route path="/entregas" element={<Entregas />} />
+                {/* Precios, costos, rentabilidad y reportes: gestión (cambios solo del ADMINISTRADOR_COMERCIAL). */}
+                <Route path="/comercial" element={<GestionComercial />} />
+                <Route path="/reportes" element={<Reportes />} />
               </Route>
 
-              {/* Invitaciones de trabajadores: solo el ADMIN_EMPRESA, para su empresa. */}
+              {/* Invitaciones de trabajadores: solo el ADMINISTRADOR_COMERCIAL, para su empresa. */}
               <Route element={<RutaConRol roles={ROLES_INVITACION} />}>
                 <Route path="/admin/invitaciones" element={<Invitaciones />} />
               </Route>

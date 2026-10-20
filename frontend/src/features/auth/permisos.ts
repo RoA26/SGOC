@@ -6,29 +6,29 @@ import type { Rol } from './types'
 /** Nombre visible de cada rol, en su forma corta (panel lateral, tablas). */
 export const ETIQUETA_ROL: Record<Rol, string> = {
   SUPER_ADMIN: 'Super administrador',
-  ADMIN_EMPRESA: 'Administrador',
+  ADMINISTRADOR_COMERCIAL: 'Administrador comercial',
   TRABAJADOR: 'Trabajador',
 }
 
 /** Nombre visible de cada rol donde hay espacio (perfil). */
 export const ETIQUETA_ROL_COMPLETA: Record<Rol, string> = {
   SUPER_ADMIN: 'Super administrador de la plataforma',
-  ADMIN_EMPRESA: 'Administrador de empresa',
+  ADMINISTRADOR_COMERCIAL: 'Administrador comercial',
   TRABAJADOR: 'Trabajador',
 }
 
 /** Roles con Permisos.GESTION en el backend: ven catálogos y todas las solicitudes de la empresa. */
-export const ROLES_GESTION: readonly Rol[] = ['SUPER_ADMIN', 'ADMIN_EMPRESA']
+export const ROLES_GESTION: readonly Rol[] = ['SUPER_ADMIN', 'ADMINISTRADOR_COMERCIAL']
 /** Personas de una empresa (Permisos.MIEMBRO_EMPRESA): las únicas que crean solicitudes. */
-export const ROLES_EMPRESA: readonly Rol[] = ['ADMIN_EMPRESA', 'TRABAJADOR']
+export const ROLES_EMPRESA: readonly Rol[] = ['ADMINISTRADOR_COMERCIAL', 'TRABAJADOR']
 /** Administración de la plataforma: empresas y sus administradores. */
 export const ROLES_PLATAFORMA: readonly Rol[] = ['SUPER_ADMIN']
 /** Invitar trabajadores: solo el administrador de la empresa, a la suya. */
-export const ROLES_INVITACION: readonly Rol[] = ['ADMIN_EMPRESA']
+export const ROLES_INVITACION: readonly Rol[] = ['ADMINISTRADOR_COMERCIAL']
 
 /**
  * Empresa sobre la que se trabaja:
- * - ADMIN_EMPRESA / TRABAJADOR: la suya, fija (viene de la sesión).
+ * - ADMINISTRADOR_COMERCIAL / TRABAJADOR: la suya, fija (viene de la sesión).
  * - SUPER_ADMIN: la que supervisa, o ninguna (modo global). En ambos casos, solo lectura.
  */
 export interface ContextoEmpresa {
@@ -66,28 +66,38 @@ export interface Permisos {
   gestionarEmpresas: boolean
   /** Consulta órdenes de compra, recepciones y el kárdex (con costos). */
   verCompras: boolean
-  /** Crea, edita, emite y cancela órdenes y registra recepciones (Permisos.ADMIN_EMPRESA en el backend). */
+  /** Crea, edita, emite y cancela órdenes y registra recepciones (Permisos.ADMINISTRADOR_COMERCIAL en el backend). */
   gestionarCompras: boolean
-  /** Ajustes manuales de inventario (Permisos.ADMIN_EMPRESA en el backend). */
+  /** Ajustes manuales de inventario (Permisos.ADMINISTRADOR_COMERCIAL en el backend). */
   ajustarInventario: boolean
   /** Registra la mercancía recibida (Permisos.MIEMBRO_EMPRESA: trabajador y administrador). */
   registrarRecepciones: boolean
-  /** Programa y reprograma entregas (Permisos.ADMIN_EMPRESA). */
+  /** Programa y reprograma entregas (Permisos.ADMINISTRADOR_COMERCIAL). */
   programarEntregas: boolean
   /** Supervisión de entregas: todas las vistas, resumen, discrepancias (Permisos.GESTION). */
   supervisarEntregas: boolean
   /** Calendario operativo: toda la empresa; el SUPER_ADMIN, solo supervisando una (en modo global no hay). */
   verCalendario: boolean
+  /** Punto de venta: personas de la empresa (Permisos.MIEMBRO_EMPRESA). */
+  vender: boolean
+  /** Historial de ventas: el trabajador, las suyas; la gestión, todas (nunca en modo global). */
+  verVentas: boolean
+  /** Devoluciones y anulaciones (Permisos.ADMINISTRADOR_COMERCIAL). */
+  gestionarVentas: boolean
+  /** Gestión comercial y reportes con costos y rentabilidad (Permisos.GESTION, dentro de una empresa). */
+  verComercial: boolean
+  /** Cambia precios, IVA, política y emite autorizaciones (Permisos.ADMINISTRADOR_COMERCIAL). */
+  gestionarPrecios: boolean
 }
 
 /**
- * Los cambios en los datos de una empresa los hace su administrador (ADMIN_EMPRESA). El SUPER_ADMIN la supervisa
+ * Los cambios en los datos de una empresa los hace su administrador (ADMINISTRADOR_COMERCIAL). El SUPER_ADMIN la supervisa
  * en solo lectura: así una consulta de soporte nunca modifica datos por accidente. (La API
  * conserva el modo soporte con X-Tenant-ID para él; la interfaz no lo expone.)
  */
 export function calcularPermisos({ rol, modoGlobal }: ContextoEmpresa): Permisos {
   const gestor = rol !== null && ROLES_GESTION.includes(rol)
-  const adminEmpresa = rol === 'ADMIN_EMPRESA'
+  const adminEmpresa = rol === 'ADMINISTRADOR_COMERCIAL'
   return {
     registrarRecepciones: rol !== null && ROLES_EMPRESA.includes(rol),
     programarEntregas: adminEmpresa,
@@ -103,6 +113,11 @@ export function calcularPermisos({ rol, modoGlobal }: ContextoEmpresa): Permisos
     verCompras: gestor,
     gestionarCompras: adminEmpresa,
     ajustarInventario: adminEmpresa,
+    vender: rol !== null && ROLES_EMPRESA.includes(rol),
+    verVentas: rol !== null && !modoGlobal,
+    gestionarVentas: adminEmpresa,
+    verComercial: gestor && !modoGlobal,
+    gestionarPrecios: adminEmpresa,
   }
 }
 

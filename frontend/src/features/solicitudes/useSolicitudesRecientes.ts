@@ -10,7 +10,7 @@ export type Recientes =
 
 /**
  * Las 5 solicitudes más recientes para el inicio. El backend ya filtra: TRABAJADOR recibe solo
- * las suyas; ADMIN_EMPRESA, las de su empresa; SUPER_ADMIN, las de la empresa elegida o todas en
+ * las suyas; ADMINISTRADOR_COMERCIAL, las de su empresa; SUPER_ADMIN, las de la empresa elegida o todas en
  * modo global. (Los conteos por estado llegan agregados desde /analitica.)
  */
 export function useSolicitudesRecientes(): Recientes {

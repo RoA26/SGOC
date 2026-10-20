@@ -22,7 +22,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * cuando ya se sabe quién llama:
  *
  * <ul>
- *   <li>ADMIN_EMPRESA y TRABAJADOR: siempre su propia empresa, la del JWT (que el filtro JWT ya
+ *   <li>ADMINISTRADOR_COMERCIAL y TRABAJADOR: siempre su propia empresa, la del JWT (que el filtro JWT ya
  *       comprobó contra la base de datos). La cabecera {@value #HEADER_TENANT} se ignora: nadie
  *       puede cambiar de empresa enviándola.</li>
  *   <li>SUPER_ADMIN: debe elegir el contexto de forma explícita en los endpoints de negocio:

@@ -52,7 +52,7 @@ public final class AnaliticaDTO {
                                    long ordenesAbiertas) {
     }
 
-    // --- ADMIN_EMPRESA (o SUPER_ADMIN en supervisión) ---
+    // --- ADMINISTRADOR_COMERCIAL (o SUPER_ADMIN en supervisión) ---
 
     public record ProductoEnAlerta(Long id, String sku, String nombre, int cantidad, int stockMinimo, EstadoStock estado) {
     }

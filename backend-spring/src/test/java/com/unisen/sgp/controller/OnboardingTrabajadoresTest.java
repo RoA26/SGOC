@@ -25,9 +25,9 @@ import org.springframework.test.web.servlet.ResultActions;
 
 /**
  * Onboarding de trabajadores (Hito 2): registro con el código de empresa → PENDIENTE → el
- * ADMIN_EMPRESA aprueba o rechaza → acceso según el estado de la BD, no según el JWT.
+ * ADMINISTRADOR_COMERCIAL aprueba o rechaza → acceso según el estado de la BD, no según el JWT.
  *
- * <p>Base: "Unisen" ({@code empresa}) con su ADMIN_EMPRESA ({@code adminToken}) y un trabajador
+ * <p>Base: "Unisen" ({@code empresa}) con su ADMINISTRADOR_COMERCIAL ({@code adminToken}) y un trabajador
  * activo ({@code usuarioToken}).
  */
 class OnboardingTrabajadoresTest extends ApiIntegrationTest {
@@ -90,7 +90,7 @@ class OnboardingTrabajadoresTest extends ApiIntegrationTest {
         cuerpo.put("apellidos", "Bodega");
         // Normalización: minúsculas, sin guiones y con espacios.
         cuerpo.put("codigoEmpresa", " " + empresa.getCodigoEmpresa().replace("-", "").toLowerCase(Locale.ROOT) + " ");
-        cuerpo.put("rol", "ADMIN_EMPRESA");
+        cuerpo.put("rol", "ADMINISTRADOR_COMERCIAL");
         cuerpo.put("estado", "ACTIVO");
         cuerpo.put("empresaId", 999);
 
@@ -265,7 +265,7 @@ class OnboardingTrabajadoresTest extends ApiIntegrationTest {
         String token = leer(loginComo("critico").andExpect(status().isOk())).get("accessToken").asText();
         getJson(SOLICITUDES, token).andExpect(status().isOk());
 
-        // El ADMIN_EMPRESA le retira la autorización.
+        // El ADMINISTRADOR_COMERCIAL le retira la autorización.
         cambiarEstado(id, "INACTIVO", adminToken)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("INACTIVO"));

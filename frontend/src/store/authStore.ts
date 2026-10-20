@@ -62,12 +62,17 @@ function datosDePerfil(usuario: UsuarioResponse) {
  * Versión del formato guardado.
  * - 1: SUPER_ADMIN y empresaId (las sesiones anteriores, con el rol ADMIN, se descartaron).
  * - 2: roles ADMIN_EMPRESA y TRABAJADOR (antes GERENTE y USUARIO), nombres, apellidos y empresa.
- *   Una sesión de la versión 1 se traduce sin cerrarla: el token sigue siendo válido porque el
- *   backend lee el rol de la BD, y el primer GET /api/auth/me completa el resto de datos.
+ * - 3: ADMIN_EMPRESA pasa a ADMINISTRADOR_COMERCIAL (V14).
+ *   Una sesión anterior se traduce sin cerrarla: el token sigue siendo válido porque el backend
+ *   lee el rol de la BD en cada petición, y el primer GET /api/auth/me completa el resto de datos.
  */
-const VERSION_SESION = 2
+const VERSION_SESION = 3
 
-const ROL_ANTERIOR: Record<string, Rol> = { GERENTE: 'ADMIN_EMPRESA', USUARIO: 'TRABAJADOR' }
+const ROL_ANTERIOR: Record<string, Rol> = {
+  GERENTE: 'ADMINISTRADOR_COMERCIAL',
+  ADMIN_EMPRESA: 'ADMINISTRADOR_COMERCIAL',
+  USUARIO: 'TRABAJADOR',
+}
 
 function migrarSesion(guardada: unknown, version: number): SessionData {
   if (version < 1 || typeof guardada !== 'object' || guardada === null) return EMPTY_SESSION

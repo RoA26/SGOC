@@ -43,7 +43,7 @@ public class EmpresaController {
     @PostMapping
     @Operation(summary = "Crear una empresa con su administrador principal (SUPER_ADMIN)",
             description = "Crea la empresa, su código empresarial (el indicado o el siguiente libre), su código de registro "
-                    + "de trabajadores (codigoEmpresa) y su administrador inicial (ADMIN_EMPRESA, ACTIVO) en una sola transacción: si algo "
+                    + "de trabajadores (codigoEmpresa) y su administrador inicial (ADMINISTRADOR_COMERCIAL, ACTIVO) en una sola transacción: si algo "
                     + "falla no se crea nada.")
     @ApiResponse(responseCode = "201", description = "Empresa y administrador creados")
     @ApiResponse(responseCode = "400", description = "Datos inválidos (errors.codigo, errors.nit, errors['administrador.nombres']...)")
@@ -84,7 +84,7 @@ public class EmpresaController {
     }
 
     @GetMapping("/actual")
-    @Operation(summary = "Empresa en la que se trabaja (ADMIN_EMPRESA, o SUPER_ADMIN con X-Tenant-ID)",
+    @Operation(summary = "Empresa en la que se trabaja (ADMINISTRADOR_COMERCIAL, o SUPER_ADMIN con X-Tenant-ID)",
             description = "Incluye el código de registro que el administrador comparte con sus trabajadores.")
     @ApiResponse(responseCode = "400", description = "SUPER_ADMIN sin X-Tenant-ID (modo global)")
     @ApiResponse(responseCode = "403", description = "El usuario no es gestor")

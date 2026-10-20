@@ -23,7 +23,7 @@ export const api = axios.create({
 
 // Adjunta el JWT de la sesión a cada petición y, solo para el SUPER_ADMIN, X-Tenant-ID: el id de la
 // empresa que supervisa o, si no supervisa ninguna, "global" (el backend exige que el modo global
-// sea explícito y lo registra). ADMIN_EMPRESA y TRABAJADOR nunca la envían: el backend fija su
+// sea explícito y lo registra). ADMINISTRADOR_COMERCIAL y TRABAJADOR nunca la envían: el backend fija su
 // empresa desde el token (y la ignoraría). Una cabecera puesta a mano en la petición se respeta.
 api.interceptors.request.use((config) => {
   const { accessToken, rol } = useAuthStore.getState()

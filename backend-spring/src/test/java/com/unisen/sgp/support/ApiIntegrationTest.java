@@ -28,7 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 /**
- * Base de los tests HTTP: BD limpia, la empresa "Unisen" con un ADMIN_EMPRESA ({@code adminToken})
+ * Base de los tests HTTP: BD limpia, la empresa "Unisen" con un ADMINISTRADOR_COMERCIAL ({@code adminToken})
  * y un TRABAJADOR ({@code usuarioToken}) ACTIVOS, con tokens reales obtenidos vía /api/auth/login
  * (se ejercita la cadena de seguridad completa).
  */
@@ -52,7 +52,7 @@ public abstract class ApiIntegrationTest {
 
     /** Empresa en la que trabajan {@link #adminToken} y {@link #usuarioToken}. */
     protected Empresa empresa;
-    /** ADMIN_EMPRESA de {@link #empresa} (administra su empresa: catálogos, invitaciones, revisiones). */
+    /** ADMINISTRADOR_COMERCIAL de {@link #empresa} (administra su empresa: catálogos, invitaciones, revisiones). */
     protected String adminToken;
     /** TRABAJADOR de {@link #empresa}. */
     protected String usuarioToken;
@@ -62,7 +62,7 @@ public abstract class ApiIntegrationTest {
         BaseDeDatosDePrueba.vaciar(jdbcTemplate);
 
         empresa = crearEmpresa("Unisen", "900000001-1");
-        usuarioService.crearUsuario("admin", "admin@unisen.com", "Admin", "Unisen", PASSWORD, Rol.ADMIN_EMPRESA, empresa);
+        usuarioService.crearUsuario("admin", "admin@unisen.com", "Admin", "Unisen", PASSWORD, Rol.ADMINISTRADOR_COMERCIAL, empresa);
         usuarioService.crearUsuario("compras", "compras@unisen.com", "Compras", "Unisen", PASSWORD, Rol.TRABAJADOR,
                 empresa);
         adminToken = login("admin");

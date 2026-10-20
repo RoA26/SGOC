@@ -9,7 +9,7 @@ const encoder = new TextEncoder()
 export const MENSAJE_CODIGO = 'El código debe tener de 3 a 12 letras mayúsculas o números y empezar por una letra (p. ej. NASC01).'
 
 /**
- * Alta de una empresa con su administrador inicial (rol ADMIN_EMPRESA): replica EmpresaRequestDTO (Jakarta
+ * Alta de una empresa con su administrador inicial (rol ADMINISTRADOR_COMERCIAL): replica EmpresaRequestDTO (Jakarta
  * Validation) con los mismos mensajes y la misma normalización.
  */
 export const empresaSchema = z.object({

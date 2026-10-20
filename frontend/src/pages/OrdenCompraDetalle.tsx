@@ -60,12 +60,12 @@ export default function OrdenCompraDetalle() {
     mostrarAviso(mensaje)
   }
 
-  async function descargar() {
+  async function descargar(formato: 'pdf' | 'docx') {
     if (!orden) return
     setDescargando(true)
     setErrorDocumento(null)
     try {
-      const { nombre, reconstruido } = await ordenCompraService.descargarDocumento(orden.id)
+      const { nombre, reconstruido } = await ordenCompraService.descargarDocumento(orden.id, formato)
       mostrarAviso(
         reconstruido
           ? `${nombre} descargado. La orden es anterior a los documentos de emisión: se reconstruyó y el documento lo indica.`
@@ -130,10 +130,15 @@ export default function OrdenCompraDetalle() {
         {gestionar ? (
           <div className="flex flex-wrap gap-2">
             {orden.emitidaEn && (
-              <button type="button" className="u-btn u-btn--ghost" onClick={() => void descargar()} disabled={descargando} aria-busy={descargando}>
-                {descargando ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <FileDown className="size-4" aria-hidden="true" />}
-                Descargar Word
-              </button>
+              <>
+                <button type="button" className="u-btn u-btn--ghost" onClick={() => void descargar('pdf')} disabled={descargando} aria-busy={descargando}>
+                  {descargando ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <FileDown className="size-4" aria-hidden="true" />}
+                  Descargar PDF
+                </button>
+                <button type="button" className="u-btn u-btn--ghost" onClick={() => void descargar('docx')} disabled={descargando}>
+                  Word
+                </button>
+              </>
             )}
             {borrador && (
               <>
@@ -170,10 +175,15 @@ export default function OrdenCompraDetalle() {
         ) : (
           <div className="flex flex-wrap items-center gap-3">
             {orden.emitidaEn && (
-              <button type="button" className="u-btn u-btn--ghost" onClick={() => void descargar()} disabled={descargando} aria-busy={descargando}>
-                {descargando ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <FileDown className="size-4" aria-hidden="true" />}
-                Descargar Word
-              </button>
+              <>
+                <button type="button" className="u-btn u-btn--ghost" onClick={() => void descargar('pdf')} disabled={descargando} aria-busy={descargando}>
+                  {descargando ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <FileDown className="size-4" aria-hidden="true" />}
+                  Descargar PDF
+                </button>
+                <button type="button" className="u-btn u-btn--ghost" onClick={() => void descargar('docx')} disabled={descargando}>
+                  Word
+                </button>
+              </>
             )}
             <p className="flex items-center gap-2 text-sm text-foreground-muted">
               <Eye className="size-4" aria-hidden="true" />

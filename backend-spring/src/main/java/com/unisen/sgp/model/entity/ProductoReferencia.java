@@ -2,6 +2,8 @@ package com.unisen.sgp.model.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
@@ -43,6 +45,16 @@ public class ProductoReferencia extends EntidadDeEmpresa {
     @Column(name = "stock_minimo", nullable = false, insertable = false, updatable = false)
     private int stockMinimo;
 
+    @Column(name = "precio_venta", insertable = false, updatable = false, precision = 14, scale = 2)
+    private BigDecimal precioVenta;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tratamiento_iva", insertable = false, updatable = false, length = 12)
+    private TratamientoIva tratamientoIva;
+
+    @Column(name = "tarifa_iva", insertable = false, updatable = false, precision = 5, scale = 2)
+    private BigDecimal tarifaIva;
+
     /** Requerido por JPA. */
     protected ProductoReferencia() {
     }
@@ -78,6 +90,19 @@ public class ProductoReferencia extends EntidadDeEmpresa {
 
     public int getStockMinimo() {
         return stockMinimo;
+    }
+
+    /** Precio de venta sin IVA; null si el producto no está a la venta. */
+    public BigDecimal getPrecioVenta() {
+        return precioVenta;
+    }
+
+    public TratamientoIva getTratamientoIva() {
+        return tratamientoIva;
+    }
+
+    public BigDecimal getTarifaIva() {
+        return tarifaIva;
     }
 
     @Override

@@ -52,7 +52,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Entregas de las órdenes emitidas: el gerente (ADMIN_EMPRESA) programa y supervisa; el
+ * Entregas de las órdenes emitidas: el gerente (ADMINISTRADOR_COMERCIAL) programa y supervisa; el
  * trabajador consulta lo pendiente y registra lo recibido ({@link RecepcionService}).
  *
  * <p>Fechas: la fecha estimada es un día local (sin hora) de la zona del negocio; "hoy" también.
@@ -120,12 +120,12 @@ public class EntregaService {
     // ------------------------------------------------------------------ programación
 
     /**
-     * Programa o reprograma la entrega (ADMIN_EMPRESA). Cada cambio es una versión nueva del
+     * Programa o reprograma la entrega (ADMINISTRADOR_COMERCIAL). Cada cambio es una versión nueva del
      * historial; la orden queda apuntando a la vigente. Repetir la programación vigente no crea
      * una versión. La orden se bloquea: dos cambios simultáneos se serializan y no comparten
      * número de versión (uq_programaciones_entrega_version es la red de seguridad).
      */
-    @PreAuthorize(Permisos.ADMIN_EMPRESA)
+    @PreAuthorize(Permisos.ADMINISTRADOR_COMERCIAL)
     @Transactional
     public ProgramacionEntregaDTO programar(Long ordenId, ProgramacionEntregaRequestDTO dto) {
         TenantContextHolder.requerirEmpresa();

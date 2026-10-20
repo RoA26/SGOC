@@ -17,7 +17,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 
 /**
- * Test 9 del Hito 2: el ADMIN_EMPRESA de la empresa A ve y gestiona solo a los trabajadores de A.
+ * Test 9 del Hito 2: el ADMINISTRADOR_COMERCIAL de la empresa A ve y gestiona solo a los trabajadores de A.
  * Usuario no lleva {@code @TenantId}, así que este aislamiento depende de los filtros
  * explícitos por empresa del servicio: aquí se comprueba de extremo a extremo.
  */
@@ -33,7 +33,7 @@ class AislamientoTrabajadoresTest extends ApiIntegrationTest {
     @BeforeEach
     void dosEmpresasConUnPendienteCadaUna() throws Exception {
         empresaB = crearEmpresa("Ferretería Norte", "900000002-2");
-        gerenteB = crearUsuarioYEntrar("gerente.norte", Rol.ADMIN_EMPRESA, empresaB);
+        gerenteB = crearUsuarioYEntrar("gerente.norte", Rol.ADMINISTRADOR_COMERCIAL, empresaB);
         trabajadorA = registrar("pendiente.a", empresa.getCodigoEmpresa());
         trabajadorB = registrar("pendiente.b", empresaB.getCodigoEmpresa());
     }

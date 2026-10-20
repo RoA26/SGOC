@@ -55,7 +55,7 @@ import org.springframework.transaction.annotation.Transactional;
  * (@TenantId): un id de otra empresa responde 404 y un proveedor o producto de otra empresa es
  * un campo inválido; las FK compuestas lo impiden también en la BD.
  *
- * <p>Las escrituras son del ADMIN_EMPRESA (el SUPER_ADMIN supervisa en solo lectura) y cada
+ * <p>Las escrituras son del ADMINISTRADOR_COMERCIAL (el SUPER_ADMIN supervisa en solo lectura) y cada
  * cambio de estado bloquea antes la fila de la orden.
  */
 @Service
@@ -103,7 +103,7 @@ public class OrdenCompraService {
      * Crea un borrador con sus líneas en una sola transacción. Todas las líneas deben ser
      * productos activos del proveedor elegido; sin costo, se toma el precio actual del producto.
      */
-    @PreAuthorize(Permisos.ADMIN_EMPRESA)
+    @PreAuthorize(Permisos.ADMINISTRADOR_COMERCIAL)
     @Transactional
     public OrdenCompraResponseDTO crear(OrdenCompraRequestDTO dto) {
         Long empresaId = TenantContextHolder.requerirEmpresa();
@@ -122,7 +122,7 @@ public class OrdenCompraService {
     }
 
     /** Sustituye observaciones y líneas de un borrador. */
-    @PreAuthorize(Permisos.ADMIN_EMPRESA)
+    @PreAuthorize(Permisos.ADMINISTRADOR_COMERCIAL)
     @Transactional
     public OrdenCompraResponseDTO actualizar(Long id, OrdenCompraEdicionDTO dto) {
         TenantContextHolder.requerirEmpresa();
@@ -138,7 +138,7 @@ public class OrdenCompraService {
      * seguir activos y los productos, pertenecer aún a ese proveedor. En la misma transacción se
      * guarda la instantánea del documento (versión 1): o quedan las dos cosas o ninguna.
      */
-    @PreAuthorize(Permisos.ADMIN_EMPRESA)
+    @PreAuthorize(Permisos.ADMINISTRADOR_COMERCIAL)
     @Transactional
     public OrdenCompraResponseDTO emitir(Long id) {
         TenantContextHolder.requerirEmpresa();
@@ -155,7 +155,7 @@ public class OrdenCompraService {
         return OrdenCompraResponseDTO.from(emitida);
     }
 
-    @PreAuthorize(Permisos.ADMIN_EMPRESA)
+    @PreAuthorize(Permisos.ADMINISTRADOR_COMERCIAL)
     @Transactional
     public OrdenCompraResponseDTO cancelar(Long id, CancelacionOrdenDTO dto) {
         TenantContextHolder.requerirEmpresa();
@@ -173,7 +173,7 @@ public class OrdenCompraService {
      * <p>La solicitud se bloquea mientras tanto: dos peticiones simultáneas no pueden generar
      * órdenes duplicadas (la segunda ve las de la primera y recibe 409).
      */
-    @PreAuthorize(Permisos.ADMIN_EMPRESA)
+    @PreAuthorize(Permisos.ADMINISTRADOR_COMERCIAL)
     @Transactional
     public List<OrdenCompraResponseDTO> crearDesdeSolicitud(Long solicitudId) {
         Long empresaId = TenantContextHolder.requerirEmpresa();

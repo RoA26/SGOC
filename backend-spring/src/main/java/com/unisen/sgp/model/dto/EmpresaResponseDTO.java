@@ -11,7 +11,7 @@ import java.time.Instant;
  *   <li>{@code codigo}: código empresarial, el identificador público y estable (p. ej. NASC01).</li>
  *   <li>{@code codigoEmpresa}: código de registro de trabajadores, aleatorio y secreto, que el
  *       administrador comparte para que se registren (nombre conservado por compatibilidad).</li>
- *   <li>{@code administrador}: administrador principal (el primer ADMIN_EMPRESA, creado con la
+ *   <li>{@code administrador}: administrador principal (el primer ADMINISTRADOR_COMERCIAL, creado con la
  *       empresa). Aparece al crearla y en el listado y la ficha del SUPER_ADMIN; se omite si la
  *       empresa aún no tiene ningún administrador.</li>
  * </ul>

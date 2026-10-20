@@ -23,6 +23,8 @@ public interface ExistenciaRepository extends JpaRepository<Existencia, Long>, J
 
     Optional<Existencia> findByProductoId(Long productoId);
 
+    List<Existencia> findByProductoIdIn(Collection<Long> productoIds);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Existencia> findWithLockByProductoId(Long productoId);
 
@@ -58,6 +60,27 @@ public interface ExistenciaRepository extends JpaRepository<Existencia, Long>, J
                         cb.like(cb.lower(producto.get("sku")), patron, '\\'),
                         cb.like(cb.lower(producto.get("codigoBarras")), patron, '\\'));
             };
+        }
+
+        /** Productos con precio de venta (a la venta). */
+        public static Specification<Existencia> aLaVenta() {
+            return (root, query, cb) -> cb.isNotNull(root.get("producto").get("precioVenta"));
+        }
+
+        public static Specification<Existencia> sinPrecioVenta() {
+            return (root, query, cb) -> cb.isNull(root.get("producto").get("precioVenta"));
+        }
+
+        public static Specification<Existencia> sinCosto() {
+            return (root, query, cb) -> cb.isNull(root.get("costoPromedio"));
+        }
+
+        /** Precio de venta (sin IVA) por debajo del costo promedio conocido. */
+        public static Specification<Existencia> bajoCosto() {
+            return (root, query, cb) -> cb.and(cb.isNotNull(root.get("costoPromedio")),
+                    cb.isNotNull(root.get("producto").get("precioVenta")),
+                    cb.lessThan(root.get("producto").<java.math.BigDecimal>get("precioVenta"),
+                            root.<java.math.BigDecimal>get("costoPromedio")));
         }
 
         public static Specification<Existencia> agotadas() {

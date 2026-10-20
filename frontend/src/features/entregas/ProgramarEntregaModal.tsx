@@ -17,7 +17,7 @@ interface Props {
 }
 
 /**
- * Programa o reprograma la entrega (ADMIN_EMPRESA). La fecha estimada es un día; la franja es
+ * Programa o reprograma la entrega (ADMINISTRADOR_COMERCIAL). La fecha estimada es un día; la franja es
  * opcional ("todo el día" si no se acordó una hora). Confirmada por el proveedor y estimada son
  * cosas distintas. Cada cambio queda en el historial: reprogramar exige motivo.
  */

@@ -52,7 +52,7 @@ class AislamientoMultiEmpresaTest extends ApiIntegrationTest {
     @BeforeEach
     void crearSegundaEmpresaYSuperAdmin() throws Exception {
         norte = crearEmpresa("Ferretería Norte", "900000002-2");
-        gerenteNorte = crearUsuarioYEntrar("gerente.norte", Rol.ADMIN_EMPRESA, norte);
+        gerenteNorte = crearUsuarioYEntrar("gerente.norte", Rol.ADMINISTRADOR_COMERCIAL, norte);
         usuarioNorte = crearUsuarioYEntrar("compras.norte", Rol.TRABAJADOR, norte);
         superAdmin = crearUsuarioYEntrar("plataforma", Rol.SUPER_ADMIN, null);
     }
@@ -302,7 +302,7 @@ class AislamientoMultiEmpresaTest extends ApiIntegrationTest {
     void elJwtLlevaLaEmpresaSalvoParaElSuperAdmin() {
         Claims norteClaims = jwtUtil.validateToken(gerenteNorte);
         assertThat(JwtUtil.extractEmpresaId(norteClaims)).isEqualTo(norte.getId());
-        assertThat(norteClaims.get(JwtUtil.CLAIM_ROL, String.class)).isEqualTo("ADMIN_EMPRESA");
+        assertThat(norteClaims.get(JwtUtil.CLAIM_ROL, String.class)).isEqualTo("ADMINISTRADOR_COMERCIAL");
 
         Claims superClaims = jwtUtil.validateToken(superAdmin);
         assertThat(JwtUtil.extractEmpresaId(superClaims)).isNull();

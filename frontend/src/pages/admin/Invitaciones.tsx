@@ -21,13 +21,13 @@ function enlaceRegistro(codigo: string): string {
 }
 
 /**
- * Panel del ADMIN_EMPRESA: genera códigos de invitación de un solo uso para su empresa (la cuenta
+ * Panel del ADMINISTRADOR_COMERCIAL: genera códigos de invitación de un solo uso para su empresa (la cuenta
  * creada con el código entra en ella con rol TRABAJADOR). Es el alta de trabajadores, no de
  * empresas: esas las crea el SUPER_ADMIN en «Empresas». El backend solo devuelve cada código al
  * crearlo, así que la página conserva los de esta visita.
  */
 export default function Invitaciones() {
-  // Solo el ADMIN_EMPRESA invita, siempre a su propia empresa (la ruta ya está restringida a su rol).
+  // Solo el ADMINISTRADOR_COMERCIAL invita, siempre a su propia empresa (la ruta ya está restringida a su rol).
   const puedeInvitar = usePermisos().gestionarInvitaciones
   const [invitaciones, setInvitaciones] = useState<InvitacionResponse[]>([])
   const [generando, setGenerando] = useState(false)

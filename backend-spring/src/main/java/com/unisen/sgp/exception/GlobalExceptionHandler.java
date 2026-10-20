@@ -67,6 +67,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                     "El documento de esta orden ya se generó."),
             new Restriccion("ck_incidencias_recepcion_datos", "incidencias",
                     "Una incidencia no tiene los datos que exige su tipo."),
+            new Restriccion("uq_ventas_clave", "claveIdempotencia",
+                    "Esa clave de idempotencia ya se usó en otra venta."),
+            new Restriccion("uq_devoluciones_venta_clave", "claveIdempotencia",
+                    "Esa clave de idempotencia ya se usó en otra devolución."),
+            new Restriccion("ck_detalles_venta_devuelta", "lineas",
+                    "No se puede devolver más de lo vendido."),
+            new Restriccion("uq_politicas_comerciales_empresa", "politica",
+                    "La política comercial se actualizó al mismo tiempo desde otra sesión. Inténtalo de nuevo."),
             new Restriccion("uq_empresas_nit", "nit", "Ya existe una empresa con este NIT."),
             // Antes que uq_empresas_codigo: se busca por subcadena y aquel nombre es prefijo de este.
             new Restriccion("uq_empresas_codigo_empresa", "codigoEmpresa",
@@ -156,7 +164,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ConflictoException.class)
     public ProblemDetail handleConflicto(ConflictoException ex) {
+        if (ex instanceof ExistenciasInsuficientesException insuficientes) {
+            ProblemDetail problem = problem(HttpStatus.CONFLICT, "Existencias insuficientes", ex.getMessage());
+            problem.setProperty("faltantes", insuficientes.getFaltantes());
+            return problem;
+        }
         return problem(HttpStatus.CONFLICT, "Operación no permitida", ex.getMessage());
+    }
+
+    /** Regla comercial que exige una autorización (sin {@code motivo}: no cierra la sesión). */
+    @ExceptionHandler(OperacionNoAutorizadaException.class)
+    public ProblemDetail handleNoAutorizada(OperacionNoAutorizadaException ex) {
+        ProblemDetail problem = problem(HttpStatus.FORBIDDEN, "Autorización requerida", ex.getMessage());
+        problem.setProperty("requiereAutorizacion", true);
+        return problem;
     }
 
     /** Regla de negocio sobre un campo concreto: mismo formato que los errores de validación. */

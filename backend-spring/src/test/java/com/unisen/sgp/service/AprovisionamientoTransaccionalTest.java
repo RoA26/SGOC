@@ -67,7 +67,7 @@ class AprovisionamientoTransaccionalTest {
             administradorInsertado.set(administrador);
             throw new IllegalStateException("Fallo simulado después de insertar al administrador");
         }).when(usuarioService).crearUsuario(anyString(), anyString(), anyString(), anyString(), anyString(),
-                eq(Rol.ADMIN_EMPRESA), any(Empresa.class));
+                eq(Rol.ADMINISTRADOR_COMERCIAL), any(Empresa.class));
 
         EmpresaRequestDTO request = new EmpresaRequestDTO("Ferretería Andina", "901234567-8", null,
                 new EmpresaRequestDTO.AdministradorInicial("Laura", "Andina", "admin.andina", "g@andina.com", "ClaveGerente2026"));
@@ -115,7 +115,7 @@ class AprovisionamientoTransaccionalTest {
 
         assertThat(contar("SELECT COUNT(*) FROM empresas WHERE nit = '901234567-8'")).isEqualTo(1);
         assertThat(contar("SELECT COUNT(*) FROM usuarios u JOIN empresas e ON e.id = u.empresa_id "
-                + "WHERE u.username = 'admin.andina' AND u.rol = 'ADMIN_EMPRESA' AND u.estado = 'ACTIVO' "
+                + "WHERE u.username = 'admin.andina' AND u.rol = 'ADMINISTRADOR_COMERCIAL' AND u.estado = 'ACTIVO' "
                 + "AND e.nit = '901234567-8'")).isEqualTo(1);
     }
 

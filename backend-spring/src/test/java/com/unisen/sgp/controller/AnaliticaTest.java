@@ -46,7 +46,7 @@ class AnaliticaTest extends ComprasApiTest {
     void prepararDatos() throws Exception {
         superAdmin = crearUsuarioYEntrar("plataforma", Rol.SUPER_ADMIN, null);
         otra = crearEmpresa("Ferretería Norte", "800000002-2");
-        adminOtra = crearUsuarioYEntrar("admin.norte", Rol.ADMIN_EMPRESA, otra);
+        adminOtra = crearUsuarioYEntrar("admin.norte", Rol.ADMINISTRADOR_COMERCIAL, otra);
         proveedor = crearProveedor("900111111-1", "Aceros Andinos");
         tornillo = crearProducto("TOR-01", "Tornillo", "1000", proveedor);
         tuerca = crearProducto("TUE-01", "Tuerca", "500", proveedor);

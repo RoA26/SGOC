@@ -12,7 +12,7 @@ const SIN_FLECHAS =
 const MOTIVOS = ['Inventario inicial', 'Conteo físico', 'Merma o daño', 'Devolución al proveedor']
 
 /**
- * Ajuste manual de existencias (ADMIN_EMPRESA) con motivo obligatorio. Las salidas nunca dejan
+ * Ajuste manual de existencias (ADMINISTRADOR_COMERCIAL) con motivo obligatorio. Las salidas nunca dejan
  * existencias negativas: lo comprueba el backend con la fila bloqueada. La clave de idempotencia
  * evita duplicar el ajuste si se reintenta.
  */

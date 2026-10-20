@@ -17,7 +17,7 @@ import org.springframework.util.StringUtils;
  * ya existen no modifica nada, de modo que puede quedarse configurado en el despliegue sin
  * sobrescribir cambios.
  *
- * <p>Es la cuenta raíz: crea las empresas y su administrador principal (ADMIN_EMPRESA) desde
+ * <p>Es la cuenta raíz: crea las empresas y su administrador principal (ADMINISTRADOR_COMERCIAL) desde
  * «Empresas» ({@code POST /api/v1/empresas}).
  */
 @Component

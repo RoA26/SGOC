@@ -18,6 +18,7 @@ import com.unisen.sgp.model.entity.ProveedorReferencia;
 import com.unisen.sgp.model.entity.Rol;
 import com.unisen.sgp.model.entity.Usuario;
 import com.unisen.sgp.repository.DocumentoOrdenCompraRepository;
+import com.unisen.sgp.repository.EmpresaRepository;
 import com.unisen.sgp.repository.OrdenCompraRepository;
 import com.unisen.sgp.security.Permisos;
 import com.unisen.sgp.security.UsuarioActual;
@@ -52,6 +53,24 @@ public class DocumentoOrdenService {
 
     private static final Logger log = LoggerFactory.getLogger(DocumentoOrdenService.class);
     public static final String TIPO_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    public static final String TIPO_PDF = "application/pdf";
+
+    /** Formatos de descarga: los dos se generan desde la misma instantánea (mismo contenido). */
+    public enum Formato {
+        DOCX(".docx", TIPO_DOCX), PDF(".pdf", TIPO_PDF);
+
+        private final String extension;
+        private final String tipo;
+
+        Formato(String extension, String tipo) {
+            this.extension = extension;
+            this.tipo = tipo;
+        }
+
+        public String tipo() {
+            return tipo;
+        }
+    }
 
     /** Mapper propio: la instantánea no depende de la configuración JSON de la API. */
     private static final JsonMapper JSON = JsonMapper.builder()
@@ -62,19 +81,25 @@ public class DocumentoOrdenService {
 
     private final DocumentoOrdenCompraRepository documentoRepository;
     private final OrdenCompraRepository ordenRepository;
+    private final EmpresaRepository empresaRepository;
     private final GeneradorDocumentoOrden generador;
+    private final GeneradorPdfOrden generadorPdf;
     private final Clock clock;
 
     public DocumentoOrdenService(DocumentoOrdenCompraRepository documentoRepository,
-                                 OrdenCompraRepository ordenRepository, NegocioProperties negocio, Clock clock) {
+                                 OrdenCompraRepository ordenRepository, EmpresaRepository empresaRepository,
+                                 NegocioProperties negocio, Clock clock) {
         this.documentoRepository = documentoRepository;
         this.ordenRepository = ordenRepository;
+        this.empresaRepository = empresaRepository;
         this.generador = new GeneradorDocumentoOrden(negocio.zonaHoraria());
+        this.generadorPdf = new GeneradorPdfOrden(negocio.zonaHoraria());
         this.clock = clock;
     }
 
     /** Archivo listo para descargar. */
-    public record Archivo(String nombre, byte[] contenido, int version, String huella, boolean reconstruido) {
+    public record Archivo(String nombre, byte[] contenido, int version, String huella, boolean reconstruido,
+                          String tipo) {
     }
 
     /**
@@ -91,38 +116,54 @@ public class DocumentoOrdenService {
         return documento;
     }
 
+    /** Word (.docx) de la versión vigente; ver {@link #descargar(Long, Formato)}. */
+    @PreAuthorize(Permisos.GESTION)
+    public Archivo descargar(Long ordenId) {
+        return descargar(ordenId, Formato.DOCX);
+    }
+
     /**
-     * Genera el .docx de la versión vigente. Una orden emitida antes de V13 no tiene instantánea:
-     * se arma con los datos actuales sin guardarla (una lectura no escribe) y el documento lo
-     * advierte.
+     * Genera el documento de la versión vigente en el formato pedido. Word y PDF salen de la
+     * misma instantánea y llevan la misma versión y huella: son el mismo documento. Una orden
+     * emitida antes de V13 no tiene instantánea: se arma con los datos actuales sin guardarla
+     * (una lectura no escribe) y el documento lo advierte; nunca se presenta como el original.
      *
      * @throws ConflictoException si la orden nunca se emitió
      */
     @PreAuthorize(Permisos.GESTION)
-    public Archivo descargar(Long ordenId) {
+    public Archivo descargar(Long ordenId, Formato formato) {
         OrdenCompra orden = ordenRepository.findById(ordenId)
                 .orElseThrow(() -> RecursoNoEncontradoException.ordenCompra(ordenId));
         if (orden.getEmitidaEn() == null) {
             throw new ConflictoException("La orden " + OrdenCompraService.numeroVisible(orden.getNumero())
                     + " no se ha emitido: el documento se genera al emitirla.");
         }
-        String nombre = OrdenCompraService.numeroVisible(orden.getNumero()) + ".docx";
+        String nombre = OrdenCompraService.numeroVisible(orden.getNumero()) + formato.extension;
         var vigente = documentoRepository.findFirstByOrdenIdOrderByVersionDesc(ordenId);
         if (vigente.isPresent()) {
             DocumentoOrdenCompra documento = vigente.get();
             InstantaneaOrden instantanea = leer(documento.getContenido());
-            byte[] bytes = generador.generar(instantanea, documento.getVersion(), documento.getHuellaSha256(),
+            byte[] bytes = generar(formato, instantanea, documento.getVersion(), documento.getHuellaSha256(),
                     documento.getGeneradoEn());
-            log.info("Documento v{} de la orden {} descargado por {}", documento.getVersion(), orden.getNumero(),
-                    UsuarioActual.paraAuditoria());
-            return new Archivo(nombre, bytes, documento.getVersion(), documento.getHuellaSha256(), false);
+            log.info("Documento v{} ({}) de la orden {} descargado por {}", documento.getVersion(), formato,
+                    orden.getNumero(), UsuarioActual.paraAuditoria());
+            return new Archivo(nombre, bytes, documento.getVersion(), documento.getHuellaSha256(), false,
+                    formato.tipo);
         }
         InstantaneaOrden reconstruida = instantanea(orden, true);
         String huella = sha256(serializar(reconstruida));
-        byte[] bytes = generador.generar(reconstruida, 1, huella, clock.instant().truncatedTo(ChronoUnit.SECONDS));
-        log.info("Documento reconstruido de la orden {} (emitida antes de V13) descargado por {}", orden.getNumero(),
-                UsuarioActual.paraAuditoria());
-        return new Archivo(nombre, bytes, 1, huella, true);
+        byte[] bytes = generar(formato, reconstruida, 1, huella, clock.instant().truncatedTo(ChronoUnit.SECONDS));
+        log.info("Documento reconstruido ({}) de la orden {} (emitida antes de V13) descargado por {}", formato,
+                orden.getNumero(), UsuarioActual.paraAuditoria());
+        return new Archivo(nombre, bytes, 1, huella, true, formato.tipo);
+    }
+
+    private byte[] generar(Formato formato, InstantaneaOrden instantanea, int version, String huella,
+                           Instant generadoEn) {
+        return switch (formato) {
+            case DOCX -> generador.generar(instantanea, version, huella, generadoEn);
+            case PDF -> generadorPdf.generar(instantanea, version, huella, generadoEn);
+        };
     }
 
     /** Versiones documentales de la orden, para su historial (vacío si se emitió antes de V13). */
@@ -136,7 +177,9 @@ public class DocumentoOrdenService {
 
     /** Debe invocarse dentro de una transacción (recorre asociaciones LAZY). */
     InstantaneaOrden instantanea(OrdenCompra orden, boolean reconstruida) {
-        Empresa empresa = orden.getEmpresa();
+        // La asociación de solo lectura no se rellena si la orden se creó en esta misma transacción.
+        Empresa empresa = orden.getEmpresa() != null ? orden.getEmpresa()
+                : empresaRepository.findById(orden.getEmpresaId()).orElseThrow();
         ProveedorReferencia proveedor = orden.getProveedor();
         ProgramacionEntrega programacion = orden.getProgramacionEntrega();
         List<InstantaneaOrden.Linea> lineas = new ArrayList<>();
@@ -167,7 +210,7 @@ public class DocumentoOrdenService {
 
     static String etiquetaRol(Rol rol) {
         return switch (rol) {
-            case ADMIN_EMPRESA -> "Administrador de empresa";
+            case ADMINISTRADOR_COMERCIAL -> "Administrador comercial";
             case TRABAJADOR -> "Trabajador";
             case SUPER_ADMIN -> "Super administrador de la plataforma";
         };

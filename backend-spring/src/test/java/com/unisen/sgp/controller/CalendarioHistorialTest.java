@@ -116,7 +116,7 @@ class CalendarioHistorialTest extends ComprasApiTest {
         assertThat(trabajador).extracting(e -> e.get("tipo").asText()).containsExactly("ENTREGA");
 
         Empresa norte = crearEmpresa("Norte", "900999999-9");
-        String adminNorte = crearUsuarioYEntrar("admin.norte", Rol.ADMIN_EMPRESA, norte);
+        String adminNorte = crearUsuarioYEntrar("admin.norte", Rol.ADMINISTRADOR_COMERCIAL, norte);
         assertThat(lista(leer(getJson(CALENDARIO + rango, adminNorte)).get("eventos"))).isEmpty();
 
         String plataforma = crearUsuarioYEntrar("plataforma", Rol.SUPER_ADMIN, null);
@@ -162,7 +162,7 @@ class CalendarioHistorialTest extends ComprasApiTest {
 
         // Solo gestión, y solo de su empresa.
         getJson(ORDENES + "/" + id + "/historial", usuarioToken).andExpect(status().isForbidden());
-        String intruso = crearUsuarioYEntrar("admin.norte", Rol.ADMIN_EMPRESA, crearEmpresa("Norte", "900999999-9"));
+        String intruso = crearUsuarioYEntrar("admin.norte", Rol.ADMINISTRADOR_COMERCIAL, crearEmpresa("Norte", "900999999-9"));
         getJson(ORDENES + "/" + id + "/historial", intruso).andExpect(status().isNotFound());
     }
 

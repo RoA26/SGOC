@@ -94,11 +94,18 @@ docker compose ps                  # los tres servicios deben quedar "healthy"
 Abre http://rrtf.duckdns.org e inicia sesión con `ADMIN_USERNAME` / `ADMIN_PASSWORD`. Ese
 usuario es el `SUPER_ADMIN` de la plataforma (la cuenta raíz): se crea en el primer arranque y los
 siguientes no lo modifican. Desde **Empresas** crea cada empresa con su código empresarial
-(p. ej. `NASC01`) y su administrador (rol `ADMIN_EMPRESA`, con nombres y apellidos), que ya puede
+(p. ej. `NASC01`) y su administrador (rol `ADMINISTRADOR_COMERCIAL`, con nombres y apellidos), que ya puede
 iniciar sesión. Los trabajadores entran con una invitación de su administrador (entran
 directamente) o con el código de registro secreto de su empresa (quedan pendientes hasta que el
 administrador los aprueba). Detalle en
 [backend-spring/README.md](backend-spring/README.md#gestión-centralizada-de-empresas).
+
+**Al actualizar al módulo comercial (V14–V16):** nada se borra. V14 renombra el rol
+`ADMIN_EMPRESA` a `ADMINISTRADOR_COMERCIAL` (mismas cuentas, contraseñas y empresas; los tokens
+emitidos siguen valiendo porque el rol se lee de la BD); V15 añade precio de venta e IVA a los
+productos (quedan **sin precio**: hay que definirlo en *Gestión comercial* antes de vender), ventas,
+pagos, devoluciones, política y autorizaciones; V16 calcula el costo promedio inicial desde el
+kárdex. Detalle en [docs/modulo-comercial.md](docs/modulo-comercial.md).
 
 **Al actualizar a la Fase 3 (V13):** nada se borra ni cambia. V13 añade las instantáneas de los
 documentos de las órdenes (`documentos_orden_compra`), el historial de programación de entregas
@@ -201,39 +208,39 @@ Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, si
 | --- | --- | --- |
 | POST | `/api/auth/login` | `{username, password}` → `{accessToken, tokenType, expiresIn, usuario}` (`usuario.empresaId`, salvo SUPER_ADMIN) |
 | POST | `/api/auth/registro` | `{nombres, apellidos, username, email, password, codigoInvitacion \| codigoEmpresa}` → `201` usuario TRABAJADOR de la empresa del código: ACTIVO con invitación, PENDIENTE con código de empresa |
-| POST | `/api/v1/empresas` | SUPER_ADMIN: empresa + código empresarial (`codigo`, indicado o propuesto) + `administrador` inicial (`ADMIN_EMPRESA`, con `nombres` y `apellidos`), todo o nada |
+| POST | `/api/v1/empresas` | SUPER_ADMIN: empresa + código empresarial (`codigo`, indicado o propuesto) + `administrador` inicial (`ADMINISTRADOR_COMERCIAL`, con `nombres` y `apellidos`), todo o nada |
 | GET | `/api/v1/empresas[/{id}]` | SUPER_ADMIN: listado paginado y ficha, con `codigo` y el administrador principal en `administrador` |
 | GET | `/api/v1/empresas/codigo-sugerido?nombre=` · `/codigo-disponible?codigo=` | SUPER_ADMIN: propone (`NASCAR` → `NASC01`) y comprueba un código empresarial |
 | GET | `/api/v1/empresas/{id}/usuarios` | SUPER_ADMIN: usuarios de esa empresa (administradores y trabajadores) con su estado |
 | PATCH | `/api/v1/empresas/{id}/estado` · `/{id}/administradores/{usuarioId}/estado` | SUPER_ADMIN: activar o desactivar la empresa, o la cuenta de uno de sus administradores |
-| GET | `/api/v1/empresas/actual` | ADMIN_EMPRESA, o SUPER_ADMIN con `X-Tenant-ID: <id>`: empresa en la que se trabaja, con sus códigos |
-| GET · PATCH | `/api/v1/trabajadores[?estado=]` · `/{id}/estado` | ADMIN_EMPRESA, o SUPER_ADMIN con `X-Tenant-ID: <id>`: trabajadores de esa empresa; aprobar, rechazar, desactivar o reactivar |
-| POST | `/api/auth/invitaciones` | ADMIN_EMPRESA (o SUPER_ADMIN con `X-Tenant-ID: <id>`, solo por API): `{horasValidez?}` → `201` `{codigo, fechaExpiracion}` |
+| GET | `/api/v1/empresas/actual` | ADMINISTRADOR_COMERCIAL, o SUPER_ADMIN con `X-Tenant-ID: <id>`: empresa en la que se trabaja, con sus códigos |
+| GET · PATCH | `/api/v1/trabajadores[?estado=]` · `/{id}/estado` | ADMINISTRADOR_COMERCIAL, o SUPER_ADMIN con `X-Tenant-ID: <id>`: trabajadores de esa empresa; aprobar, rechazar, desactivar o reactivar |
+| POST | `/api/auth/invitaciones` | ADMINISTRADOR_COMERCIAL (o SUPER_ADMIN con `X-Tenant-ID: <id>`, solo por API): `{horasValidez?}` → `201` `{codigo, fechaExpiracion}` |
 | GET · DELETE | `/api/auth/invitaciones` · `/{id}` | Mismos roles: invitaciones de la empresa con su estado (sin el código completo); revocar una vigente (baja lógica) |
 | GET · PATCH | `/api/auth/me` | Perfil del usuario autenticado, leído de la BD: nombres, apellidos, rol, estado y empresa (`empresaNombre`, `empresaCodigo`); `PATCH {nombres, apellidos}` corrige los propios |
 | GET | `/api/v1/proveedores?page=0&size=10&sort=razonSocial,asc` | Listado paginado |
 | GET · POST · PUT · DELETE | `/api/v1/proveedores[/{id}]` | Detalle, alta, edición y baja lógica |
 | GET | `/api/v1/productos?page=0&size=10&sort=nombre,asc` | Listado paginado (incluye el proveedor) |
 | GET · POST · PUT · DELETE | `/api/v1/productos[/{id}]` | Detalle, alta, edición y baja lógica |
-| GET · POST | `/api/v1/solicitudes[?estado=]` | TRABAJADOR ve y crea las suyas; ADMIN_EMPRESA ve las de su empresa; SUPER_ADMIN consulta |
-| PATCH | `/api/v1/solicitudes/{id}/estado` | ADMIN_EMPRESA, o SUPER_ADMIN con `X-Tenant-ID: <id>`: `{estado: APROBADA \| RECHAZADA, comentario}` |
+| GET · POST | `/api/v1/solicitudes[?estado=]` | TRABAJADOR ve y crea las suyas; ADMINISTRADOR_COMERCIAL ve las de su empresa; SUPER_ADMIN consulta |
+| PATCH | `/api/v1/solicitudes/{id}/estado` | ADMINISTRADOR_COMERCIAL, o SUPER_ADMIN con `X-Tenant-ID: <id>`: `{estado: APROBADA \| RECHAZADA, comentario}` |
 | GET | `/api/v1/analitica/global[/empresas]?desde=&hasta=` | SUPER_ADMIN con `X-Tenant-ID: global`: empresas, órdenes emitidas, top 5, evolución por día/mes y órdenes por empresa |
 | GET | `/api/v1/analitica/empresa?desde=&hasta=` · `/personal` | Indicadores de la empresa (gestión) y personales (sin ventas) |
-| GET · POST · PUT | `/api/v1/ordenes-compra[/{id}]` | Gestión consulta; ADMIN_EMPRESA crea y edita borradores (un proveedor por orden) |
-| POST | `/api/v1/ordenes-compra/{id}/emitir` · `/cancelar` · `/desde-solicitud/{solicitudId}` | ADMIN_EMPRESA: transiciones validadas y borradores desde una solicitud aprobada |
-| GET · POST | `/api/v1/ordenes-compra/{id}/recepciones` · `GET /api/v1/recepciones[?desde=&hasta=&proveedorId=&ordenId=&registradaPorId=&conIncidencias=]` | Recepciones parciales o totales con incidencias (faltante, dañado, excedente, producto incorrecto, otra), idempotentes (`claveIdempotencia`). Registran ADMIN_EMPRESA y TRABAJADOR; el listado con costos es de gestión |
+| GET · POST · PUT | `/api/v1/ordenes-compra[/{id}]` | Gestión consulta; ADMINISTRADOR_COMERCIAL crea y edita borradores (un proveedor por orden) |
+| POST | `/api/v1/ordenes-compra/{id}/emitir` · `/cancelar` · `/desde-solicitud/{solicitudId}` | ADMINISTRADOR_COMERCIAL: transiciones validadas y borradores desde una solicitud aprobada |
+| GET · POST | `/api/v1/ordenes-compra/{id}/recepciones` · `GET /api/v1/recepciones[?desde=&hasta=&proveedorId=&ordenId=&registradaPorId=&conIncidencias=]` | Recepciones parciales o totales con incidencias (faltante, dañado, excedente, producto incorrecto, otra), idempotentes (`claveIdempotencia`). Registran ADMINISTRADOR_COMERCIAL y TRABAJADOR; el listado con costos es de gestión |
 | GET | `/api/v1/ordenes-compra/{id}/documento` · `/documentos` | Gestión: Word (.docx) de la orden emitida, generado desde la instantánea inmutable de la emisión; versiones documentales |
-| PUT · GET | `/api/v1/ordenes-compra/{id}/entrega` · `/entrega/historial` | ADMIN_EMPRESA programa o reprograma (con motivo) la fecha estimada, franja opcional, confirmación del proveedor, referencia y observaciones; historial de versiones (toda la empresa) |
+| PUT · GET | `/api/v1/ordenes-compra/{id}/entrega` · `/entrega/historial` | ADMINISTRADOR_COMERCIAL programa o reprograma (con motivo) la fecha estimada, franja opcional, confirmación del proveedor, referencia y observaciones; historial de versiones (toda la empresa) |
 | GET | `/api/v1/ordenes-compra/{id}/historial` | Gestión: secuencia completa (solicitud, emisión, documento, programaciones, recepciones con incidencias y kárdex, cancelación) |
 | GET | `/api/v1/entregas[?vista=&desde=&hasta=&proveedorId=&numero=]` · `/resumen` · `/{ordenId}` | Entregas sin costos (el trabajador, solo las pendientes); cifras de supervisión (gestión); detalle operativo de una orden |
 | GET | `/api/v1/recepciones/mias` · `/{id}` | Recepciones registradas por quien pregunta; detalle (sin costos para el trabajador) |
 | GET | `/api/v1/calendario?desde=&hasta=[&tipos=]` | Eventos derivados (emisiones, entregas, recepciones, solicitudes pendientes), máx. 62 días, siempre dentro de una empresa |
 | GET | `/api/v1/inventario[?estado=&q=]` · `/movimientos` | Existencias (toda la empresa) y kárdex (gestión) |
-| POST | `/api/v1/inventario/ajustes` | ADMIN_EMPRESA: ajuste con motivo, sin existencias negativas, idempotente |
+| POST | `/api/v1/inventario/ajustes` | ADMINISTRADOR_COMERCIAL: ajuste con motivo, sin existencias negativas, idempotente |
 | GET | `/api/v1/productos/buscar?codigo=` | Escáner: código de barras exacto y, si no, SKU, en la empresa del contexto |
 
 Lecturas: cualquier usuario autenticado (de su empresa). Altas, cambios y bajas de catálogos:
-`ADMIN_EMPRESA` o `SUPER_ADMIN` dentro de una empresa. El SUPER_ADMIN debe elegir siempre el
+`ADMINISTRADOR_COMERCIAL` o `SUPER_ADMIN` dentro de una empresa. El SUPER_ADMIN debe elegir siempre el
 contexto en las rutas de datos de negocio: `X-Tenant-ID: <id>` (supervisión) o
 `X-Tenant-ID: global` (modo global explícito y registrado); sin cabecera, `400`. Detalle de reglas y errores en
 [backend-spring/README.md](backend-spring/README.md#saas-multi-empresa-tenants).
@@ -244,13 +251,13 @@ El SGOC es multi-empresa: cada empresa cliente ve solo sus datos y el backend lo
 
 | Rol | Empresa de trabajo | Menú |
 | --- | --- | --- |
-| `TRABAJADOR` («Trabajador») | La suya (de la sesión) | Inicio · Mis solicitudes · Recibir mercancía · Calendario · Existencias |
-| `ADMIN_EMPRESA` («Administrador») | La suya (de la sesión) | Inicio · Solicitudes · Órdenes de compra · Entregas · Recepciones · Calendario · Existencias · Productos · Proveedores · Invitar usuarios |
-| `SUPER_ADMIN` | Ninguna (modo global) o la que supervisa | Inicio · Solicitudes · Órdenes de compra · Entregas · Recepciones · Calendario (supervisando) · Existencias · Productos · Proveedores (consulta) · Empresas |
+| `TRABAJADOR` («Trabajador») | La suya (de la sesión) | Inicio · Mis solicitudes · Punto de venta · Mis ventas · Recibir mercancía · Calendario · Existencias |
+| `ADMINISTRADOR_COMERCIAL` («Administrador comercial») | La suya (de la sesión) | Inicio · Solicitudes · Órdenes de compra · Entregas · Recepciones · Punto de venta · Ventas · Reportes · Gestión comercial · Calendario · Existencias · Productos · Proveedores · Invitar usuarios |
+| `SUPER_ADMIN` | Ninguna (modo global) o la que supervisa | Inicio · Solicitudes · Órdenes de compra · Entregas · Recepciones · Ventas, Reportes y Gestión comercial (supervisando, solo consulta) · Calendario (supervisando) · Existencias · Productos · Proveedores (consulta) · Empresas |
 
 - **Panel lateral:** muestra el nombre comercial y el código de la empresa, el nombre real del
   usuario (enlace a *Mi perfil*) y su rol, según `GET /api/auth/me`, que la interfaz consulta al
-  cargar y al volver a la pestaña. ADMIN_EMPRESA y TRABAJADOR no pueden cambiar
+  cargar y al volver a la pestaña. ADMINISTRADOR_COMERCIAL y TRABAJADOR no pueden cambiar
   de empresa.
 - **SUPER_ADMIN:** entra en **modo global** (consulta todas las empresas; sus peticiones llevan
   `X-Tenant-ID: global`, que el backend registra). En **Empresas** pulsa
@@ -258,12 +265,13 @@ El SGOC es multi-empresa: cada empresa cliente ve solo sus datos y el backend lo
   una franja fija indica qué empresa supervisa y toda la interfaz muestra solo sus datos, en
   **solo lectura** (sigue siendo SUPER_ADMIN: no hay suplantación de ningún usuario). La elección
   dura la pestaña (sessionStorage), se borra al cerrar sesión y *Volver al modo global* la quita.
-  ADMIN_EMPRESA y TRABAJADOR nunca envían la cabecera (el backend la ignoraría).
-- **Rutas protegidas:** `/productos`, `/proveedores`, `/ordenes-compra[/:id]`, `/entregas` y `/recepciones` para ADMIN_EMPRESA y SUPER_ADMIN; `/recepcion` para ADMIN_EMPRESA y TRABAJADOR; `/recepcion/:ordenId` para todos (el SUPER_ADMIN, en consulta); `/inventario` y `/calendario` para todos;
-  `/admin/invitaciones` solo para ADMIN_EMPRESA; `/perfil` para todos; `/admin/empresas[/:id]` solo para SUPER_ADMIN; el
+  ADMINISTRADOR_COMERCIAL y TRABAJADOR nunca envían la cabecera (el backend la ignoraría).
+- **Rutas protegidas:** `/productos`, `/proveedores`, `/ordenes-compra[/:id]`, `/entregas`, `/recepciones`, `/comercial` y `/reportes` para ADMINISTRADOR_COMERCIAL y SUPER_ADMIN; `/recepcion` y `/pos` para ADMINISTRADOR_COMERCIAL y TRABAJADOR; `/ventas[/:id]` para todos (el trabajador, las suyas); `/recepcion/:ordenId` para todos (el SUPER_ADMIN, en consulta); `/inventario` y `/calendario` para todos;
+  `/admin/invitaciones` solo para ADMINISTRADOR_COMERCIAL; `/perfil` para todos; `/admin/empresas[/:id]` solo para SUPER_ADMIN; el
   resto vuelve al inicio.
 - **Sesiones anteriores** (con el rol `ADMIN`, que ya no existe) se descartan y piden iniciar
-  sesión de nuevo.
+  sesión de nuevo. Las guardadas con `ADMIN_EMPRESA` (antes de V14) se traducen a
+  `ADMINISTRADOR_COMERCIAL` sin cerrar la sesión.
 - **Cuenta que pierde la autorización:** si el backend responde `401`, o `403` con `motivo`
   (cuenta pendiente, rechazada, desactivada o empresa desactivada), la interfaz cierra la sesión;
   al volver a entrar, el login muestra el motivo. Un `403` sin `motivo` (falta de permisos para
@@ -289,7 +297,16 @@ reales: entregas en su fecha estimada vigente (retrasadas resaltadas), recepcion
 órdenes emitidas (gestión) y solicitudes por aprobar (el trabajador, las suyas). Filtros por tipo y
 estado, acciones según el rol (abrir la orden y reprogramar, o ir a registrar la recepción).
 
-**Documento Word:** la ficha de una orden emitida ofrece *Descargar Word*: un .docx con la empresa,
+**Módulo comercial (precios, POS, comprobantes, devoluciones y reportes):** el administrador
+comercial define el precio de venta sin IVA y el tratamiento del IVA (gravado, exento o excluido)
+de cada producto con historial, ve el costo promedio y la rentabilidad bruta, fija la política de
+descuentos y emite códigos de autorización; quien vende usa el *Punto de venta* (`/pos`), donde el
+backend calcula todo, descuenta existencias con bloqueo y deja el kárdex; el comprobante PDF es
+interno (**no es factura electrónica**). Reglas, fórmulas, decisiones pendientes y cuentas de
+demostración en [docs/modulo-comercial.md](docs/modulo-comercial.md).
+
+**Documento de la orden (PDF y Word):** la ficha de una orden emitida ofrece *Descargar PDF* (formato
+prioritario para compartir) y *Word*, ambos desde la misma instantánea (misma versión y huella). El .docx lleva la empresa,
 el proveedor, la entrega, las líneas y el total tal como se emitieron (instantánea inmutable con
 huella SHA-256), sin impuestos ni descuentos (no hay reglas aprobadas) ni datos que el sistema no
 tiene (dirección de la empresa, logo, unidad de medida, firma).
@@ -310,7 +327,7 @@ las consulta en solo lectura.
 
 **Existencias (`/inventario`):** buscador por código de barras o SKU (los lectores USB/Bluetooth
 funcionan como teclado: código + Enter), existencias con su estado frente al stock mínimo,
-ajustes con motivo (ADMIN_EMPRESA) y kárdex (gestión). El trabajador consulta sin costos.
+ajustes con motivo (ADMINISTRADOR_COMERCIAL) y kárdex (gestión). El trabajador consulta sin costos.
 
 **Mi perfil (`/perfil`):** nombre real, usuario de acceso (no es el nombre visible), correo, rol
 («Administrador de empresa», «Trabajador»…) y empresa; formulario para completar o corregir los
@@ -326,7 +343,7 @@ apellidos, y entra directamente en la empresa del código con rol TRABAJADOR. Lo
 servidor (código inválido, usado, revocado o caducado;
 usuario o correo en uso) aparecen junto al campo afectado.
 
-**Solicitudes de compra (`/solicitudes`):** ADMIN_EMPRESA y TRABAJADOR piden productos del
+**Solicitudes de compra (`/solicitudes`):** ADMINISTRADOR_COMERCIAL y TRABAJADOR piden productos del
 catálogo con un motivo y tantas líneas como necesiten (producto + cantidad), sin elegir proveedor,
 y ven el total estimado en COP. La solicitud queda `PENDIENTE`; el administrador la abre y la
 aprueba o la rechaza (con motivo); el SUPER_ADMIN solo la consulta. Un TRABAJADOR solo ve las
@@ -341,7 +358,7 @@ con un generador de contraseñas seguras). Se crean juntos o no se crea nada. Ca
 *Detalles* (ficha con datos, administrador, actividad real y usuarios; desde ella se desactiva o
 reactiva la empresa o la cuenta de su administrador, con confirmación) y *Supervisar*.
 
-**Invitar usuarios (`/admin/invitaciones`, ADMIN_EMPRESA):** el administrador genera un código con
+**Invitar usuarios (`/admin/invitaciones`, ADMINISTRADOR_COMERCIAL):** el administrador genera un código con
 un clic y lo copia, o copia el enlace de registro. Es el alta de trabajadores de su empresa (no de
 empresas). El código completo solo se muestra al generarlo; debajo, el historial de invitaciones
 de la empresa (vigente, usada, revocada o caducada, quién la creó, la usó o la revocó) permite
@@ -357,16 +374,27 @@ revocar una vigente, con confirmación.
 | Impuestos y descuentos en las órdenes; cierre de una orden con saldo pendiente | Pendiente de decisión |
 | Aceptar excedentes; corregir o anular una recepción confirmada; devoluciones al proveedor | Pendiente de decisión: hoy el excedente se informa como incidencia y una corrección es un ajuste de inventario |
 | Datos de la empresa para el documento (dirección, logo) y unidad de medida de los productos | Sin modelo: el documento no los muestra |
-| Exportación a PDF de la orden | Sin definir (el .docx se abre e imprime a PDF desde Word o LibreOffice) |
-| Valoración del inventario (costo promedio) | Propuesta documentada en `docs/pos-diseno.md`, pendiente de validación contable |
-| Ventas (POS) | Solo diseño: `docs/pos-diseno.md` |
+| Valoración del inventario | Costo promedio ponderado aplicado como **provisional**; pendiente de validación contable (ver `docs/modulo-comercial.md`) |
+| Facturación electrónica (DIAN) | Fuera del alcance: el comprobante de venta es interno |
 | Gestión de administradores (alta de más administradores, cambio de rol) | Sin definir; el SUPER_ADMIN ya desactiva o reactiva sus cuentas y los trabajadores se gestionan con `/api/v1/trabajadores` |
 | Edición de la ficha de la empresa (nombre, NIT) | `PUT /api/v1/empresas/{id}`; el código empresarial es estable y no se edita |
-| Reportes | Sin definir |
+| Cajas, turnos y arqueo; clientes como entidad | Sin definir (ver decisiones pendientes en `docs/modulo-comercial.md`) |
+
+## Datos de demostración
+
+Cinco empresas ficticias con administrador comercial, trabajadores, proveedores, productos,
+compras, inventario y ventas, **solo en desarrollo** (perfil `demo`; con un perfil de producción
+activo el arranque se detiene). Idempotente: ejecutarla otra vez no duplica nada ni cambia
+contraseñas. Contraseña común de las cuentas demo: `abcde123!` (p. ej. `demo1.admin`,
+`demo1.ana`); lista completa en [docs/modulo-comercial.md](docs/modulo-comercial.md#cuentas-de-demostración).
+
+```bash
+cd backend-spring && SPRING_PROFILES_ACTIVE=demo ./mvnw spring-boot:run
+```
 
 ## Calidad
 
 ```bash
-cd backend-spring && ./mvnw test                  # 244 tests (H2; también contra PostgreSQL)
+cd backend-spring && ./mvnw test                  # 303 tests (H2; también contra PostgreSQL)
 cd frontend && npm run lint && npm test && npm run build   # oxlint, Vitest + Testing Library, TypeScript estricto
 ```

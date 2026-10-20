@@ -1,5 +1,8 @@
 package com.unisen.sgp.repository;
 
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
+
 import com.unisen.sgp.model.entity.Producto;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -18,6 +21,10 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
     @Override
     @EntityGraph(attributePaths = "proveedor")
     Optional<Producto> findById(Long id);
+
+    /** Bloquea el producto para cambiar sus condiciones de venta (el historial registra el valor anterior exacto). */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Producto> findWithLockById(Long id);
 
     /** Productos activos de un proveedor. */
     long countByProveedorId(Long proveedorId);

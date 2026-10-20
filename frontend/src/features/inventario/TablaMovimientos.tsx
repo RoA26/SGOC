@@ -48,6 +48,10 @@ export function TablaMovimientos({ productoId, recarga = 0 }: { productoId?: num
           <Link to={`/ordenes-compra/${m.ordenId}`} className="whitespace-nowrap hover:underline">
             Recepción · <span className="font-mono">{numeroOrden(m.ordenNumero)}</span>
           </Link>
+        ) : (m.tipo === 'VENTA' || m.tipo === 'DEVOLUCION_VENTA') && m.ventaId ? (
+          <Link to={`/ventas/${m.ventaId}`} className="whitespace-nowrap hover:underline">
+            {m.tipo === 'VENTA' ? 'Venta' : 'Devolución'} · <span className="font-mono">{m.ventaNumero}</span>
+          </Link>
         ) : (
           <span className="text-foreground-muted">Ajuste · {m.motivo}</span>
         ),

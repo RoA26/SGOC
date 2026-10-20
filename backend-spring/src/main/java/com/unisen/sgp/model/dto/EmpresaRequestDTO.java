@@ -11,7 +11,7 @@ import jakarta.validation.constraints.Size;
 
 /**
  * Alta de una empresa cliente (solo SUPER_ADMIN): la empresa y su administrador inicial
- * (rol ADMIN_EMPRESA) se crean juntos o no se crea nada.
+ * (rol ADMINISTRADOR_COMERCIAL) se crean juntos o no se crea nada.
  *
  * <p>{@code codigo} es el código empresarial (p. ej. NASC01): si se omite, el servidor propone el
  * siguiente libre a partir del nombre. El código de registro de trabajadores ({@code codigoEmpresa}
@@ -50,7 +50,7 @@ public record EmpresaRequestDTO(
     }
 
     /**
-     * Administrador inicial de la empresa: rol ADMIN_EMPRESA, ACTIVO, con la contraseña inicial
+     * Administrador inicial de la empresa: rol ADMINISTRADOR_COMERCIAL, ACTIVO, con la contraseña inicial
      * indicada. Rol, estado y empresa los fija el servidor; si el JSON los trae, se ignoran.
      */
     public record AdministradorInicial(

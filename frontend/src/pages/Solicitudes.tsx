@@ -39,7 +39,7 @@ function estadoDeUrl(valor: string | null): EstadoSolicitud | null {
 
 /**
  * Solicitudes de compra: la necesidad interna, antes de cualquier orden de compra. TRABAJADOR ve
- * y crea las suyas; ADMIN_EMPRESA ve y revisa las de su empresa; SUPER_ADMIN las consulta (de todas
+ * y crea las suyas; ADMINISTRADOR_COMERCIAL ve y revisa las de su empresa; SUPER_ADMIN las consulta (de todas
  * las empresas o de la que supervisa, en solo lectura). El filtrado por usuario y empresa lo
  * hace el backend.
  *

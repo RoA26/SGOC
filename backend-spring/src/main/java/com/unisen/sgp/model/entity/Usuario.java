@@ -112,7 +112,7 @@ public class Usuario {
      * @param nombres   obligatorios
      * @param apellidos obligatorios para las personas (lo exigen los DTO de alta); null solo para
      *                  cuentas técnicas como el administrador inicial sin apellidos configurados
-     * @param empresa   obligatoria para ADMIN_EMPRESA y TRABAJADOR; debe ser null para SUPER_ADMIN
+     * @param empresa   obligatoria para ADMINISTRADOR_COMERCIAL y TRABAJADOR; debe ser null para SUPER_ADMIN
      * @param estado    estado inicial: PENDIENTE para un autorregistro, ACTIVO para un alta ya
      *                  autorizada (administrador inicial de la empresa, invitación, SUPER_ADMIN inicial)
      */

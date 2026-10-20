@@ -70,7 +70,7 @@ public class EmpresaService {
 
     /**
      * Crea la empresa, su código empresarial, su código de registro de trabajadores y su
-     * administrador inicial (ADMIN_EMPRESA, ACTIVO) en una sola transacción: si cualquier paso falla
+     * administrador inicial (ADMINISTRADOR_COMERCIAL, ACTIVO) en una sola transacción: si cualquier paso falla
      * (NIT o código repetido, username o correo en uso, error de BD...), no queda ni la empresa ni
      * el administrador.
      *
@@ -123,7 +123,7 @@ public class EmpresaService {
         Usuario administrador;
         try {
             administrador = usuarioService.crearUsuario(datos.username(), datos.email(), datos.nombres(),
-                    datos.apellidos(), datos.password(), Rol.ADMIN_EMPRESA, empresa);
+                    datos.apellidos(), datos.password(), Rol.ADMINISTRADOR_COMERCIAL, empresa);
         } catch (DatoDuplicadoException ex) {
             // La excepción deshace la transacción: la empresa tampoco se guarda.
             throw new DatoDuplicadoException(CAMPO_ADMINISTRADOR + ex.getCampo(), ex.getMessage());
@@ -267,7 +267,7 @@ public class EmpresaService {
     }
 
     /**
-     * Desactiva o reactiva la cuenta de un administrador (ADMIN_EMPRESA) de la empresa (p. ej.
+     * Desactiva o reactiva la cuenta de un administrador (ADMINISTRADOR_COMERCIAL) de la empresa (p. ej.
      * deja la empresa o su cuenta se ve comprometida). Rige desde su siguiente
      * petición, aunque su JWT siga vigente. Las transiciones son las de {@link EstadoUsuario}.
      *
@@ -277,7 +277,7 @@ public class EmpresaService {
     @PreAuthorize(Permisos.SUPER_ADMIN)
     @Transactional
     public TrabajadorResponseDTO cambiarEstadoAdministrador(Long empresaId, Long usuarioId, CambioEstadoUsuarioDTO dto) {
-        Usuario administrador = usuarioRepository.findWithLockByIdAndEmpresa_IdAndRol(usuarioId, empresaId, Rol.ADMIN_EMPRESA)
+        Usuario administrador = usuarioRepository.findWithLockByIdAndEmpresa_IdAndRol(usuarioId, empresaId, Rol.ADMINISTRADOR_COMERCIAL)
                 .orElseThrow(() -> new RecursoNoEncontradoException("administrador", usuarioId));
         EstadoUsuario anterior = administrador.getEstado();
         administrador.cambiarEstado(dto.estado());
@@ -289,7 +289,7 @@ public class EmpresaService {
 
     /**
      * Empresa de la petición, con el código que el gestor comparte con sus trabajadores.
-     * ADMIN_EMPRESA: la suya; SUPER_ADMIN: la de X-Tenant-ID.
+     * ADMINISTRADOR_COMERCIAL: la suya; SUPER_ADMIN: la de X-Tenant-ID.
      *
      * @throws com.unisen.sgp.exception.EmpresaNoSeleccionadaException SUPER_ADMIN en modo global (→ 400)
      */
@@ -306,13 +306,13 @@ public class EmpresaService {
         return empresaRepository.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("empresa", id));
     }
 
-    /** Administrador principal (primer ADMIN_EMPRESA) de cada empresa, por id de empresa. */
+    /** Administrador principal (primer ADMINISTRADOR_COMERCIAL) de cada empresa, por id de empresa. */
     private Map<Long, Usuario> administradoresPrincipales(List<Empresa> empresas) {
         if (empresas.isEmpty()) {
             return Map.of();
         }
         List<Long> ids = empresas.stream().map(Empresa::getId).toList();
-        return usuarioRepository.findPrimeroConRolPorEmpresa(Rol.ADMIN_EMPRESA, ids).stream()
+        return usuarioRepository.findPrimeroConRolPorEmpresa(Rol.ADMINISTRADOR_COMERCIAL, ids).stream()
                 .collect(Collectors.toMap(Usuario::getEmpresaId, Function.identity()));
     }
 }

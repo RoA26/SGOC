@@ -9,6 +9,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import com.unisen.sgp.service.comercial.ValoracionInventario;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Objects;
 
@@ -36,6 +38,10 @@ public class Existencia extends EntidadDeEmpresa {
     @Column(nullable = false)
     private int cantidad;
 
+    /** Costo promedio ponderado (método provisional, {@link ValoracionInventario}); null = desconocido. */
+    @Column(name = "costo_promedio", precision = 14, scale = 4)
+    private BigDecimal costoPromedio;
+
     @Column(name = "actualizado_en", nullable = false)
     private Instant actualizadoEn;
 
@@ -61,6 +67,22 @@ public class Existencia extends EntidadDeEmpresa {
         this.cantidad = (int) saldo;
         this.actualizadoEn = Objects.requireNonNull(ahora, "ahora");
         return cantidad;
+    }
+
+    /**
+     * Entrada de unidades con su costo (null si no lo tiene): actualiza el promedio y el saldo.
+     * Las salidas siguen usando {@link #aplicar} con cantidad negativa (no cambian el promedio).
+     */
+    public int entrada(int unidades, BigDecimal costoUnitario, Instant ahora) {
+        if (unidades <= 0) {
+            throw new IllegalArgumentException("Una entrada tiene cantidad positiva: " + unidades);
+        }
+        this.costoPromedio = ValoracionInventario.promedioTrasEntrada(cantidad, costoPromedio, unidades, costoUnitario);
+        return aplicar(unidades, ahora);
+    }
+
+    public BigDecimal getCostoPromedio() {
+        return costoPromedio;
     }
 
     public Long getId() {

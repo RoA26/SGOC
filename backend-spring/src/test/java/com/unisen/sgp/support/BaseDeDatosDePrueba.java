@@ -14,6 +14,16 @@ public final class BaseDeDatosDePrueba {
      */
     public static void vaciar(JdbcTemplate jdbcTemplate) {
         jdbcTemplate.update("DELETE FROM movimientos_inventario");
+        jdbcTemplate.update("DELETE FROM detalles_devolucion_venta");
+        jdbcTemplate.update("DELETE FROM devoluciones_venta");
+        // La venta apunta a su autorización y la autorización a su venta: se rompe el ciclo.
+        jdbcTemplate.update("UPDATE ventas SET autorizacion_id = NULL");
+        jdbcTemplate.update("DELETE FROM autorizaciones_comerciales");
+        jdbcTemplate.update("DELETE FROM pagos_venta");
+        jdbcTemplate.update("DELETE FROM detalles_venta");
+        jdbcTemplate.update("DELETE FROM ventas");
+        jdbcTemplate.update("DELETE FROM cambios_precio");
+        jdbcTemplate.update("DELETE FROM politicas_comerciales");
         jdbcTemplate.update("DELETE FROM incidencias_recepcion");
         jdbcTemplate.update("DELETE FROM detalles_recepcion");
         jdbcTemplate.update("DELETE FROM recepciones");

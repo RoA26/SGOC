@@ -14,6 +14,8 @@ public interface EmpresaRepository extends JpaRepository<Empresa, Long> {
 
     boolean existsByNit(String nit);
 
+    Optional<Empresa> findByCodigo(String codigo);
+
     boolean existsByCodigo(String codigo);
 
     boolean existsByCodigoEmpresa(String codigoEmpresa);

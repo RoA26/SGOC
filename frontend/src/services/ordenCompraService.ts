@@ -1,5 +1,5 @@
+import { descargarArchivo } from '@/lib/descargas'
 import { api } from '@/lib/axios'
-import { leerErrorBlob } from '@/lib/errors'
 import type { UsuarioResumen } from './solicitudService'
 import type { Page, PageParams } from './types'
 
@@ -252,7 +252,7 @@ export const ordenCompraService = {
     return data
   },
 
-  /** ADMIN_EMPRESA: programa o reprograma (con motivo) la entrega; cada cambio queda en el historial. */
+  /** ADMINISTRADOR_COMERCIAL: programa o reprograma (con motivo) la entrega; cada cambio queda en el historial. */
   async programarEntrega(id: number, payload: ProgramacionPayload): Promise<ProgramacionEntrega> {
     const { data } = await api.put<ProgramacionEntrega>(`${BASE}/${id}/entrega`, payload)
     return data
@@ -274,35 +274,14 @@ export const ordenCompraService = {
   },
 
   /**
-   * Descarga el .docx de la orden emitida. Va por Axios (lleva el token y, para el SUPER_ADMIN,
-   * la empresa) y el navegador lo guarda con el nombre que indica el backend.
+   * Descarga el documento de la orden emitida: PDF (formato prioritario para compartir) o Word.
+   * Los dos salen de la misma instantánea de la emisión y llevan la misma versión y huella.
    */
-  async descargarDocumento(id: number): Promise<{ nombre: string; reconstruido: boolean }> {
-    const respuesta = await api
-      .get<Blob>(`${BASE}/${id}/documento`, { responseType: 'blob', timeout: 60_000 })
-      .catch(async (error: unknown) => Promise.reject(await leerErrorBlob(error)))
-    const disposicion = String(respuesta.headers['content-disposition'] ?? '')
-    const nombre = nombreDeArchivo(disposicion) ?? `orden-${id}.docx`
-    const url = URL.createObjectURL(respuesta.data)
-    try {
-      const enlace = document.createElement('a')
-      enlace.href = url
-      enlace.download = nombre
-      document.body.append(enlace)
-      enlace.click()
-      enlace.remove()
-    } finally {
-      // Tras el clic el navegador ya tiene el archivo.
-      setTimeout(() => URL.revokeObjectURL(url), 10_000)
-    }
-    return { nombre, reconstruido: respuesta.headers['x-documento-reconstruido'] === 'true' }
+  async descargarDocumento(id: number, formato: 'pdf' | 'docx' = 'pdf'): Promise<{ nombre: string; reconstruido: boolean }> {
+    const url = formato === 'pdf' ? `${BASE}/${id}/documento/pdf` : `${BASE}/${id}/documento`
+    const { nombre, cabeceras } = await descargarArchivo(url, `orden-${id}.${formato}`)
+    return { nombre, reconstruido: cabeceras['x-documento-reconstruido'] === 'true' }
   },
 }
 
-/** filename*=UTF-8''OC-00001.docx (RFC 5987) o filename="…". */
-export function nombreDeArchivo(disposicion: string): string | null {
-  const extendido = /filename\*=UTF-8''([^;]+)/i.exec(disposicion)
-  if (extendido?.[1]) return decodeURIComponent(extendido[1])
-  const simple = /filename="?([^";]+)"?/i.exec(disposicion)
-  return simple?.[1] ?? null
-}
+export { nombreDeArchivo } from '@/lib/descargas'

@@ -19,7 +19,7 @@ export interface Existencia {
   actualizadoEn: string
 }
 
-export type TipoMovimiento = 'RECEPCION' | 'AJUSTE'
+export type TipoMovimiento = 'RECEPCION' | 'AJUSTE' | 'VENTA' | 'DEVOLUCION_VENTA'
 
 /** MovimientoInventarioDTO (kárdex, con costos: solo gestión). */
 export interface Movimiento {
@@ -35,6 +35,9 @@ export interface Movimiento {
   ordenNumero?: number
   usuario: UsuarioResumen
   fecha: string
+  /** Ventas y devoluciones: la venta de origen. */
+  ventaId?: number
+  ventaNumero?: string
 }
 
 export interface AjustePayload {

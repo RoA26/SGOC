@@ -262,7 +262,7 @@ class OrdenCompraTest extends ComprasApiTest {
         patchJson("/api/v1/solicitudes/" + solicitud + "/estado", adminToken, "{\"estado\": \"APROBADA\"}");
 
         Empresa norte = crearEmpresa("Ferretería Norte", "800000002-2");
-        String intruso = crearUsuarioYEntrar("admin.norte", Rol.ADMIN_EMPRESA, norte);
+        String intruso = crearUsuarioYEntrar("admin.norte", Rol.ADMINISTRADOR_COMERCIAL, norte);
         long proveedorNorte = leer(postJson("/api/v1/proveedores", intruso,
                 "{\"nit\": \"900333333-3\", \"razonSocial\": \"Norteños\", \"email\": \"n@n.com\"}")).get("id").asLong();
 

@@ -22,6 +22,7 @@
         <jjwt.version>0.13.0</jjwt.version>
         <springdoc.version>2.8.17</springdoc.version>
         <poi.version>5.5.1</poi.version>
+        <openpdf.version>2.0.3</openpdf.version>
     </properties>
 
     <dependencies>
@@ -82,6 +83,12 @@
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml</artifactId>
             <version>${poi.version}</version>
+        </dependency>
+        <!-- PDF de órdenes de compra y comprobantes de venta (tablas con cabecera repetida y saltos de página). -->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>${openpdf.version}</version>
         </dependency>
 
         <!-- Operación: healthcheck para Docker -->

@@ -16,7 +16,7 @@ import { nombreCorto, useAuthStore } from '@/store/authStore'
 /**
  * Panel de inicio: un dashboard por contexto, con cifras que calcula el backend.
  * - SUPER_ADMIN en modo global: la plataforma (empresas y órdenes de todas).
- * - ADMIN_EMPRESA, o SUPER_ADMIN supervisando: la empresa.
+ * - ADMINISTRADOR_COMERCIAL, o SUPER_ADMIN supervisando: la empresa.
  * - TRABAJADOR: disponibilidad de productos y sus solicitudes (sin ventas: aún no existen).
  */
 export default function Inicio() {

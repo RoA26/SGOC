@@ -92,7 +92,7 @@ public class UsuarioService {
 
     /**
      * Trabajadores (rol TRABAJADOR) de la empresa de la petición, opcionalmente por estado (p. ej.
-     * los PENDIENTES de aprobar). ADMIN_EMPRESA: siempre la suya; SUPER_ADMIN: la de X-Tenant-ID.
+     * los PENDIENTES de aprobar). ADMINISTRADOR_COMERCIAL: siempre la suya; SUPER_ADMIN: la de X-Tenant-ID.
      *
      * @throws com.unisen.sgp.exception.EmpresaNoSeleccionadaException SUPER_ADMIN en modo global (→ 400)
      */

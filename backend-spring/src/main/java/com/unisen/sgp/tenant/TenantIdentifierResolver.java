@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>Sin empresa en el contexto devuelve {@link #GLOBAL}, el tenant "raíz": Hibernate no
  * filtra por {@code empresa_id}. Así funcionan el login, el registro y el modo global del
- * SUPER_ADMIN. Para ADMIN_EMPRESA y TRABAJADOR, {@link TenantFilter} garantiza que siempre hay empresa.
+ * SUPER_ADMIN. Para ADMINISTRADOR_COMERCIAL y TRABAJADOR, {@link TenantFilter} garantiza que siempre hay empresa.
  */
 @Component
 public class TenantIdentifierResolver implements CurrentTenantIdentifierResolver<Long>, HibernatePropertiesCustomizer {

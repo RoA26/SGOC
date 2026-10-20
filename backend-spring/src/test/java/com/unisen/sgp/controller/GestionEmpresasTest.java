@@ -26,7 +26,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 /**
  * Gestión centralizada de empresas por el SUPER_ADMIN: código empresarial estable (NASC01),
- * alta atómica con su administrador principal (ADMIN_EMPRESA), listado y ficha, ciclo de vida y
+ * alta atómica con su administrador principal (ADMINISTRADOR_COMERCIAL), listado y ficha, ciclo de vida y
  * supervisión con X-Tenant-ID sin perder la identidad de la cuenta raíz.
  */
 class GestionEmpresasTest extends ApiIntegrationTest {
@@ -75,7 +75,7 @@ class GestionEmpresasTest extends ApiIntegrationTest {
         JsonNode nascar = crear(empresa("NASCAR", "901555555-5", "nasc01", "admin.nascar"));
         long nascarId = nascar.get("id").asLong();
         assertThat(nascar.get("codigo").asText()).isEqualTo("NASC01");
-        assertThat(nascar.get("administrador").get("rol").asText()).isEqualTo("ADMIN_EMPRESA");
+        assertThat(nascar.get("administrador").get("rol").asText()).isEqualTo("ADMINISTRADOR_COMERCIAL");
         assertThat(nascar.get("administrador").get("estado").asText()).isEqualTo("ACTIVO");
         assertThat(nascar.get("administrador").get("empresaId").asLong()).isEqualTo(nascarId);
         // El código empresarial no es el código de registro de trabajadores (secreto y aleatorio).
@@ -87,7 +87,7 @@ class GestionEmpresasTest extends ApiIntegrationTest {
         String adminNascar = login("admin.nascar", CLAVE_ADMIN);
         getJson("/api/auth/me", adminNascar)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.rol").value("ADMIN_EMPRESA"))
+                .andExpect(jsonPath("$.rol").value("ADMINISTRADOR_COMERCIAL"))
                 .andExpect(jsonPath("$.empresaId").value(nascarId));
         getJson(URL + "/actual", adminNascar)
                 .andExpect(status().isOk())
@@ -186,7 +186,7 @@ class GestionEmpresasTest extends ApiIntegrationTest {
                 """.formatted(empresa.getId()));
         Map<String, Object> fila = jdbcTemplate.queryForMap(
                 "SELECT rol, empresa_id FROM usuarios WHERE username = 'admin.escalada'");
-        assertThat(fila.get("rol")).isEqualTo("ADMIN_EMPRESA");
+        assertThat(fila.get("rol")).isEqualTo("ADMINISTRADOR_COMERCIAL");
         assertThat(((Number) fila.get("empresa_id")).longValue()).isEqualTo(creada.get("id").asLong());
     }
 
@@ -221,7 +221,7 @@ class GestionEmpresasTest extends ApiIntegrationTest {
     void elListadoYLaFichaMuestranAlAdministradorPrincipal() throws Exception {
         long nascarId = crear(empresa("NASCAR", "901555555-5", "NASC01", "admin.nascar")).get("id").asLong();
         // Un segundo administrador no desplaza al inicial como administrador principal.
-        usuarioService.crearUsuario("otro.admin", "otro@nascar.com", "Otro", "Admin", PASSWORD, Rol.ADMIN_EMPRESA,
+        usuarioService.crearUsuario("otro.admin", "otro@nascar.com", "Otro", "Admin", PASSWORD, Rol.ADMINISTRADOR_COMERCIAL,
                 empresaRepository.findById(nascarId).orElseThrow());
         crearEmpresa("Zeta", "833333333-3"); // sin administrador
 
@@ -279,7 +279,7 @@ class GestionEmpresasTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.page.totalElements").value(3))
                 // Primero los administradores; después los trabajadores por nombre.
                 .andExpect(jsonPath("$.content[0].username").value("admin"))
-                .andExpect(jsonPath("$.content[0].rol").value("ADMIN_EMPRESA"))
+                .andExpect(jsonPath("$.content[0].rol").value("ADMINISTRADOR_COMERCIAL"))
                 .andExpect(jsonPath("$.content[1].username").value("compras"))
                 .andExpect(jsonPath("$.content[1].estado").value("ACTIVO"))
                 .andExpect(jsonPath("$.content[2].username").value("pendiente"))

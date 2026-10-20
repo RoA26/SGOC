@@ -92,7 +92,7 @@ public class InventarioService {
      *
      * @throws ConflictoException si las existencias quedarían negativas
      */
-    @PreAuthorize(Permisos.ADMIN_EMPRESA)
+    @PreAuthorize(Permisos.ADMINISTRADOR_COMERCIAL)
     @Transactional
     public ResultadoIdempotente<MovimientoInventarioDTO> ajustar(AjusteInventarioDTO dto) {
         TenantContextHolder.requerirEmpresa();
@@ -125,7 +125,9 @@ public class InventarioService {
                     + existencia.getCantidad() + " unidades y no se pueden retirar " + (-dto.cantidad()) + ".");
         }
         Instant ahora = ahora();
-        int saldo = existencia.aplicar(dto.cantidad(), ahora);
+        // Las entradas actualizan el costo promedio (sin costo: se valoran al promedio vigente).
+        int saldo = dto.cantidad() > 0 ? existencia.entrada(dto.cantidad(), dto.costoUnitario(), ahora)
+                : existencia.aplicar(dto.cantidad(), ahora);
         MovimientoInventario movimiento = movimientoRepository.saveAndFlush(MovimientoInventario.deAjuste(producto,
                 dto.cantidad(), saldo, dto.costoUnitario(), dto.motivo(), dto.claveIdempotencia(),
                 usuarioRepository.getReferenceById(UsuarioActual.obtener().getId()), ahora));
@@ -140,7 +142,7 @@ public class InventarioService {
      * fila (no debería: se crea con él y V11 la creó para los existentes), se crea aquí; la
      * restricción uq_existencias_producto impide duplicarla.
      */
-    Map<Long, Existencia> bloquear(Collection<Long> productoIds) {
+    public Map<Long, Existencia> bloquear(Collection<Long> productoIds) {
         Map<Long, Existencia> filas = existenciaRepository.findWithLockByProductoIdInOrderByProductoIdAsc(productoIds)
                 .stream().collect(Collectors.toMap(Existencia::getProductoId, Function.identity()));
         for (Long productoId : productoIds) {

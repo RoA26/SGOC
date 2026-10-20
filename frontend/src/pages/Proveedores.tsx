@@ -19,7 +19,7 @@ const ORDEN = 'razonSocial,asc'
 type Editor = { proveedor?: Proveedor } | null
 
 export default function Proveedores() {
-  // Solo el ADMIN_EMPRESA de la empresa: el SUPER_ADMIN consulta (modo global o supervisión, solo lectura).
+  // Solo el ADMINISTRADOR_COMERCIAL de la empresa: el SUPER_ADMIN consulta (modo global o supervisión, solo lectura).
   const puedeGestionar = usePermisos().gestionarCatalogos
   // Crear o eliminar proveedores cambia lo que ve el catálogo de productos.
   const invalidarProveedores = useProveedoresStore((state) => state.invalidar)

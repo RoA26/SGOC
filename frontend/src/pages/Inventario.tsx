@@ -30,7 +30,7 @@ function estadoDeUrl(valor: string | null): EstadoStock | null {
 
 /**
  * Existencias de los productos activos. Toda la empresa las consulta (sin costos); el
- * ADMIN_EMPRESA registra ajustes y la gestión ve el kárdex. Las cifras salen siempre del backend:
+ * ADMINISTRADOR_COMERCIAL registra ajustes y la gestión ve el kárdex. Las cifras salen siempre del backend:
  * se mueven con recepciones y ajustes, nunca editándolas aquí.
  */
 export default function Inventario() {
