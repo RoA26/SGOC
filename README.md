@@ -387,7 +387,7 @@ revocar una vigente, con confirmación.
 
 | Necesidad del frontend | Endpoint que falta |
 | --- | --- |
-| Registro con código de empresa | Endpoint disponible (Hito 2); falta el campo en `/registro` (la aprobación ya está en *Personal*) |
+| Registro con código de empresa | Ninguno: implementado (vía «código de mi empresa» en `/registro`; la cuenta queda pendiente hasta su aprobación en *Personal*). Pendientes de seguridad: rotación del código y límite de intentos (ver `docs/auditoria-sgp.md`) |
 | Cambio de contraseña (también la inicial del administrador) y recuperación | Sin definir: hoy no hay ningún mecanismo |
 | Empresa de cada solicitud en modo global | `empresaId`/`empresaNombre` en `SolicitudResponseDTO` |
 | Impuestos y descuentos en las órdenes; cierre de una orden con saldo pendiente | Pendiente de decisión |
