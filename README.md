@@ -382,12 +382,14 @@ revocar una vigente, con confirmación.
 
 ## Datos de demostración
 
-Seis empresas ficticias con administrador comercial, trabajadores, proveedores, productos,
-compras, inventario y ventas; DEMO01 y DEMO02 añaden escenarios completos (usuarios pendientes,
-rechazados e inactivos, invitaciones, solicitudes en todos sus estados, órdenes y recepciones con
-incidencias) y DEMO06 está desactivada. **Solo en desarrollo** (perfil `demo`; con un perfil de
-producción activo el arranque se detiene). Idempotente: ejecutarla otra vez no duplica nada ni
-cambia contraseñas ni datos existentes.
+Cinco empresas ficticias con un administrador comercial y un trabajador cada una: Mercado Verde
+(`MVSA01`, flujo comercial completo), Suministros del Caribe (`SCA002`, para comprobar el
+aislamiento), Distribuciones Nova (`DNS003`, trabajador pendiente), Comercializadora Horizonte
+(`CHS004`, trabajador rechazado) y Logística Andina (`LAS005`, desactivada). Solo con el perfil
+`demo` (con un perfil de producción activo el arranque se detiene). Idempotente: ejecutarla otra
+vez no duplica nada ni cambia contraseñas, estados ni datos existentes; si un código, NIT, username
+o correo suyo ya lo usa otro registro, se detiene sin escribir nada. En el VPS se ejecuta solo con
+el procedimiento de [deploy/aatenea](deploy/aatenea/README.md).
 
 La contraseña de las cuentas demo **no está en el repositorio**: la eliges tú en la variable
 `DEMO_PASSWORD` (de 8 caracteres a 72 bytes), sin valor por defecto; si falta, la seed no escribe

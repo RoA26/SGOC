@@ -206,74 +206,73 @@ Si la variable está exportada y también en `backend-spring/.env`, gana la expo
 Boot las variables de entorno tienen prioridad sobre los archivos importados). Los tests generan una
 contraseña aleatoria en cada ejecución.
 
-Crea seis empresas ficticias (`DEMO01`…`DEMO06`, marcadas `empresas.demo = true`). Las cinco
-primeras tienen su administrador comercial, 2–3 trabajadores, proveedores, productos con código de
-barras EAN-13 ficticio (prefijo 20, reservado a uso interno), precios e IVA **de demostración** (no
-son una clasificación tributaria validada), inventario inicial con costo, una orden recibida por
-completo, otra en parte y otra pendiente, ventas (sin descuento, con descuento, con descuento
-general, bajo el costo, pagos mixtos), productos agotados y una devolución parcial. `DEMO06` se crea
-**desactivada**, con un administrador y un trabajador y sin datos de negocio. Todo pasa por los
-servicios reales (mismas reglas, kárdex y costos).
+Crea **cinco empresas ficticias** (marcadas `empresas.demo = true`) con **diez cuentas**: un
+administrador comercial y un trabajador por empresa. Nombres, NIT (12 dígitos con prefijo `999`,
+inventados y no contrastados con ningún registro), proveedores y correos (`@<código>.sgp-demo.test`,
+dominio reservado `.test`) son ficticios; los códigos de barras son EAN-13 con prefijo 20 (uso
+interno) y los precios e IVA son **de demostración** (no una clasificación tributaria validada).
+Todo pasa por los servicios reales (mismas reglas, kárdex y costos), autenticado como las personas
+de cada empresa.
 
-### Escenarios completos (DEMO01 y DEMO02)
+| Código | Empresa | Escenario | Datos |
+| --- | --- | --- | --- |
+| `MVSA01` | Mercado Verde S.A.S. | Activa, flujo comercial completo | 3 proveedores, 7 productos (uno agotado, uno bajo el mínimo), política comercial de demostración, inventario inicial con costo; solicitudes pendiente, rechazada con comentario y aprobada con su orden emitida y **recibida en parte** (faltante informado); orden recibida por completo y orden emitida pendiente; 5 ventas (efectivo con cambio, débito con descuento de línea, transferencia con descuento general del administrador, una bajo el costo y un pago mixto) y una **devolución parcial** con reingreso |
+| `SCA002` | Suministros del Caribe S.A.S. | Activa, aislamiento | 2 proveedores, 4 productos (uno agotado), una solicitud pendiente, una orden recibida y otra pendiente, 2 ventas |
+| `DNS003` | Distribuciones Nova S.A.S. | Activa, trabajador **PENDIENTE** | Solo cuentas: el trabajador se registra con el código de la empresa |
+| `CHS004` | Comercializadora Horizonte S.A.S. | Activa, trabajador **RECHAZADO** | Solo cuentas: se registra y su administrador lo rechaza |
+| `LAS005` | Logística Andina S.A.S. | **Desactivada** | Solo cuentas (ambas ACTIVAS; la empresa bloquea el acceso) |
 
-`EscenariosDemo` añade, con los servicios reales y autenticado como las personas de cada empresa:
+Mercado Verde y Suministros del Caribe comparten **a propósito** el NIT de un proveedor
+(«Bebidas del Río S.A.S. (demo)»), un SKU (`AGUA-600`) y su código de barras: son únicos por
+empresa, no globales, y cada una debe ver solo el suyo.
 
-| Área | Escenarios |
-| --- | --- |
-| Usuarios | `demoN.pendiente` (se registra con el código de la empresa: PENDIENTE), `demoN.rechazado` (se registra y el administrador lo rechaza), `demoN.inactivo` (activo y luego desactivado), `demoN.invitado` (se registra con una invitación) |
-| Invitaciones | vigente (720 h), de 1 h, revocada y usada por `demoN.invitado` |
-| Catálogo | proveedor «Suministros Compartidos S.A.S. (demo)» y productos `ESC-COM-01`, `ESC-COM-02`, `ESC-MIN-IG` (stock **igual** al mínimo: 6/6), `ESC-MIN-BA` (**bajo** el mínimo: 2/10); un proveedor y un producto (`ESC-BAJA-01`) dados de baja. NIT, SKU y código de barras son **los mismos en DEMO01 y DEMO02** para probar el aislamiento |
-| Solicitudes | 2 pendientes (de dos trabajadores), 1 rechazada con comentario, 1 aprobada **sin orden**, 1 aprobada con su orden en borrador y 1 aprobada con su orden emitida, programada y recibida en parte |
-| Órdenes | 8 por empresa: las 3 base, 2 generadas desde solicitudes y 3 manuales: borrador, cancelada (tras emitirla, con motivo) y recibida por completo |
-| Recepciones | completa con incidencia `EXCEDENTE`; parcial (5 de 10) con `DANADO` (1) y `FALTANTE` (2); la orden base pendiente sigue sin recepción. Entrega programada a 7 días (situación `PROGRAMADA`) |
+**Sin cuenta demo** (la seed no añade usuarios para representarlos): el estado `INACTIVO` y las
+invitaciones (vigente, usada, revocada, caducada). Su comportamiento lo cubren
+`AuthControllerTest`, `OnboardingTrabajadoresTest`, `GestionEmpresasTest` y las pruebas de
+invitaciones; las cuentas demo se cubren en `DemoSeedTest` y `DemoSeedAccesoTest`.
 
-**Idempotente**: empresas por código + marca demo; usuarios por username (nunca se cambia una
-contraseña existente); proveedores por NIT (también los dados de baja); productos por SKU;
-inventario, recepciones, ventas y devoluciones con claves estables; cada solicitud por su
-justificación + solicitante; las invitaciones, solo si el usuario invitado aún no existe. Las
-órdenes base, la cancelada y la recibida con excedente, por sus observaciones (ya no admiten
-cambios: solo se edita un borrador); el borrador manual se crea solo junto con la cancelada, así
-que editarlo (o emitirlo o cancelarlo) no lo duplica; las órdenes de solicitudes, por su solicitud.
-Un escenario que ya existe **no se modifica** (aunque alguien lo haya cambiado: p. ej. reactivado
-un usuario o aprobado una solicitud); solo se crean los que faltan, también sobre una base que ya
-tenía los datos demo. El precio y el inventario inicial se aplican **solo al crear** un producto:
-un SKU que ya existe (de una ejecución anterior o creado a mano) conserva su precio y su stock. No
-crea ninguna cuenta `SUPER_ADMIN` (para eso está `AdminBootstrap` con `ADMIN_*`).
+**Colisiones**: antes de escribir nada, la seed comprueba que ningún código, NIT, username ni
+correo suyo lo use un registro ajeno (una empresa con su código solo es «suya» si está marcada como
+demo y tiene su NIT; una cuenta, si es de esa empresa con el rol y el correo previstos). Ante
+cualquier conflicto se detiene **sin escribir nada** (`IllegalStateException` con la lista de
+conflictos, sin la contraseña): nunca reutiliza ni sobrescribe un registro existente. Otras
+empresas demo (p. ej. de una seed anterior) no se tocan.
 
-**Datos ajenos y cuentas sin acceso**: la seed nunca modifica, reactiva ni cambia la contraseña de
-una cuenta existente, y nunca actúa en nombre de una cuenta que no esté ACTIVA. Lo que dependa de
-ellas se omite con un aviso `Seed demo: …` en el log y se crea en una ejecución posterior si la
-causa desaparece:
+**Idempotente**: empresas por código + marca demo + NIT; usuarios por username (nunca se cambia una
+contraseña ni un estado existentes: si alguien aprobó a la trabajadora pendiente, sigue aprobada);
+proveedores por NIT (también los dados de baja); productos por SKU (el precio y el inventario
+inicial se aplican **solo al crear** el producto); inventario, recepciones, ventas y devoluciones
+con claves estables; órdenes base por sus observaciones; solicitudes por justificación +
+solicitante. No crea ninguna cuenta `SUPER_ADMIN` (para eso está `AdminBootstrap` con `ADMIN_*`).
 
-| Situación | Qué se omite |
-| --- | --- |
-| Una empresa real con el mismo código o NIT, o un username del administrador o de un trabajador base ocupado en otra empresa | Toda esa empresa demo (resultado `OMITIDA`) |
-| La empresa demo está desactivada, o su administrador no está ACTIVO | Todos sus datos de negocio y escenarios; solo se completan sus cuentas (resultado `INCOMPLETA`) |
-| Un trabajador no está ACTIVO | Sus solicitudes (y la recepción que registra), sus ventas y la orden recibida con excedente si es su receptor |
-| El username o el correo de `demoN.pendiente`, `demoN.rechazado` o `demoN.inactivo` los usa otra cuenta | Ese usuario |
-| El username o el correo de `demoN.invitado` los usa otra cuenta | Las cuatro invitaciones (dependen de él) |
+**Cuentas sin acceso**: la seed nunca actúa en nombre de una cuenta que no esté ACTIVA ni reactiva
+nada. Si una empresa demo fue desactivada o su administrador no está ACTIVO, sus datos de negocio
+se omiten (resultado `INCOMPLETA`, aviso `Seed demo: …` en el log); lo que dependa de un trabajador
+sin acceso, también.
 
-**Limitaciones** (dependen del reloj real; la seed no fuerza estados ni escribe directamente en la BD):
+**Transacciones y fallo parcial**: las empresas se siembran en orden (`MVSA01` … `LAS005`) y cada
+una usa dos transacciones: (1) la empresa y sus dos cuentas (incluido el rechazo de `CHS004`) y
+(2) sus datos de negocio. Si algo falla, la transacción en curso se deshace entera, lo confirmado
+antes se conserva, el error detiene el arranque y las empresas siguientes no se crean. Se detecta
+porque el log no contiene `Seed de demostración terminada` y porque faltan empresas o datos (las
+consultas de comprobación están en `deploy/aatenea/sgp-aatenea.sh`). Para reanudar basta con volver
+a ejecutarla con la **misma** contraseña: completa lo que falte sin duplicar (lo prueba
+`DemoSeedTest`).
 
-- **Invitación caducada**: el servicio exige al menos 1 hora de validez; la de 1 hora aparece
-  `CADUCADA` una hora después de sembrar.
-- **Entrega retrasada**: el servicio no admite fechas pasadas; una entrega se ve `RETRASADA` solo
-  cuando su fecha queda atrás (la de la seed, a los 7 días si sigue pendiente).
-- Todas las fechas (solicitudes, órdenes, recepciones, ventas) son las del momento de sembrar.
+**Limitaciones**: todas las fechas (solicitudes, órdenes, recepciones, ventas) son las del momento
+de sembrar.
 
 ### Cuentas de demostración
 
 Todas usan la contraseña de `DEMO_PASSWORD`.
 
-| Empresa | Administrador comercial | Trabajadores activos | Sin acceso (para probarlo) |
+| Empresa | Administrador comercial | Trabajador | Inicio de sesión esperado |
 | --- | --- | --- | --- |
-| DEMO01 · Ferretería El Tornillo Feliz (demo) | `demo1.admin` | `demo1.ana`, `demo1.luis`, `demo1.marta`, `demo1.invitado` | `demo1.pendiente`, `demo1.rechazado`, `demo1.inactivo` |
-| DEMO02 · Minimercado La Canasta (demo) | `demo2.admin` | `demo2.sara`, `demo2.pablo`, `demo2.nora`, `demo2.invitado` | `demo2.pendiente`, `demo2.rechazado`, `demo2.inactivo` |
-| DEMO03 · Papelería Punto y Coma (demo) | `demo3.admin` | `demo3.diego`, `demo3.laura` | — |
-| DEMO04 · Droguería Bienestar Total (demo) | `demo4.admin` | `demo4.julia`, `demo4.mateo`, `demo4.elena` | — |
-| DEMO05 · Deportes Gol de Oro (demo) | `demo5.admin` | `demo5.tomas`, `demo5.isabel` | — |
-| DEMO06 · Distribuidora Cerrada (demo) — desactivada | — | — | `demo6.admin`, `demo6.carlos` (empresa inactiva) |
+| MVSA01 · Mercado Verde S.A.S. | `carlos.mendoza` | `laura.torres` | Ambos entran |
+| SCA002 · Suministros del Caribe S.A.S. | `andres.rojas` | `maria.castro` | Ambos entran |
+| DNS003 · Distribuciones Nova S.A.S. | `diego.martinez` | `sofia.ramirez` | El trabajador: 403 `PENDIENTE` (entra cuando su administrador lo aprueba) |
+| CHS004 · Comercializadora Horizonte S.A.S. | `miguel.ortiz` | `valentina.gomez` | El trabajador: 403 `RECHAZADO` |
+| LAS005 · Logística Andina S.A.S. (desactivada) | `sergio.vega` | `paula.navarro` | Ambos: 403 `EMPRESA_INACTIVA` |
 
 ## 11. Endpoints nuevos
 
