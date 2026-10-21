@@ -2,6 +2,7 @@ package com.unisen.sgp.service;
 
 import com.unisen.sgp.exception.ModoGlobalRequeridoException;
 import com.unisen.sgp.model.dto.AnaliticaDTO;
+import com.unisen.sgp.model.dto.AnaliticaDTO.AlcanceEmpresas;
 import com.unisen.sgp.model.dto.AnaliticaDTO.Compras;
 import com.unisen.sgp.model.dto.AnaliticaDTO.Empresas;
 import com.unisen.sgp.model.dto.AnaliticaDTO.Inventario;
@@ -25,8 +26,9 @@ import org.springframework.transaction.annotation.Transactional;
  * Indicadores de los dashboards, uno por contexto:
  *
  * <ul>
- *   <li><b>Global</b> (SUPER_ADMIN): todas las empresas. Exige el modo global explícito; con una
- *       empresa en el contexto se rechaza en lugar de devolver solo la suya.</li>
+ *   <li><b>Global</b> (SUPER_ADMIN): todas las empresas del alcance pedido (por defecto, solo las
+ *       reales: la demo no se mezcla con ellas). Exige el modo global explícito; con una empresa en
+ *       el contexto se rechaza en lugar de devolver solo la suya.</li>
  *   <li><b>Empresa</b> (ADMINISTRADOR_COMERCIAL, o SUPER_ADMIN en supervisión): la empresa del contexto, que
  *       fija el backend; el cliente no puede elegir otra.</li>
  *   <li><b>Personal</b> (TRABAJADOR y ADMINISTRADOR_COMERCIAL): disponibilidad de productos y sus propias
@@ -53,25 +55,29 @@ public class AnaliticaService {
         this.calendario = calendario;
     }
 
+    /** @param alcance empresas que se cuentan (las reales, las de demostración o todas) */
     @PreAuthorize(Permisos.SUPER_ADMIN)
-    public AnaliticaDTO.Global global(LocalDate desde, LocalDate hasta) {
+    public AnaliticaDTO.Global global(LocalDate desde, LocalDate hasta, AlcanceEmpresas alcance) {
         exigirModoGlobal();
         Periodo periodo = calendario.periodo(desde, hasta);
-        long[] empresas = repository.conteoEmpresas();
+        Boolean demo = alcance.demo();
+        long[] empresas = repository.conteoEmpresas(demo);
         return new AnaliticaDTO.Global(
+                alcance,
                 periodoDTO(periodo),
                 new Empresas(empresas[0], empresas[1], empresas[0] - empresas[1]),
-                new OrdenesGlobales(repository.ordenesEmitidas(periodo.inicio(), periodo.fin()), repository.totalOrdenes(),
-                        repository.ordenesPorEstado()),
-                repository.empresasConMasOrdenes(periodo.inicio(), periodo.fin(), TOP_EMPRESAS),
-                calendario.serie(periodo, repository.ordenesEmitidasPorHora(periodo.inicio(), periodo.fin())));
+                new OrdenesGlobales(repository.ordenesEmitidas(periodo.inicio(), periodo.fin(), demo),
+                        repository.totalOrdenes(demo), repository.ordenesPorEstado(demo)),
+                repository.empresasConMasOrdenes(periodo.inicio(), periodo.fin(), TOP_EMPRESAS, demo),
+                calendario.serie(periodo, repository.ordenesEmitidasPorHora(periodo.inicio(), periodo.fin(), demo)));
     }
 
     @PreAuthorize(Permisos.SUPER_ADMIN)
-    public Page<OrdenesDeEmpresa> ordenesPorEmpresa(LocalDate desde, LocalDate hasta, Pageable pageable) {
+    public Page<OrdenesDeEmpresa> ordenesPorEmpresa(LocalDate desde, LocalDate hasta, AlcanceEmpresas alcance,
+                                                    Pageable pageable) {
         exigirModoGlobal();
         Periodo periodo = calendario.periodo(desde, hasta);
-        return repository.ordenesPorEmpresa(periodo.inicio(), periodo.fin(), pageable);
+        return repository.ordenesPorEmpresa(periodo.inicio(), periodo.fin(), pageable, alcance.demo());
     }
 
     @PreAuthorize(Permisos.GESTION)

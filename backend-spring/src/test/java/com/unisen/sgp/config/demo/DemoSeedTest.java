@@ -273,6 +273,14 @@ class DemoSeedTest {
             demo.marcarDemo();
             empresaRepository.save(demo);
         });
+        // Restos de la seed anterior: otra empresa demo o una cuenta ajena en el dominio demo.
+        casos.put("la empresa demo DEMO01", empresa -> {
+            Empresa demo = new Empresa("Ferretería de la seed anterior", "900990001-1", "DEMO01", CodigosInvitacion.generar());
+            demo.marcarDemo();
+            empresaRepository.save(demo);
+        });
+        casos.put("la cuenta demo1.admin", empresa -> usuarioService.crearUsuario("demo1.admin",
+                "demo1-admin@demo01.sgp-demo.test", "Camila", "Rojas", "OtraClave#2026", Rol.ADMINISTRADOR_COMERCIAL, empresa));
 
         casos.forEach((caso, preparar) -> {
             BaseDeDatosDePrueba.vaciar(jdbc);

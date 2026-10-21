@@ -206,6 +206,17 @@ Si la variable está exportada y también en `backend-spring/.env`, gana la expo
 Boot las variables de entorno tienen prioridad sobre los archivos importados). Los tests generan una
 contraseña aleatoria en cada ejecución.
 
+En Aatenea es una **contraseña pública de demostración**, común a las diez cuentas y elegida por una
+persona: la guarda `sgp-aatenea.sh clave-demo` (ver [deploy/aatenea](../deploy/aatenea/README.md#contraseña-demo))
+y la fase 3 la pasa como `DEMO_PASSWORD`. Solo protege datos ficticios; no debe usarse en ninguna
+cuenta real.
+
+**Identificación**: la API devuelve `demo: true` en las empresas de la seed (`EmpresaResponseDTO`) y
+la interfaz del SUPER_ADMIN las marca con la etiqueta «Demo» (listado, ficha, aviso de supervisión y
+panel global). La analítica global cuenta por defecto solo las empresas reales
+(`alcance=REALES`); `alcance=DEMO` muestra solo la demo y `alcance=TODAS` ambas, cada empresa con su
+marca.
+
 Crea **cinco empresas ficticias** (marcadas `empresas.demo = true`) con **diez cuentas**: un
 administrador comercial y un trabajador por empresa. Nombres, NIT (12 dígitos con prefijo `999`,
 inventados y no contrastados con ningún registro), proveedores y correos (`@<código>.sgp-demo.test`,

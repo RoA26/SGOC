@@ -224,7 +224,7 @@ Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, si
 | GET · POST · PUT · DELETE | `/api/v1/productos[/{id}]` | Detalle, alta, edición y baja lógica |
 | GET · POST | `/api/v1/solicitudes[?estado=]` | TRABAJADOR ve y crea las suyas; ADMINISTRADOR_COMERCIAL ve las de su empresa; SUPER_ADMIN consulta |
 | PATCH | `/api/v1/solicitudes/{id}/estado` | ADMINISTRADOR_COMERCIAL, o SUPER_ADMIN con `X-Tenant-ID: <id>`: `{estado: APROBADA \| RECHAZADA, comentario}` |
-| GET | `/api/v1/analitica/global[/empresas]?desde=&hasta=` | SUPER_ADMIN con `X-Tenant-ID: global`: empresas, órdenes emitidas, top 5, evolución por día/mes y órdenes por empresa |
+| GET | `/api/v1/analitica/global[/empresas]?desde=&hasta=&alcance=` | SUPER_ADMIN con `X-Tenant-ID: global`: empresas, órdenes emitidas, top 5, evolución por día/mes y órdenes por empresa. `alcance`: `REALES` (por defecto, sin las empresas demo), `DEMO` o `TODAS` |
 | GET | `/api/v1/analitica/empresa?desde=&hasta=` · `/personal` | Indicadores de la empresa (gestión) y personales (sin ventas) |
 | GET · POST · PUT | `/api/v1/ordenes-compra[/{id}]` | Gestión consulta; ADMINISTRADOR_COMERCIAL crea y edita borradores (un proveedor por orden) |
 | POST | `/api/v1/ordenes-compra/{id}/emitir` · `/cancelar` · `/desde-solicitud/{solicitudId}` | ADMINISTRADOR_COMERCIAL: transiciones validadas y borradores desde una solicitud aprobada |

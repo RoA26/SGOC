@@ -218,6 +218,72 @@ class AnaliticaTest extends ComprasApiTest {
         assertThat(porEmpresa.at("/content/1/ordenesAbiertas").asLong()).isEqualTo(2);
     }
 
+    /**
+     * Las empresas demo no se mezclan con las reales: por defecto la plataforma solo cuenta las
+     * reales; con {@code alcance=DEMO} solo las demo y con {@code TODAS} ambas, cada una marcada.
+     */
+    @Test
+    void lasCifrasDeLaDemoNoSeMezclanConLasReales() throws Exception {
+        ordenEmitida(proveedor, tornillo, 10);
+        Empresa demo = crearEmpresa("Mercado Verde S.A.S.", "999100000001");
+        demo.marcarDemo();
+        empresaRepository.save(demo);
+        String adminDemo = crearUsuarioYEntrar("carlos.mendoza", Rol.ADMINISTRADOR_COMERCIAL, demo);
+        long proveedorDemo = leer(postJson("/api/v1/proveedores", adminDemo,
+                "{\"nit\": \"999200000011\", \"razonSocial\": \"Granos del Valle (demo)\", \"email\": \"v@g.test\"}"))
+                .get("id").asLong();
+        long productoDemo = leer(postJson("/api/v1/productos", adminDemo, """
+                {"sku": "MV-ARR-500", "nombre": "Arroz", "precio": 2100, "proveedorId": %d}
+                """.formatted(proveedorDemo))).get("id").asLong();
+        for (int i = 0; i < 3; i++) {
+            long id = crearOrden(adminDemo, proveedorDemo, new long[] {productoDemo, 10}).get("id").asLong();
+            emitir(id, adminDemo).andExpect(status().isOk());
+        }
+
+        // Por defecto, solo las reales (Unisen y Norte): la demo no aparece en ninguna cifra.
+        JsonNode reales = leer(getGlobal(GLOBAL, superAdmin).andExpect(status().isOk()));
+        assertThat(reales.get("alcance").asText()).isEqualTo("REALES");
+        assertThat(reales.at("/empresas/total").asLong()).isEqualTo(2);
+        assertThat(reales.at("/ordenes/emitidasEnPeriodo").asLong()).isEqualTo(1);
+        assertThat(reales.at("/ordenes/totalHistorico").asLong()).isEqualTo(1);
+        assertThat(reales.at("/ordenes/porEstado/EMITIDA").asLong()).isEqualTo(1);
+        assertThat(reales.at("/evolucionOrdenes").get(29).get("valor").asLong()).isEqualTo(1);
+        assertThat(reales.get("topEmpresas")).hasSize(1);
+        assertThat(reales.at("/topEmpresas/0/nombre").asText()).isEqualTo("Unisen");
+        assertThat(reales.at("/topEmpresas/0/demo").asBoolean()).isFalse();
+
+        JsonNode soloDemo = leer(getGlobal(GLOBAL + "?alcance=DEMO", superAdmin).andExpect(status().isOk()));
+        assertThat(soloDemo.get("alcance").asText()).isEqualTo("DEMO");
+        assertThat(soloDemo.at("/empresas/total").asLong()).isEqualTo(1);
+        assertThat(soloDemo.at("/ordenes/emitidasEnPeriodo").asLong()).isEqualTo(3);
+        assertThat(soloDemo.at("/ordenes/totalHistorico").asLong()).isEqualTo(3);
+        assertThat(soloDemo.get("topEmpresas")).hasSize(1);
+        assertThat(soloDemo.at("/topEmpresas/0/codigo").asText()).isEqualTo(demo.getCodigo());
+        assertThat(soloDemo.at("/topEmpresas/0/demo").asBoolean()).isTrue();
+
+        JsonNode todas = leer(getGlobal(GLOBAL + "?alcance=TODAS", superAdmin).andExpect(status().isOk()));
+        assertThat(todas.at("/empresas/total").asLong()).isEqualTo(3);
+        assertThat(todas.at("/ordenes/emitidasEnPeriodo").asLong()).isEqualTo(4);
+        assertThat(todas.at("/evolucionOrdenes").get(29).get("valor").asLong()).isEqualTo(4);
+        assertThat(todas.at("/topEmpresas/0/demo").asBoolean()).isTrue();
+        assertThat(todas.at("/topEmpresas/1/demo").asBoolean()).isFalse();
+
+        JsonNode porEmpresa = leer(getGlobal(GLOBAL + "/empresas", superAdmin).andExpect(status().isOk()));
+        assertThat(porEmpresa.at("/page/totalElements").asLong()).isEqualTo(2);
+        porEmpresa.get("content").forEach(fila -> assertThat(fila.get("demo").asBoolean()).isFalse());
+        JsonNode porEmpresaDemo = leer(getGlobal(GLOBAL + "/empresas?alcance=DEMO", superAdmin).andExpect(status().isOk()));
+        assertThat(porEmpresaDemo.at("/page/totalElements").asLong()).isEqualTo(1);
+        assertThat(porEmpresaDemo.at("/content/0/demo").asBoolean()).isTrue();
+        assertThat(porEmpresaDemo.at("/content/0/ordenesEnPeriodo").asLong()).isEqualTo(3);
+        assertThat(leer(getGlobal(GLOBAL + "/empresas?alcance=TODAS", superAdmin).andExpect(status().isOk()))
+                .at("/page/totalElements").asLong()).isEqualTo(3);
+
+        getGlobal(GLOBAL + "?alcance=OTRO", superAdmin).andExpect(status().isBadRequest());
+        // La empresa demo sigue aislada: su administrador solo ve lo suyo.
+        assertThat(leer(getJson(EMPRESA, adminDemo).andExpect(status().isOk())).at("/compras/totalHistorico").asLong())
+                .isEqualTo(3);
+    }
+
     @Test
     void elTrabajadorVeSusSolicitudesYLaDisponibilidadSinVentas() throws Exception {
         ajustar(adminToken, tornillo, 8, "Inventario inicial").andExpect(status().isCreated());

@@ -14,9 +14,10 @@ import java.time.Instant;
  *   <li>{@code administrador}: administrador principal (el primer ADMINISTRADOR_COMERCIAL, creado con la
  *       empresa). Aparece al crearla y en el listado y la ficha del SUPER_ADMIN; se omite si la
  *       empresa aún no tiene ningún administrador.</li>
+ *   <li>{@code demo}: empresa ficticia creada por la seed de demostración; nunca una real.</li>
  * </ul>
  */
-public record EmpresaResponseDTO(Long id, String nombre, String codigo, String nit, boolean activa,
+public record EmpresaResponseDTO(Long id, String nombre, String codigo, String nit, boolean activa, boolean demo,
                                  String codigoEmpresa, Instant creadoEn, UsuarioResponse administrador) {
 
     public static EmpresaResponseDTO from(Empresa empresa) {
@@ -26,7 +27,7 @@ public record EmpresaResponseDTO(Long id, String nombre, String codigo, String n
     /** @param administradorPrincipal null si la empresa no tiene administrador */
     public static EmpresaResponseDTO from(Empresa empresa, Usuario administradorPrincipal) {
         return new EmpresaResponseDTO(empresa.getId(), empresa.getNombre(), empresa.getCodigo(), empresa.getNit(),
-                empresa.isActiva(), empresa.getCodigoEmpresa(), empresa.getCreadoEn(),
+                empresa.isActiva(), empresa.isDemo(), empresa.getCodigoEmpresa(), empresa.getCreadoEn(),
                 administradorPrincipal == null ? null : UsuarioResponse.from(administradorPrincipal));
     }
 }

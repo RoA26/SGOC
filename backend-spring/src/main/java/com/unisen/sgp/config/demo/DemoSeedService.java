@@ -60,6 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -87,7 +88,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * mismos que en el uso normal.
  *
  * <p><b>Colisiones</b>: antes de escribir nada se comprueba que ningún código, NIT, username ni
- * correo de la seed lo use un registro ajeno a ella. Si alguno choca, la seed se detiene sin
+ * correo de la seed lo use un registro ajeno a ella, y que no haya otras empresas demo ni cuentas
+ * ajenas con un correo del dominio demo. Si algo choca, la seed se detiene sin
  * escribir ({@link IllegalStateException} con la lista de conflictos): nunca se reutiliza ni se
  * sobrescribe un registro existente.
  *
@@ -236,7 +238,9 @@ public class DemoSeedService {
     /**
      * Códigos, NIT, usernames y correos de la seed que ya usa un registro ajeno. Una empresa con
      * el código de la seed solo es «suya» si está marcada como demo y tiene su NIT; una cuenta,
-     * si pertenece a esa empresa con el rol y el correo previstos.
+     * si pertenece a esa empresa con el rol y el correo previstos. También son conflictos las
+     * empresas demo que no son de esta seed y las cuentas ajenas con un correo del dominio demo
+     * (las mismas comprobaciones que hace {@code deploy/aatenea/sgp-aatenea.sh} antes de la fase 3).
      */
     private List<String> conflictos() {
         List<String> conflictos = new ArrayList<>();
@@ -254,6 +258,16 @@ public class DemoSeedService {
                     .ifPresent(conflictos::add);
             conflictoDeCuenta(datos.trabajador(), Rol.TRABAJADOR, datos.codigo(), empresaId).ifPresent(conflictos::add);
         }
+        // Restos de otra seed (p. ej. DEMO01…DEMO06) o cuentas ajenas en el dominio demo: decide una persona.
+        List<String> codigos = DatosDemo.EMPRESAS.stream().map(DatosDemo.Empresa::codigo).toList();
+        empresaRepository.findCodigosDemo().stream().filter(codigo -> !codigos.contains(codigo))
+                .forEach(codigo -> conflictos.add("la empresa demo " + codigo + " no es de esta seed"));
+        List<String> usernames = DatosDemo.EMPRESAS.stream()
+                .flatMap(e -> Stream.of(e.administrador(), e.trabajador()))
+                .map(p -> Usuario.normalizarUsername(p.usuario())).toList();
+        usuarioRepository.findUsernamesConCorreoTerminadoEn("." + DatosDemo.DOMINIO_CORREO).stream()
+                .filter(username -> !usernames.contains(username))
+                .forEach(username -> conflictos.add("la cuenta " + username + " usa el dominio demo y no es de esta seed"));
         return conflictos;
     }
 

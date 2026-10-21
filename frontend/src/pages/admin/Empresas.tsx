@@ -7,7 +7,7 @@ import { DataTable, type Column } from '@/components/ui/DataTable'
 import { CrearEmpresaModal } from '@/features/empresa/CrearEmpresaModal'
 import { empresaService } from '@/features/empresa/empresaApi'
 import { useEmpresaSeleccionadaStore } from '@/features/empresa/empresaSeleccionadaStore'
-import { EstadoEmpresaBadge } from '@/features/empresa/EstadosBadges'
+import { EmpresaDemoBadge, EstadoEmpresaBadge } from '@/features/empresa/EstadosBadges'
 import type { Empresa } from '@/features/empresa/types'
 import { usePaginatedResource } from '@/hooks/usePaginatedResource'
 import { formatearFecha } from '@/lib/fechas'
@@ -36,7 +36,7 @@ export default function Empresas() {
   }
 
   function entrarEnSupervision(empresa: Empresa) {
-    supervisar({ id: empresa.id, nombre: empresa.nombre, codigo: empresa.codigo })
+    supervisar({ id: empresa.id, nombre: empresa.nombre, codigo: empresa.codigo, demo: empresa.demo })
     navigate('/')
   }
 
@@ -46,9 +46,12 @@ export default function Empresas() {
       header: 'Empresa',
       cell: (empresa) => (
         <div className="min-w-44">
-          <Link to={`/admin/empresas/${empresa.id}`} className="font-medium text-foreground hover:underline">
-            {empresa.nombre}
-          </Link>
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <Link to={`/admin/empresas/${empresa.id}`} className="font-medium text-foreground hover:underline">
+              {empresa.nombre}
+            </Link>
+            {empresa.demo && <EmpresaDemoBadge />}
+          </span>
           <p className="font-mono text-xs text-foreground-muted">NIT {empresa.nit}</p>
         </div>
       ),

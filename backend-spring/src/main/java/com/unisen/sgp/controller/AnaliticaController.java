@@ -1,6 +1,7 @@
 package com.unisen.sgp.controller;
 
 import com.unisen.sgp.model.dto.AnaliticaDTO;
+import com.unisen.sgp.model.dto.AnaliticaDTO.AlcanceEmpresas;
 import com.unisen.sgp.model.dto.AnaliticaDTO.OrdenesDeEmpresa;
 import com.unisen.sgp.security.Permisos;
 import com.unisen.sgp.service.AnaliticaService;
@@ -27,6 +28,8 @@ public class AnaliticaController {
 
     private static final String PERIODO = "Período en fechas locales (zona del negocio), ambas incluidas; "
             + "por defecto los últimos 30 días. Máximo 366 días y nunca futuro.";
+    private static final String ALCANCE = "REALES (por defecto): solo las empresas reales; DEMO: solo las de "
+            + "demostración; TODAS: ambas (cada empresa indica si es demo).";
 
     private final AnaliticaService analiticaService;
 
@@ -43,19 +46,21 @@ public class AnaliticaController {
             @Parameter(example = "2026-09-17") @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @Parameter(example = "2026-10-16") @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
-        return analiticaService.global(desde, hasta);
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @Parameter(description = ALCANCE) @RequestParam(defaultValue = "REALES") AlcanceEmpresas alcance) {
+        return analiticaService.global(desde, hasta, alcance);
     }
 
     @GetMapping("/global/empresas")
     @PreAuthorize(Permisos.SUPER_ADMIN)
     @Operation(summary = "Órdenes por empresa (SUPER_ADMIN, con X-Tenant-ID: global)",
-            description = "Todas las empresas, las de más órdenes emitidas en el período primero. " + PERIODO)
+            description = "Las empresas del alcance, las de más órdenes emitidas en el período primero. " + PERIODO)
     public Page<OrdenesDeEmpresa> ordenesPorEmpresa(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @Parameter(description = ALCANCE) @RequestParam(defaultValue = "REALES") AlcanceEmpresas alcance,
             @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
-        return analiticaService.ordenesPorEmpresa(desde, hasta, pageable);
+        return analiticaService.ordenesPorEmpresa(desde, hasta, alcance, pageable);
     }
 
     @GetMapping("/empresa")

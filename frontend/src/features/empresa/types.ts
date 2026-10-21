@@ -8,6 +8,8 @@ export interface Empresa {
   codigo: string
   nit: string
   activa: boolean
+  /** Empresa ficticia creada por la seed de demostración; nunca una real. */
+  demo: boolean
   /**
    * Código de registro de trabajadores (secreto). La interfaz del SUPER_ADMIN no lo muestra: lo
    * comparte el administrador de la empresa con su equipo.
@@ -40,4 +42,6 @@ export interface EmpresaSupervisada {
   id: number
   nombre: string
   codigo: string
+  /** Ausente en una selección guardada antes de existir la marca: se trata como real. */
+  demo?: boolean
 }

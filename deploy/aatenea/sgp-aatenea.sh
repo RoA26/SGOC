@@ -6,6 +6,7 @@
 #   OBJETIVO=<sha> bash sgp-aatenea.sh fase1   # estado, respaldo verificado (restauración de prueba aislada)
 #                                              # y punto de retorno; no cambia código ni contenedores
 #   bash sgp-aatenea.sh fase2                  # avanza el código (solo fast-forward) y despliega
+#   bash sgp-aatenea.sh clave-demo             # pide (sin eco) la contraseña COMÚN y pública de las cuentas demo
 #   CONFIRMAR_SEED=si bash sgp-aatenea.sh fase3   # seed demo temporal y vuelta al perfil normal
 #   bash sgp-aatenea.sh fase4                  # archivo privado de cuentas y pruebas por HTTP
 #   bash sgp-aatenea.sh estado                 # solo lectura: operaciones incompletas, empresas demo y conteos
@@ -38,7 +39,10 @@ IMAGENES=${IMAGENES:-unisen/sgp}           # prefijo de las imágenes de docker-
 ESTADO=$PRIVADO/estado                     # despliegues/, en-curso/, historial/, ejecuciones/
 DIARIO=$ESTADO/en-curso                    # una entrada por operación abierta; no la borra ningún trap
 HISTORIAL=$ESTADO/historial                # diarios cerrados (nunca se borran)
-CLAVE=$PRIVADO/demo_password               # contraseña demo generada (600), nunca se imprime
+CLAVE=$PRIVADO/demo_password               # contraseña común de las cuentas demo (600, «clave-demo»); nunca se imprime
+# Contraseña demo: la política de SGP (8-72 bytes) y solo caracteres que no hay que escapar en JSON ni YAML.
+# Letras enumeradas, no en rango: en una configuración regional UTF-8, [a-z] también admite «ñ» o «á».
+FORMATO_CLAVE='^[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-]{8,72}$'
 CERROJO=$PRIVADO/sgp-aatenea.lock          # flock: una sola ejecución a la vez
 OVERRIDE_HEREDADO=$PRIVADO/sgp-demo.override.yml   # ubicación de la versión anterior del script
 ETIQUETA_PRUEBA=sgp.aatenea=restauracion-prueba
@@ -401,6 +405,35 @@ from empresas e where e.demo order by e.codigo;
 SQL
 }
 
+# ---- Contraseña común de las cuentas demo ---------------------------------------
+# La elige una persona (es pública: solo protege datos ficticios) y la guarda «clave-demo»; la fase 3
+# nunca la inventa. Todas las cuentas demo la comparten; las cuentas reales no la usan nunca.
+validar_clave() {
+    [[ -s $CLAVE ]] || alto "No hay contraseña demo: defínela antes con «bash $0 clave-demo»."
+    [[ $(stat -c '%a %U' "$CLAVE") == "600 $PROPIETARIO" ]] || alto "Permisos inesperados en $CLAVE (se esperaba 600 $PROPIETARIO)."
+    (( $(wc -l < "$CLAVE") == 1 )) && [[ $(<"$CLAVE") =~ $FORMATO_CLAVE ]] \
+        || alto "La contraseña demo de $CLAVE no tiene el formato admitido (8-72 caracteres: letras, dígitos, . _ -)."
+}
+
+clave_demo() {
+    fase "CONTRASEÑA COMÚN DE LAS CUENTAS DEMO"
+    exigir_sin_pendientes
+    [[ ! -e $CLAVE ]] || alto "Ya existe $CLAVE y no se sobrescribe: las cuentas demo que ya existan la usan. Para cambiarla antes de la fase 3, retírala a mano tras revisar «bash $0 estado»."
+    info "Contraseña PÚBLICA de demostración: la compartirán las 10 cuentas demo; nunca la uses en una cuenta real."
+    info "8-72 caracteres: letras sin tilde, dígitos, punto, guion y guion bajo. No se muestra al escribirla."
+    local una otra
+    IFS= read -rs -p "  Contraseña demo: " una || alto "No se leyó la contraseña."
+    printf '\n' >&2
+    IFS= read -rs -p "  Repítela: " otra || alto "No se leyó la confirmación."
+    printf '\n' >&2
+    [[ $una == "$otra" ]] || alto "Las dos contraseñas no coinciden; no se guarda nada."
+    [[ $una =~ $FORMATO_CLAVE ]] || alto "Formato no admitido (8-72 caracteres: letras sin tilde, dígitos, . _ -); no se guarda nada."
+    escribir "$CLAVE" "$una"
+    chmod 600 "$CLAVE"
+    validar_clave
+    ok "Contraseña demo guardada en $CLAVE (600 $PROPIETARIO, ${#una} caracteres; no se imprime)"
+}
+
 # -----------------------------------------------------------------------------
 fase1() {
     fase "FASE 1 — Estado, respaldo verificado y punto de retorno"
@@ -589,6 +622,8 @@ fase3() {
     [[ $(git rev-parse HEAD) == "$(<"$DESP/objetivo")" ]] || alto "HEAD no es el objetivo del despliegue."
     esperar_sano backend 30 || alto "El backend no está sano."
     sin_variables_demo || alto "El backend ya tiene variables demo: «bash $0 recuperar» antes de seguir."
+    validar_clave
+    ok "Contraseña común de las cuentas demo definida en $CLAVE (600; no se imprime)"
 
     local choques; choques=$(colisiones)
     [[ -z $choques ]] || { echo "$choques"; alto "Hay registros ajenos que chocan con la seed: no se siembra. Decide qué hacer con ellos."; }
@@ -596,7 +631,6 @@ fase3() {
     local propias; propias=$(empresas_propias)
     if (( propias > 0 )); then
         [[ ${REANUDAR:-} == 1 ]] || alto "Ya existen $propias empresas de esta seed: para completar una ejecución anterior usa REANUDAR=1."
-        [[ -s $CLAVE ]] || alto "REANUDAR=1 exige la contraseña demo de la ejecución anterior ($CLAVE)."
         info "Reanudación: $propias empresas de la seed ya existen; se completará lo que falte"
     fi
 
@@ -610,14 +644,8 @@ fase3() {
     grep -q '^sin_empresa_id|-$' "$EJEC/ajeno-antes" || info "AVISO: tablas sin empresa_id no cubiertas por la huella: $(grep '^sin_empresa_id' "$EJEC/ajeno-antes")"
     ok "Huella de los datos ajenos a la seed: $(grep -vc '^sin_empresa_id' "$EJEC/ajeno-antes") tablas"
 
-    if [[ ${REANUDAR:-} == 1 && -s $CLAVE ]]; then
-        ok "Se reutiliza la contraseña demo de la ejecución anterior ($CLAVE)"
-    else
-        # 48 caracteres hexadecimales (192 bits): sin caracteres que haya que escapar en JSON ni en YAML.
-        escribir "$CLAVE" "$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-    fi
-    chmod 600 "$CLAVE"
-    ok "Contraseña demo en $CLAVE (600, $(tr -d '\n' < "$CLAVE" | wc -c) caracteres; no se imprime)"
+    # La contraseña es la de «clave-demo» (validada arriba); con REANUDAR=1, la misma de la ejecución anterior.
+    validar_clave
 
     # Sin secretos: DEMO_PASSWORD se interpola desde el entorno. Se conserva en la ejecución como constancia.
     local override=$EJEC/sgp-demo.override.yml
@@ -706,7 +734,7 @@ SQL
 fase4() {
     fase "FASE 4 — Archivo privado de cuentas y pruebas por HTTP"
     exigir_sin_pendientes
-    [[ -s $CLAVE ]] || alto "No hay contraseña demo (¿se ejecutó la fase 3?)."
+    validar_clave
     sin_variables_demo || alto "El backend conserva variables demo."
     local cuentas_file="$PRIVADO/sgp_cuentas_demo_$MARCA.txt"
     local cuentas; cuentas=$(sql <<'SQL'
@@ -726,7 +754,8 @@ SQL
         echo "SGP (Unisen) — cuentas DEMO de prueba · generado $(date -Iseconds) en Aatenea"
         echo "Solo datos ficticios (empresas con demo = true). Ninguna cuenta real."
         echo
-        echo "Contraseña COMPARTIDA de todas las cuentas demo:"
+        echo "Contraseña PÚBLICA de demostración, común a las 10 cuentas demo (solo protege datos ficticios;"
+        echo "no la uses en ninguna cuenta real):"
         echo "  $(<"$CLAVE")"
         echo
         echo "Inicio de sesión: abre la aplicación → usuario + contraseña."
@@ -1013,6 +1042,8 @@ estado() {
     if [[ -e $DIARIO/restauracion ]] && ya_paso restauracion bd-borrada; then
         aviso "La BD puede estar vacía o a medio restaurar: no se consulta."; return 0
     fi
+    if [[ -s $CLAVE ]]; then info "Contraseña demo: definida en $CLAVE (no se imprime)"
+    else info "Contraseña demo: sin definir (bash $0 clave-demo)"; fi
     info "Empresas demo (código|proveedores|productos|solicitudes|órdenes|recepciones|ventas|devoluciones):"
     conteos_demo || aviso "No se pudo consultar la BD"
     info "Cuentas demo:"
@@ -1055,8 +1086,8 @@ al_salir() {
 main() {
     local orden=${1:-}
     case $orden in
-        fase1|fase2|fase3|fase4|estado|recuperar|rollback|restaurar) ;;
-        *) echo "Uso: $0 fase1|fase2|fase3|fase4|estado|recuperar|rollback|restaurar"; exit 2 ;;
+        fase1|fase2|clave-demo|fase3|fase4|estado|recuperar|rollback|restaurar) ;;
+        *) echo "Uso: $0 fase1|fase2|clave-demo|fase3|fase4|estado|recuperar|rollback|restaurar"; exit 2 ;;
     esac
     command -v flock >/dev/null || { echo "  [ALTO] Falta flock (util-linux): sin él no se puede impedir una ejecución simultánea."; exit 1; }
     mkdir -p "$PRIVADO" "$ESTADO" "$DIARIO" "$HISTORIAL" "$ESTADO/despliegues" "$ESTADO/ejecuciones"
@@ -1086,10 +1117,11 @@ main() {
     fi
     info "Ejecución $MARCA ($orden) · registro y datos en $EJEC"
     cd "$REPO"
-    [[ $orden == estado ]] || limpiar_huerfanos
+    [[ $orden == estado || $orden == clave-demo ]] || limpiar_huerfanos
     case $orden in
         fase1) fase1 ;;
         fase2) fase2 ;;
+        clave-demo) clave_demo ;;
         fase3) fase3 ;;
         fase4) fase4 ;;
         estado) estado ;;

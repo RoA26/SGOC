@@ -9,7 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.unisen.sgp.model.entity.Empresa;
 import com.unisen.sgp.model.entity.Rol;
+import com.unisen.sgp.security.CodigosInvitacion;
 import com.unisen.sgp.support.ApiIntegrationTest;
 import com.unisen.sgp.tenant.TenantFilter;
 import jakarta.persistence.EntityManagerFactory;
@@ -246,6 +248,31 @@ class GestionEmpresasTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.activa").value(true))
                 .andExpect(jsonPath("$.creadoEn").exists())
                 .andExpect(jsonPath("$.administrador.username").value("admin.nascar"));
+    }
+
+    /**
+     * El listado y la ficha marcan las empresas de la seed demo; una empresa creada por la API nunca
+     * es demo, aunque el cliente lo pida.
+     */
+    @Test
+    void elListadoYLaFichaDistinguenLasEmpresasDemo() throws Exception {
+        long nascarId = crear(empresa("NASCAR", "901555555-5", "NASC01", "admin.nascar")).get("id").asLong();
+        Empresa demo = new Empresa("Mercado Verde S.A.S.", "999100000001", "MVSA01", CodigosInvitacion.generar());
+        demo.marcarDemo();
+        long demoId = empresaRepository.save(demo).getId();
+        String pideDemo = empresa("Intento", "901666666-6", "INTE01", "admin.intento").replaceFirst("\\{", "{\"demo\": true, ");
+        assertThat(leer(postJson(URL, superAdmin, pideDemo).andExpect(status().isCreated())).get("demo").asBoolean()).isFalse();
+
+        getJson(URL + "?sort=nombre", superAdmin)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].nombre").value("Intento"))
+                .andExpect(jsonPath("$.content[0].demo").value(false))
+                .andExpect(jsonPath("$.content[1].nombre").value("Mercado Verde S.A.S."))
+                .andExpect(jsonPath("$.content[1].demo").value(true))
+                .andExpect(jsonPath("$.content[2].nombre").value("NASCAR"))
+                .andExpect(jsonPath("$.content[2].demo").value(false));
+        getJson(URL + "/" + demoId, superAdmin).andExpect(status().isOk()).andExpect(jsonPath("$.demo").value(true));
+        getJson(URL + "/" + nascarId, superAdmin).andExpect(status().isOk()).andExpect(jsonPath("$.demo").value(false));
     }
 
     @Test

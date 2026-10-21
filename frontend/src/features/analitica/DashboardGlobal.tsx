@@ -1,4 +1,4 @@
-import { Building, FileText, History, Send } from 'lucide-react'
+import { Building, Check, FileText, History, Send } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BarList } from '@/components/charts/BarList'
@@ -6,14 +6,15 @@ import { ChartCard, TablaDatos } from '@/components/charts/ChartCard'
 import { ColumnChart } from '@/components/charts/ColumnChart'
 import { DataTable, type Column } from '@/components/ui/DataTable'
 import { StatTile } from '@/components/ui/StatTile'
-import { EstadoEmpresaBadge } from '@/features/empresa/EstadosBadges'
+import { EmpresaDemoBadge, EstadoEmpresaBadge } from '@/features/empresa/EstadosBadges'
 import { ESTADOS_ORDEN, ETIQUETA_ESTADO_ORDEN } from '@/features/ordenes/estados'
 import { usePaginatedResource } from '@/hooks/usePaginatedResource'
 import { useRecurso } from '@/hooks/useRecurso'
+import { cn } from '@/lib/cn'
 import { formatearCOP } from '@/lib/moneda'
 import { formatearNumero } from '@/lib/numeros'
 import { describirPeriodo, etiquetaLarga } from '@/lib/periodo'
-import { analiticaService, type OrdenesDeEmpresa } from '@/services/analiticaService'
+import { analiticaService, type AlcanceEmpresas, type FiltroGlobal, type OrdenesDeEmpresa } from '@/services/analiticaService'
 import type { PageParams } from '@/services/types'
 import { ErrorPanel, EsqueletoPanel, SinDatos } from './EstadoCarga'
 import { FiltroPeriodo } from './FiltroPeriodo'
@@ -21,14 +22,23 @@ import { aFiltro, PERIODO_POR_DEFECTO, type SeleccionPeriodo } from './seleccion
 
 const ordenes = (n: number) => `${formatearNumero(n)} ${n === 1 ? 'orden' : 'órdenes'}`
 
+const ALCANCES: { valor: AlcanceEmpresas; etiqueta: string; descripcion: string }[] = [
+  { valor: 'REALES', etiqueta: 'Empresas reales', descripcion: 'solo empresas reales (sin las de demostración)' },
+  { valor: 'DEMO', etiqueta: 'Solo demo', descripcion: 'solo empresas ficticias de demostración' },
+  { valor: 'TODAS', etiqueta: 'Todas', descripcion: 'empresas reales y de demostración juntas' },
+]
+
 /**
  * Dashboard de la plataforma (SUPER_ADMIN en modo global explícito): empresas, órdenes emitidas
- * en el período, su evolución y las empresas con más actividad. Todo lo calcula el backend.
+ * en el período, su evolución y las empresas con más actividad. Todo lo calcula el backend. Por
+ * defecto solo cuenta las empresas reales: las de demostración se ven aparte o junto a ellas,
+ * siempre marcadas.
  */
 export function DashboardGlobal() {
   const [seleccion, setSeleccion] = useState<SeleccionPeriodo>(PERIODO_POR_DEFECTO)
+  const [alcance, setAlcance] = useState<AlcanceEmpresas>('REALES')
   const filtro = aFiltro(seleccion)
-  const clave = `${filtro.desde ?? ''}|${filtro.hasta ?? ''}`
+  const clave = `${filtro.desde ?? ''}|${filtro.hasta ?? ''}|${alcance}`
   const pedir = useCallback((signal: AbortSignal) => analiticaService.global(aFiltroDeClave(clave), signal), [clave])
   const { datos, error, cargando, recargar } = useRecurso(pedir, clave)
 
@@ -37,14 +47,18 @@ export function DashboardGlobal() {
       <h2 id="dashboard-global" className="sr-only">
         Indicadores de la plataforma
       </h2>
-      <FiltroPeriodo seleccion={seleccion} onCambio={setSeleccion} />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <FiltroPeriodo seleccion={seleccion} onCambio={setSeleccion} />
+        <FiltroAlcance alcance={alcance} onCambio={setAlcance} />
+      </div>
       {error && <ErrorPanel mensaje={error} onReintentar={recargar} />}
       {!datos ? (
         !error && <EsqueletoPanel />
       ) : (
         <div className="space-y-4">
           <p className="text-xs text-foreground-muted">
-            {describirPeriodo(datos.periodo.desde, datos.periodo.hasta)} · días de Colombia
+            {describirPeriodo(datos.periodo.desde, datos.periodo.hasta)} · días de Colombia ·{' '}
+            {ALCANCES.find((a) => a.valor === datos.alcance)?.descripcion}
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatTile
@@ -71,7 +85,7 @@ export function DashboardGlobal() {
             <StatTile
               etiqueta="Órdenes registradas"
               valor={formatearNumero(datos.ordenes.totalHistorico)}
-              detalle="Desde el inicio, en todas las empresas."
+              detalle="Desde el inicio, en las empresas de este alcance."
               icono={History}
             />
           </div>
@@ -116,7 +130,7 @@ export function DashboardGlobal() {
                   encabezados={['Empresa', 'Órdenes · valor']}
                   filas={datos.topEmpresas.map((empresa) => ({
                     clave: String(empresa.id),
-                    etiqueta: `${empresa.nombre} (${empresa.codigo})`,
+                    etiqueta: `${empresa.nombre} (${empresa.codigo})${empresa.demo ? ' · demo' : ''}`,
                     valor: `${formatearNumero(empresa.ordenes)} · ${formatearCOP(empresa.valorComprometido)}`,
                   }))}
                 />
@@ -137,6 +151,12 @@ export function DashboardGlobal() {
                     etiqueta: (
                       <span title={`${empresa.nombre} · ${formatearCOP(empresa.valorComprometido)}`}>
                         {empresa.nombre} <span className="font-mono text-xs text-foreground-muted">{empresa.codigo}</span>
+                        {empresa.demo && (
+                          <>
+                            {' '}
+                            <EmpresaDemoBadge />
+                          </>
+                        )}
                       </span>
                     ),
                     valor: empresa.ordenes,
@@ -150,7 +170,7 @@ export function DashboardGlobal() {
           <div className="grid gap-4 lg:grid-cols-3">
             <ChartCard
               titulo="Órdenes por estado"
-              subtitulo="Situación actual, todas las empresas"
+              subtitulo="Situación actual, empresas de este alcance"
               recargando={cargando}
               tabla={
                 <TablaDatos
@@ -187,9 +207,37 @@ export function DashboardGlobal() {
 }
 
 /** La clave codifica el filtro; reconstruirlo de ella mantiene estable el fetcher. */
-function aFiltroDeClave(clave: string) {
-  const [desde, hasta] = clave.split('|')
-  return { desde: desde || undefined, hasta: hasta || undefined }
+function aFiltroDeClave(clave: string): FiltroGlobal {
+  const [desde, hasta, alcance] = clave.split('|')
+  return { desde: desde || undefined, hasta: hasta || undefined, alcance: alcance as AlcanceEmpresas }
+}
+
+/** Qué empresas entran en las cifras; el backend aplica el mismo filtro a todas. */
+function FiltroAlcance({ alcance, onCambio }: { alcance: AlcanceEmpresas; onCambio: (alcance: AlcanceEmpresas) => void }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 sm:border-l sm:border-border sm:pl-4" role="group" aria-label="Empresas incluidas">
+      {ALCANCES.map(({ valor, etiqueta }) => {
+        const activo = alcance === valor
+        return (
+          <button
+            key={valor}
+            type="button"
+            aria-pressed={activo}
+            onClick={() => onCambio(valor)}
+            className={cn(
+              'inline-flex h-8 items-center gap-1 rounded-full border px-3 text-sm',
+              activo
+                ? 'border-foreground bg-foreground font-medium text-background'
+                : 'border-border text-foreground-muted hover:bg-surface-muted hover:text-foreground',
+            )}
+          >
+            {activo && <Check className="size-3.5" strokeWidth={3} aria-hidden="true" />}
+            {etiqueta}
+          </button>
+        )
+      })}
+    </div>
+  )
 }
 
 function OrdenesPorEmpresa({ claveFiltro }: { claveFiltro: string }) {
@@ -205,9 +253,12 @@ function OrdenesPorEmpresa({ claveFiltro }: { claveFiltro: string }) {
       id: 'empresa',
       header: 'Empresa',
       cell: (fila) => (
-        <Link to={`/admin/empresas/${fila.id}`} className="font-medium text-foreground hover:underline">
-          {fila.nombre} <span className="font-mono text-xs text-foreground-muted">{fila.codigo}</span>
-        </Link>
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <Link to={`/admin/empresas/${fila.id}`} className="font-medium text-foreground hover:underline">
+            {fila.nombre} <span className="font-mono text-xs text-foreground-muted">{fila.codigo}</span>
+          </Link>
+          {fila.demo && <EmpresaDemoBadge />}
+        </span>
       ),
     },
     { id: 'estado', header: 'Estado', className: 'hidden sm:table-cell', cell: (fila) => <EstadoEmpresaBadge activa={fila.activa} /> },
@@ -235,7 +286,7 @@ function OrdenesPorEmpresa({ claveFiltro }: { claveFiltro: string }) {
         loading={loading}
         error={error}
         onRetry={reload}
-        emptyMessage="Aún no hay empresas registradas."
+        emptyMessage="No hay empresas en este alcance."
         page={data?.page}
         onPageChange={setPagina}
       />

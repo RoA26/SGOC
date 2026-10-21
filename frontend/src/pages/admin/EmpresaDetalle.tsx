@@ -9,7 +9,7 @@ import { DataTable, type Column } from '@/components/ui/DataTable'
 import { ETIQUETA_ROL, useContextoEmpresa } from '@/features/auth/permisos'
 import { empresaService } from '@/features/empresa/empresaApi'
 import { useEmpresaSeleccionadaStore } from '@/features/empresa/empresaSeleccionadaStore'
-import { EstadoEmpresaBadge, EstadoUsuarioBadge } from '@/features/empresa/EstadosBadges'
+import { EmpresaDemoBadge, EstadoEmpresaBadge, EstadoUsuarioBadge } from '@/features/empresa/EstadosBadges'
 import type { Empresa, UsuarioEmpresa } from '@/features/empresa/types'
 import { useAviso } from '@/hooks/useAviso'
 import { usePaginatedResource } from '@/hooks/usePaginatedResource'
@@ -108,7 +108,7 @@ function Ficha({ empresa, onActualizada }: { empresa: Empresa; onActualizada: (e
   const [recargaUsuarios, setRecargaUsuarios] = useState(0)
 
   function entrarEnSupervision() {
-    supervisar({ id: empresa.id, nombre: empresa.nombre, codigo: empresa.codigo })
+    supervisar({ id: empresa.id, nombre: empresa.nombre, codigo: empresa.codigo, demo: empresa.demo })
     navigate('/')
   }
 
@@ -144,7 +144,7 @@ function Ficha({ empresa, onActualizada }: { empresa: Empresa; onActualizada: (e
     <>
       <VolverAEmpresas />
       <PageHeader
-        eyebrow="Ficha de empresa"
+        eyebrow={empresa.demo ? 'Ficha de empresa · demostración' : 'Ficha de empresa'}
         title={empresa.nombre}
         description={`Código ${empresa.codigo} · NIT ${empresa.nit} · Alta el ${formatearFecha(empresa.creadoEn)}`}
         actions={
@@ -208,6 +208,16 @@ function Ficha({ empresa, onActualizada }: { empresa: Empresa; onActualizada: (e
             </Dato>
             <Dato termino="Estado">
               <EstadoEmpresaBadge activa={empresa.activa} />
+            </Dato>
+            <Dato termino="Tipo">
+              {empresa.demo ? (
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <EmpresaDemoBadge />
+                  <span className="text-foreground-muted">Ficticia, de demostración: no es un cliente real.</span>
+                </span>
+              ) : (
+                'Empresa real'
+              )}
             </Dato>
             <Dato termino="Alta">{formatearFecha(empresa.creadoEn)}</Dato>
           </dl>

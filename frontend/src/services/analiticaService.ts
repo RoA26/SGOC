@@ -25,12 +25,24 @@ export interface FiltroPeriodo {
   hasta?: string
 }
 
+/**
+ * Empresas que cuenta la analítica global: solo las reales (lo que asume el backend si no se
+ * indica), solo las de demostración o todas. Así la demo no se confunde con los datos reales.
+ */
+export type AlcanceEmpresas = 'REALES' | 'DEMO' | 'TODAS'
+
+export interface FiltroGlobal extends FiltroPeriodo {
+  alcance?: AlcanceEmpresas
+}
+
 /** AnaliticaDTO.Global (SUPER_ADMIN en modo global). */
 export interface AnaliticaGlobal {
+  /** Empresas que entran en todas las cifras de la respuesta. */
+  alcance: AlcanceEmpresas
   periodo: Periodo
   empresas: { total: number; activas: number; inactivas: number }
   ordenes: { emitidasEnPeriodo: number; totalHistorico: number; porEstado: Record<EstadoOrdenCompra, number> }
-  topEmpresas: { id: number; nombre: string; codigo: string; ordenes: number; valorComprometido: number }[]
+  topEmpresas: { id: number; nombre: string; codigo: string; demo: boolean; ordenes: number; valorComprometido: number }[]
   evolucionOrdenes: Punto[]
 }
 
@@ -39,6 +51,7 @@ export interface OrdenesDeEmpresa {
   nombre: string
   codigo: string
   activa: boolean
+  demo: boolean
   ordenesEnPeriodo: number
   ordenesAbiertas: number
 }
@@ -85,13 +98,13 @@ const BASE = '/v1/analitica'
 
 /** Cifras calculadas por el backend en cada petición; el frontend nunca las inventa ni las completa. */
 export const analiticaService = {
-  async global(periodo: FiltroPeriodo, signal?: AbortSignal): Promise<AnaliticaGlobal> {
-    const { data } = await api.get<AnaliticaGlobal>(`${BASE}/global`, { params: periodo, signal })
+  async global(filtro: FiltroGlobal, signal?: AbortSignal): Promise<AnaliticaGlobal> {
+    const { data } = await api.get<AnaliticaGlobal>(`${BASE}/global`, { params: filtro, signal })
     return data
   },
 
   async ordenesPorEmpresa(
-    params: PageParams & FiltroPeriodo,
+    params: PageParams & FiltroGlobal,
     signal?: AbortSignal,
   ): Promise<Page<OrdenesDeEmpresa>> {
     const { data } = await api.get<Page<OrdenesDeEmpresa>>(`${BASE}/global/empresas`, { params, signal })

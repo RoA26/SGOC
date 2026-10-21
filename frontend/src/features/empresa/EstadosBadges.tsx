@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleSlash, Clock, XCircle } from 'lucide-react'
+import { CheckCircle2, CircleSlash, Clock, FlaskConical, XCircle } from 'lucide-react'
 import type { EstadoUsuario } from '@/features/auth/types'
 import { cn } from '@/lib/cn'
 
@@ -18,6 +18,16 @@ export function EstadoUsuarioBadge({ estado }: { estado: EstadoUsuario }) {
     <span className={cn(CLASE_BASE, clase)}>
       <Icono className="size-3.5" aria-hidden="true" />
       {etiqueta}
+    </span>
+  )
+}
+
+/** Empresa ficticia de la seed de demostración (nunca una real): texto e icono, no solo color. */
+export function EmpresaDemoBadge() {
+  return (
+    <span className={cn(CLASE_BASE, 'border-accent bg-surface-muted text-accent')} title="Empresa ficticia de demostración">
+      <FlaskConical className="size-3.5" aria-hidden="true" />
+      Demo
     </span>
   )
 }

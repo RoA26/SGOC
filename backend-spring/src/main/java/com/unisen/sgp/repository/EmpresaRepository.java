@@ -35,6 +35,10 @@ public interface EmpresaRepository extends JpaRepository<Empresa, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Empresa> findWithLockById(Long id);
 
+    /** Códigos de las empresas marcadas como demo (solo las crea la seed de demostración). */
+    @Query("select e.codigo from Empresa e where e.demo = true order by e.codigo")
+    List<String> findCodigosDemo();
+
     /** Para el registro de trabajadores: el código se busca ya normalizado. */
     Optional<Empresa> findByCodigoEmpresa(String codigoEmpresa);
 }

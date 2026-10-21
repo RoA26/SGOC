@@ -139,7 +139,7 @@ e indica qué variable falta.
 | GET | `/api/v1/solicitudes/{id}` | Bearer | `200` con sus líneas · `404` si no existe o es de otro TRABAJADOR |
 | POST | `/api/v1/solicitudes` | Bearer | `201` PENDIENTE con el usuario autenticado · `400` |
 | PATCH | `/api/v1/solicitudes/{id}/estado` | Bearer **ADMINISTRADOR_COMERCIAL/SUPER_ADMIN** | `200` · `400` · `403` · `404` · `409` ya revisada |
-| GET | `/api/v1/analitica/global?desde=&hasta=` · `/global/empresas` | Bearer **SUPER_ADMIN con `X-Tenant-ID: global`** | `200` indicadores de la plataforma / página de órdenes por empresa · `400` período no válido o petición dentro de una empresa · `403` |
+| GET | `/api/v1/analitica/global?desde=&hasta=&alcance=` · `/global/empresas` | Bearer **SUPER_ADMIN con `X-Tenant-ID: global`** | `200` indicadores de la plataforma / página de órdenes por empresa, solo de las empresas del `alcance`: `REALES` (por defecto, sin las demo), `DEMO` o `TODAS` (cada empresa con `demo`) · `400` período o alcance no válido, o petición dentro de una empresa · `403` |
 | GET | `/api/v1/analitica/empresa?desde=&hasta=` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN con `X-Tenant-ID: <id>`** | `200` inventario, compras, recepciones y estados de la empresa · `400` · `403` |
 | GET | `/api/v1/analitica/personal` | Bearer **ADMINISTRADOR_COMERCIAL / TRABAJADOR** | `200` disponibilidad de productos y solicitudes propias (sin ventas) |
 | GET | `/api/v1/ordenes-compra?estado=&proveedorId=&solicitudId=` · `/{id}` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN con `X-Tenant-ID`** | `200` página / orden con líneas, total, recibido y pendiente · `404` |
@@ -503,6 +503,10 @@ SUPER_ADMIN ── X-Tenant-ID: <id> ──→ supervisión: datos de esa empres
 | --- | --- | --- |
 | `codigo` (V7) | `codigo` | **Código empresarial**: identificador legible, único y estable (`NASC01`). Público: no es una contraseña ni concede ningún permiso, y **no sirve para registrarse** |
 | `codigo_empresa` (V6) | `codigoEmpresa` | **Código de registro de trabajadores**: aleatorio (80 bits) y secreto; quien lo conoce se registra como PENDIENTE hasta que el administrador lo apruebe |
+
+La respuesta de empresa incluye además `demo` (columna `demo`, V15): `true` solo en las empresas
+ficticias de la seed de demostración. La API no permite fijarlo (una empresa creada por el
+SUPER_ADMIN nunca es demo) y la interfaz las marca con la etiqueta «Demo».
 
 Se mantienen separados a propósito: si el código predecible sirviera para registrarse,
 cualquiera podría crear cuentas pendientes en cualquier empresa (y averiguar qué empresas

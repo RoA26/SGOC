@@ -33,6 +33,27 @@ public final class AnaliticaDTO {
 
     // --- SUPER_ADMIN (modo global) ---
 
+    /**
+     * Empresas que cuenta la analítica global: las reales (por defecto), solo las de demostración
+     * ({@code empresas.demo}) o todas. Así las cifras de la demo no se mezclan con las reales.
+     */
+    public enum AlcanceEmpresas {
+        REALES(false),
+        DEMO(true),
+        TODAS(null);
+
+        private final Boolean demo;
+
+        AlcanceEmpresas(Boolean demo) {
+            this.demo = demo;
+        }
+
+        /** Valor de {@code empresas.demo} que se exige; null = sin filtro. */
+        public Boolean demo() {
+            return demo;
+        }
+    }
+
     public record Empresas(long total, long activas, long inactivas) {
     }
 
@@ -40,16 +61,18 @@ public final class AnaliticaDTO {
     }
 
     /** Empresa con más órdenes emitidas en el período; el valor excluye las canceladas. */
-    public record EmpresaConActividad(Long id, String nombre, String codigo, long ordenes, BigDecimal valorComprometido) {
+    public record EmpresaConActividad(Long id, String nombre, String codigo, boolean demo, long ordenes,
+                                      BigDecimal valorComprometido) {
     }
 
-    public record Global(Periodo periodo, Empresas empresas, OrdenesGlobales ordenes,
+    /** @param alcance empresas que entran en todas las cifras de la respuesta */
+    public record Global(AlcanceEmpresas alcance, Periodo periodo, Empresas empresas, OrdenesGlobales ordenes,
                          List<EmpresaConActividad> topEmpresas, List<Punto> evolucionOrdenes) {
     }
 
     /** Fila del listado paginado «órdenes por empresa». */
-    public record OrdenesDeEmpresa(Long id, String nombre, String codigo, boolean activa, long ordenesEnPeriodo,
-                                   long ordenesAbiertas) {
+    public record OrdenesDeEmpresa(Long id, String nombre, String codigo, boolean activa, boolean demo,
+                                   long ordenesEnPeriodo, long ordenesAbiertas) {
     }
 
     // --- ADMINISTRADOR_COMERCIAL (o SUPER_ADMIN en supervisión) ---

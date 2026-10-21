@@ -30,6 +30,10 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     boolean existsByEmail(String email);
 
+    /** Usernames de las cuentas cuyo correo (ya normalizado) termina en {@code sufijo}: la seed demo busca su dominio. */
+    @Query("select u.username from Usuario u where u.email like concat('%', :sufijo)")
+    List<String> findUsernamesConCorreoTerminadoEn(@Param("sufijo") String sufijo);
+
     // Usuario no lleva @TenantId (el login ocurre antes de conocer la empresa): toda consulta
     // de gestión filtra la empresa de forma explícita con el tenant de la petición.
 

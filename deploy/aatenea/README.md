@@ -10,7 +10,7 @@ llegó a completar.
 | Ruta en el VPS | Contenido |
 | --- | --- |
 | `/root/sgp-unisen` | Repositorio (`REPO`) |
-| `/root/sgp-private` (700) | Copia del script, `estado/`, contraseña demo, archivo de cuentas (600) y cerrojo `sgp-aatenea.lock` |
+| `/root/sgp-private` (700) | Copia del script, `estado/`, contraseña demo (`demo_password`, 600, la define `clave-demo`), archivo de cuentas (600) y cerrojo `sgp-aatenea.lock` |
 | `/root/sgp-private/estado/despliegues/<marca>/` | Datos de cada despliegue, escritos una sola vez: commit previo, objetivo, imágenes de retorno (etiqueta e ID), Flyway, respaldo previo, marcas `fase1.ok`, `fase2.ok`, `rollback.hecho` |
 | `/root/sgp-private/estado/actual` | Marca del despliegue vigente (los anteriores se conservan) |
 | `/root/sgp-private/estado/en-curso/` | Diario de cada operación **abierta** (`fase2`, `fase3`, `rollback`, `restauracion`) |
@@ -59,6 +59,7 @@ bash /root/sgp-private/sgp-aatenea.sh estado         # debe decir «Sin operacio
 | --- | --- | --- | --- |
 | Fase 1 | `OBJETIVO=$OBJETIVO bash /root/sgp-private/sgp-aatenea.sh fase1` | Rama, cambios locales, `origin/main = OBJETIVO`, avance en rápido posible, migraciones nuevas (y ninguna modificada), si cambia el frontend, salud y variables (solo nombres) del backend, Flyway. Respaldo nuevo con SHA-256 y **restauración de prueba** en un PostgreSQL desechable sin red (misma imagen; compara filas de todas las tablas). Etiqueta las imágenes actuales `unisen/sgp-{backend,frontend}:pre-deploy-<marca>`. Crea un despliegue nuevo y solo al final lo marca como vigente | Revisar la salida antes de seguir. Con `RESPALDO_PREVIO=<ruta> SHA_RESPALDO_PREVIO=<sha>` verifica además un respaldo anterior |
 | Fase 2 | `bash /root/sgp-private/sgp-aatenea.sh fase2` | `git merge --ff-only OBJETIVO`, compila y despliega solo el backend (y el frontend si cambió), espera `healthy`, comprueba que no hay perfil demo, que la seed no se ejecutó, Flyway y un login por Nginx | Probar la aplicación con una cuenta real. Si algo va mal: `rollback` |
+| — | `bash /root/sgp-private/sgp-aatenea.sh clave-demo` | Pide dos veces, sin eco, la contraseña **común y pública** de las cuentas demo y la guarda en `/root/sgp-private/demo_password` (600). Nunca sobrescribe una existente. Ver «Contraseña demo» | Antes de la fase 3, con la contraseña ya decidida |
 | Fase 3 | `CONFIRMAR_SEED=si bash /root/sgp-private/sgp-aatenea.sh fase3` | Ver «Seed demo» | Solo con autorización expresa |
 | Fase 4 | `bash /root/sgp-private/sgp-aatenea.sh fase4` | Archivo privado de cuentas y pruebas de login, permisos y aislamiento por HTTP (solo lectura) | Entregar el archivo de cuentas por un canal privado |
 | — | `bash /root/sgp-private/sgp-aatenea.sh estado` | Solo lectura: despliegue vigente, operaciones incompletas, restos de ejecuciones interrumpidas, perfil del backend, empresas y cuentas demo | — |
@@ -85,6 +86,24 @@ Reglas comunes:
 
 ## 3. Seed demo (fase 3)
 
+### Contraseña demo
+
+Las diez cuentas demo comparten **una contraseña pública de demostración**, fácil de comunicar,
+que decide una persona: solo protege datos ficticios y nunca debe usarse en una cuenta real ni
+proteger información sensible. Su valor no se escribe en el repositorio, la documentación, los
+registros ni la salida del script.
+
+- `bash /root/sgp-private/sgp-aatenea.sh clave-demo` la pide dos veces sin eco (escríbela cuando
+  aparezca «Contraseña demo:», no antes) y la guarda en `/root/sgp-private/demo_password` (600).
+- Formato: 8-72 caracteres, solo letras sin tilde, dígitos, `.`, `_` y `-` (la política de SGP y
+  nada que haya que escapar en JSON o YAML). Una contraseña distinta en la confirmación o con otro
+  formato no se guarda.
+- No sobrescribe una existente: las cuentas demo ya creadas tienen esa contraseña (la seed nunca
+  cambia la de una cuenta que exista). Cambiarla antes de la fase 3 exige retirar el archivo a mano.
+- Las cuentas reales no se tocan: la seed solo usa esta contraseña al **crear** sus propias cuentas.
+
+### Pasos
+
 1. **Colisiones**: se detiene si algún código, NIT, username o correo de la seed lo usa un registro
    ajeno, si hay cuentas ajenas con correo `*.sgp-demo.test` o si existe **cualquier** otra empresa
    demo (por ejemplo, `DEMO01`…`DEMO06` de la seed anterior). Qué hacer con ellas lo decide una persona.
@@ -94,8 +113,8 @@ Reglas comunes:
    `usuarios`), más `empresas` y `flyway_schema_history`, el número de filas y el MD5 del contenido
    completo de las filas que **no** son de las cinco empresas de la seed. Así se compara todo, no solo
    unos conteos.
-5. Genera la contraseña demo (192 bits, hexadecimal) en `/root/sgp-private/demo_password` (600);
-   con `REANUDAR=1` reutiliza la existente.
+5. Usa la contraseña demo de `clave-demo` (se detiene al principio, antes de respaldar, si falta, no
+   tiene permisos 600 o no cumple el formato); con `REANUDAR=1`, la misma de la ejecución anterior.
 6. Arranca el backend **una vez** con un override temporal (`SPRING_PROFILES_ACTIVE=demo` y
    `DEMO_PASSWORD`, sin secretos en el archivo, que queda en la carpeta de la ejecución), espera y lo
    vuelve a arrancar **sin** el override. Comprueba que el contenedor no conserva esas variables.
