@@ -896,3 +896,55 @@ de un trabajador de A: 404, ni ve su solicitud: 404); permisos (trabajador 403 e
 | `nexora-isotipo.svg` / `nexora-isotipo-oscuro.svg` | Indicadores de carga o un menú contraído, si se diseñan | Elemento gráfico del *hero* | Sin usar |
 | `nexora-isotipo-monocromo.svg` | Documentos impresos en blanco y negro (comprobante, PDF/Word de la orden) | No aplica | Sin usar; integrarlo en los documentos es un cambio aparte |
 | `nexora-masterbrand.svg` | No | No | Solo referencia de diseño; no se sirve |
+
+## Registro con código de empresa en `/registro`
+
+Fecha: 21/10/2026. Aprobado por el propietario con estas condiciones: respetar el contrato del
+backend, cuenta PENDIENTE sin inicio de sesión automático, código visible solo en *Personal* para
+la propia empresa, sin cambios de backend, migraciones ni autenticación.
+
+### Revisión previa
+
+El backend ya cubría todo: `POST /api/auth/registro` con `codigoEmpresa` crea un TRABAJADOR
+PENDIENTE en la empresa del código (normalizado; rechaza empresas desactivadas) y
+`@UnCodigoDeAlta` exige exactamente un código, con los errores en `codigoInvitacion` o
+`codigoEmpresa`. `GET /api/v1/empresas/actual` (`Permisos.GESTION`, empresa de
+`TenantContextHolder`) devuelve el código de registro solo de la empresa de la cuenta. **No hizo
+falta ningún cambio de backend.** Faltaba: el campo en `/registro` y una forma de que el
+administrador viera su código en la interfaz.
+
+### Cambios (solo frontend)
+
+| Archivo | Cambio |
+| --- | --- |
+| `schemas/authSchema.ts`, `features/auth/types.ts` | Vía de alta (`invitacion` o `empresa`); se valida y se envía solo el código elegido (obligatorio, máx. 64, recortado y en mayúsculas) |
+| `pages/Registro.tsx` | Selector accesible «Tengo una invitación» / «Tengo el código de mi empresa». Si el servidor devuelve un estado distinto de ACTIVO, pantalla «Cuenta pendiente de aprobación» con la empresa y sin iniciar sesión. El enlace `?codigo=` sigue preseleccionando la invitación. El foco va al primer campo con error en el orden de la pantalla |
+| `pages/admin/Personal.tsx`, `features/personal/personalApi.ts` | Tarjeta «Código de registro de tu empresa» con botón para copiarlo, carga, error y reintento |
+| Pruebas | `authSchema.test.ts` (4), `Registro.test.tsx` (4), `Personal.test.tsx` (+2) |
+| `scripts/validacion-local/` | Recorrido de integración reproducible y su README (credenciales solo por variables de entorno; se niega a ejecutarse fuera de `localhost`) |
+
+### Verificación
+
+| Verificación | Resultado |
+| --- | --- |
+| `npm run lint` · `tsc -b` · `npm test` · `npm run build` | Sin avisos ni errores · 70 pruebas, 0 fallos (60 + 10) · build correcto |
+| Recorrido real (navegador → Vite → Spring Boot → PostgreSQL 16.15 local, base vacía) | 40/40 en la ejecución final, sin errores de consola y 0 `ERROR` en el log |
+| Contraste con la BD | Las cuentas que no debían crearse (código inexistente, dos códigos, empresa desactivada) no existen; cada trabajador está en su empresa con el estado esperado |
+
+Casos cubiertos: código de la propia empresa visible y copiable (A ve el suyo, nunca el de B, ni
+con `X-Tenant-ID` de B); registro por la interfaz con un código inexistente (error junto al campo,
+sin cuenta), con el código de A escrito en minúsculas y con espacios (PENDIENTE, aviso, sin
+sesión), con los dos códigos (400), con el código de una empresa desactivada (400) y con
+invitación (activa, con sesión); login pendiente (403 con motivo, mostrado); aprobación en
+*Personal* y acceso posterior; aislamiento (B no ve ni cambia nada de A); permisos (el trabajador
+recibe 403 en `/empresas/actual` y en *Personal*; el SUPER_ADMIN, 400 en modo global y su empresa
+supervisada al supervisar).
+
+### Pendientes de seguridad (no implementados, a decidir)
+
+1. **Rotación del código de registro de la empresa.** Es permanente: si se filtra, cualquiera
+   puede registrarse (queda pendiente, pero llena la lista del administrador). Requiere un endpoint
+   para regenerarlo, con auditoría.
+2. **Límite de intentos** en `POST /api/auth/registro` (y en el login, pendiente desde la Fase 0).
+   El código tiene 80 bits de entropía, así que adivinarlo no es viable, pero sin límite se pueden
+   crear cuentas pendientes de forma masiva.

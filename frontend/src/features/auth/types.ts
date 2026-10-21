@@ -14,15 +14,22 @@ export interface LoginRequest {
   password: string
 }
 
-/** RegistroRequestDTO: alta con un código de invitación de un solo uso. */
-export interface RegistroRequest {
+interface DatosRegistro {
   nombres: string
   apellidos: string
   username: string
   email: string
   password: string
-  codigoInvitacion: string
 }
+
+/**
+ * RegistroRequestDTO: alta de un TRABAJADOR con exactamente uno de los dos códigos (el backend
+ * rechaza ambos o ninguno). Con la invitación de un solo uso la cuenta queda ACTIVA; con el código
+ * de la empresa, PENDIENTE hasta que su administrador la apruebe.
+ */
+export type RegistroRequest =
+  | (DatosRegistro & { codigoInvitacion: string; codigoEmpresa?: never })
+  | (DatosRegistro & { codigoEmpresa: string; codigoInvitacion?: never })
 
 export interface UsuarioResponse {
   id: number

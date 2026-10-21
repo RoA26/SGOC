@@ -1,7 +1,8 @@
-import { CheckCircle2, Info, Ticket } from 'lucide-react'
+import { CheckCircle2, Info, KeyRound, Ticket } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { BotonCopiar } from '@/components/ui/BotonCopiar'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { DataTable, type Column } from '@/components/ui/DataTable'
 import type { EstadoUsuario } from '@/features/auth/types'
@@ -11,6 +12,7 @@ import { personalService } from '@/features/personal/personalApi'
 import type { PersonalTrabajador } from '@/features/personal/types'
 import { useAviso } from '@/hooks/useAviso'
 import { usePaginatedResource } from '@/hooks/usePaginatedResource'
+import { useRecurso } from '@/hooks/useRecurso'
 import { cn } from '@/lib/cn'
 import { getApiErrorMessage } from '@/lib/errors'
 import { formatearFecha } from '@/lib/fechas'
@@ -53,7 +55,9 @@ interface Pendiente {
  * Personal del ADMINISTRADOR_COMERCIAL: los trabajadores de su empresa con el estado real de su
  * cuenta y la actividad que registraron (solicitudes, recepciones y ventas). Desde aquí aprueba a
  * quien se registró con el código de empresa y desactiva o reactiva cuentas, como ya permite el
- * backend. La URL guarda el filtro (?estado=PENDIENTE).
+ * backend. Muestra también el código de registro de su empresa, que comparte con quien deba darse
+ * de alta (esas cuentas quedan pendientes hasta que las aprueba aquí). La URL guarda el filtro
+ * (?estado=PENDIENTE).
  *
  * No muestra la "última conexión": el sistema no registra los inicios de sesión.
  */
@@ -174,6 +178,8 @@ export default function Personal() {
         }
       />
 
+      <CodigoRegistroEmpresa />
+
       <p className="mb-4 flex items-start gap-2 text-sm text-foreground-muted">
         <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
         La actividad cuenta las solicitudes, recepciones y ventas que registró cada persona. No indica cuándo se
@@ -221,7 +227,7 @@ export default function Personal() {
         loading={loading}
         error={error}
         onRetry={reload}
-        emptyMessage={estado ? VACIO[estado] : 'Tu empresa aún no tiene trabajadores. Invítalos desde «Invitar usuarios».'}
+        emptyMessage={estado ? VACIO[estado] : 'Tu empresa aún no tiene trabajadores. Invítalos desde «Invitar usuarios» o comparte el código de registro.'}
         page={data?.page}
         onPageChange={setPagina}
       />
@@ -249,5 +255,48 @@ export default function Personal() {
         )}
       </ConfirmDialog>
     </>
+  )
+}
+
+/**
+ * Código de registro de la empresa de la cuenta (GET /api/v1/empresas/actual). Quien lo use en
+ * /registro entra como TRABAJADOR pendiente de aprobación. El código es secreto: en la interfaz solo
+ * lo ve el administrador de la empresa (el trabajador recibe 403 del backend).
+ */
+function CodigoRegistroEmpresa() {
+  const { datos: empresa, error, cargando, recargar } = useRecurso(personalService.empresaActual, 'empresa-actual')
+
+  return (
+    <section aria-labelledby="codigo-registro" className="u-card mb-6 p-5">
+      <h2 id="codigo-registro" className="flex items-center gap-2 font-medium text-foreground">
+        <KeyRound className="size-4 text-accent" aria-hidden="true" />
+        Código de registro de tu empresa
+      </h2>
+      {error ? (
+        <div role="alert" className="u-alert u-alert--error mt-3 flex flex-wrap items-center justify-between gap-2">
+          <span>No se pudo cargar el código: {error}</span>
+          <button type="button" className="u-btn u-btn--ghost h-9 px-3 text-sm" onClick={recargar}>
+            Reintentar
+          </button>
+        </div>
+      ) : empresa ? (
+        <>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span className="font-mono text-lg font-medium tracking-wider text-foreground">
+              {empresa.codigoEmpresa}
+            </span>
+            <BotonCopiar texto={empresa.codigoEmpresa} etiqueta="Copiar" ariaLabel="Copiar el código de registro" />
+          </div>
+          <p className="mt-2 text-sm text-foreground-muted">
+            Quien se registre con este código en «Crea tu cuenta» quedará pendiente hasta que lo apruebes en esta página.
+            Compártelo solo con personas de {empresa.nombre}.
+          </p>
+        </>
+      ) : (
+        <p className="mt-3 text-sm text-foreground-muted" aria-busy={cargando}>
+          Cargando…
+        </p>
+      )}
+    </section>
   )
 }

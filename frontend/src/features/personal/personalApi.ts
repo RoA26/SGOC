@@ -1,4 +1,5 @@
 import type { EstadoUsuario } from '@/features/auth/types'
+import type { Empresa } from '@/features/empresa/types'
 import { api } from '@/lib/axios'
 import type { Page, PageParams } from '@/services/types'
 import type { PersonalTrabajador } from './types'
@@ -12,6 +13,15 @@ const BASE = '/v1/trabajadores'
 export const personalService = {
   async listar(params: PageParams & { estado?: EstadoUsuario }, signal?: AbortSignal): Promise<Page<PersonalTrabajador>> {
     const { data } = await api.get<Page<PersonalTrabajador>>(`${BASE}/actividad`, { params, signal })
+    return data
+  },
+
+  /**
+   * GET /api/v1/empresas/actual: la empresa de la cuenta, con su código de registro de trabajadores.
+   * La empresa la fija el servidor (nunca se elige en el cliente): no hay forma de pedir la de otra.
+   */
+  async empresaActual(signal?: AbortSignal): Promise<Empresa> {
+    const { data } = await api.get<Empresa>('/v1/empresas/actual', { signal })
     return data
   },
 

@@ -340,11 +340,18 @@ propios nombres y apellidos.
 muestra como `$ 1.250.000`. "Nuevo producto" queda deshabilitado mientras no haya ningún
 proveedor registrado.
 
-**Registro:** quien recibe un código de invitación crea su cuenta en `/registro` (o con el
-enlace `/registro?codigo=XXXX-XXXX-XXXX-XXXX`, que precarga el código) con sus nombres y
-apellidos, y entra directamente en la empresa del código con rol TRABAJADOR. Los errores del
-servidor (código inválido, usado, revocado o caducado;
-usuario o correo en uso) aparecen junto al campo afectado.
+**Registro (`/registro`):** la persona elige con qué código se da de alta, con sus nombres y
+apellidos, y siempre como TRABAJADOR de la empresa del código (lo decide el servidor):
+
+- *Tengo una invitación*: código de un solo uso (o el enlace `/registro?codigo=XXXX-XXXX-XXXX-XXXX`,
+  que lo precarga). La cuenta queda activa y entra directamente.
+- *Tengo el código de mi empresa*: el código de registro que el administrador ve y copia en
+  *Personal*. La cuenta queda **pendiente**: no se inicia sesión y la pantalla explica que el
+  administrador debe aprobarla; hasta entonces el login responde con ese motivo.
+
+Solo se envía el código de la vía elegida (el backend exige exactamente uno). Los errores del
+servidor (código inexistente, usado, revocado o caducado; empresa desactivada; usuario o correo en
+uso) aparecen junto al campo afectado.
 
 **Solicitudes de compra (`/solicitudes`):** ADMINISTRADOR_COMERCIAL y TRABAJADOR piden productos del
 catálogo con un motivo y tantas líneas como necesiten (producto + cantidad), sin elegir proveedor,
@@ -366,7 +373,9 @@ real de su cuenta y su actividad: la última operación registrada (solicitud, r
 fecha) y los conteos de los últimos 30 días, o «Sin actividad registrada». No muestra la última
 conexión porque el sistema no guarda los inicios de sesión. Filtro por estado en la URL
 (`?estado=PENDIENTE`); aprueba o rechaza a quien se registró con el código de empresa y desactiva o
-reactiva cuentas (rechazar y desactivar piden confirmación).
+reactiva cuentas (rechazar y desactivar piden confirmación). Arriba muestra el **código de registro
+de su empresa** con un botón para copiarlo (`GET /api/v1/empresas/actual`: siempre la empresa de la
+cuenta, nunca otra); el trabajador no lo ve (403).
 
 **Invitar usuarios (`/admin/invitaciones`, ADMINISTRADOR_COMERCIAL):** el administrador genera un código con
 un clic y lo copia, o copia el enlace de registro. Es el alta de trabajadores de su empresa (no de

@@ -7,8 +7,11 @@ import type { PersonalTrabajador } from '@/features/personal/types'
 import { iniciarSesionComo } from '@/test/sesion'
 import Personal from './Personal'
 
-vi.mock('@/features/personal/personalApi', () => ({ personalService: { listar: vi.fn(), cambiarEstado: vi.fn() } }))
+vi.mock('@/features/personal/personalApi', () => ({
+  personalService: { listar: vi.fn(), cambiarEstado: vi.fn(), empresaActual: vi.fn() },
+}))
 const listarMock = vi.mocked(personalService.listar)
+const empresaActualMock = vi.mocked(personalService.empresaActual)
 const cambiarEstadoMock = vi.mocked(personalService.cambiarEstado)
 
 const PAGINA = { size: 20, number: 0, totalPages: 1 }
@@ -43,6 +46,35 @@ describe('Personal (ADMINISTRADOR_COMERCIAL)', () => {
     iniciarSesionComo('ADMINISTRADOR_COMERCIAL')
     listarMock.mockResolvedValue({ content: [ANA, LUIS], page: { ...PAGINA, totalElements: 2 } })
     cambiarEstadoMock.mockResolvedValue()
+    empresaActualMock.mockResolvedValue({
+      id: 1,
+      nombre: 'Mercado Verde',
+      codigo: 'MVSA01',
+      nit: '900000001-1',
+      activa: true,
+      demo: false,
+      codigoEmpresa: '4HPR-T3VW-7KQ2-M9XA',
+      creadoEn: '2026-01-01T00:00:00Z',
+    })
+  })
+
+  it('muestra el código de registro de su empresa con un botón para copiarlo', async () => {
+    renderizar()
+    const seccion = await screen.findByRole('region', { name: 'Código de registro de tu empresa' })
+    expect(await within(seccion).findByText('4HPR-T3VW-7KQ2-M9XA')).toBeInTheDocument()
+    expect(within(seccion).getByRole('button', { name: 'Copiar el código de registro' })).toBeInTheDocument()
+    expect(within(seccion).getByText(/quedará pendiente hasta que lo apruebes/)).toBeInTheDocument()
+    // Sin parámetros: la empresa la fija el servidor, el cliente no puede elegir otra.
+    expect(empresaActualMock).toHaveBeenCalledWith(expect.any(AbortSignal))
+  })
+
+  it('si el código no se puede cargar lo indica y permite reintentar', async () => {
+    empresaActualMock.mockRejectedValueOnce(new Error('Servidor no disponible'))
+    renderizar()
+    const seccion = await screen.findByRole('region', { name: 'Código de registro de tu empresa' })
+    await userEvent.click(await within(seccion).findByRole('button', { name: 'Reintentar' }))
+    expect(await within(seccion).findByText('4HPR-T3VW-7KQ2-M9XA')).toBeInTheDocument()
+    expect(empresaActualMock).toHaveBeenCalledTimes(2)
   })
 
   it('muestra el estado real y la última operación, sin presentarla como conexión', async () => {
