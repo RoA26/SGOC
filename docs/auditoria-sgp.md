@@ -527,3 +527,209 @@ Validación ejecutada en esta sesión: backend 303 tests en H2 y la misma suite 
 (contenedor efímero); frontend lint, `tsc -b`, 46 pruebas Vitest y build. Detalle de resultados y
 pasos de prueba en el informe final de la sesión y en `modulo-comercial.md`.
 
+
+## Fase A (Nexora): auditoría, inventario de marca y preparación de B.6, B.7 y B.8
+
+Fecha: 21/10/2026. Base: rama `claude/loving-edison-5cogo9` = `main` = `63df7d6`, sin cambios
+pendientes. **Alcance autorizado: solo la Fase A** (diagnóstico, inventario y plan). Este
+apartado no implementa nada de las Fases B (B.6) y C (B.7, B.8); todo lo de esas fases se describe
+como propuesta.
+
+**Identidad comercial (decisión del propietario, 21/10/2026):** el producto se llama **Nexora**.
+«SGOC», «SGP» y «Unisen SGP» son nombres históricos o identificadores técnicos. El dominio público
+deseado es `nexora.duckdns.org`: no se ha comprobado su DNS, su certificado ni el proxy del host, y
+nada de esto se cambia sin autorización expresa.
+
+### A.1 Hitos de referencia frente al código real
+
+El repositorio no usa la numeración H1–H8: sus commits y este documento hablan de «Hitos 1–11»,
+«Fases 0–3» y «Módulo comercial». La correspondencia, verificada en el código:
+
+| Hito | Estado real | Evidencia | Huecos |
+| --- | --- | --- | --- |
+| H1 Multiempresa | ✅ | `@TenantId` en `EntidadDeEmpresa`, `TenantFilter`, FK compuestas `(empresa_id, x_id)`, `AislamientoMultiEmpresaTest`, `AislamientoTrabajadoresTest` | Modo soporte de escritura del SUPER_ADMIN por API sin decidir (riesgo 4 de la Fase 1) |
+| H2 Identidad y onboarding | 🟡 | Alta atómica empresa + administrador, invitaciones, registro, `/api/v1/trabajadores` | Sin interfaz para registrarse con código de empresa ni para aprobar trabajadores (ver A.4); sin cambio ni recuperación de contraseña; sin límite de intentos en login/registro |
+| H3 Catálogo | ✅ | Proveedores y productos por empresa, código de barras (V12), precios (V15) | Unidad de medida |
+| H4 Inventario | ✅ | Existencias, kárdex, ajustes (V11), costo promedio (V16) | Valoración **provisional** |
+| H5 Solicitudes | ✅ | Maestro-detalle con revisión | `empresaNombre` en modo global |
+| H6 Órdenes de compra | ✅ | Borradores, emisión, Word/PDF, entregas (V11, V13) | Impuestos, descuentos, cierre con saldo |
+| H7 Recepción | ✅ | Parciales, incidencias, idempotencia | Excedentes, corrección de recepciones |
+| H8 Dashboards | ✅ | `/api/v1/analitica/*` y `Inicio` por rol | Sin indicadores de personal (B.6) |
+
+### A.2 Autenticación, roles y rutas del frontend (para B.6 y B.7)
+
+- **Roles reales:** `SUPER_ADMIN`, `ADMINISTRADOR_COMERCIAL` (el antiguo `GERENTE`, luego
+  `ADMIN_EMPRESA`; V8 y V14) y `TRABAJADOR`. No existe un rol `GERENTE` en el código actual.
+- **Autorización:** `@PreAuthorize` con `Permisos`; el filtro JWT carga rol, estado y empresa de la
+  BD en cada petición. Las guardas del frontend (`RutaProtegida`, `RutaConRol`, `RutaInvitado`) son
+  solo de interfaz.
+- **Rutas públicas:** `/login` y `/registro` (solo con **código de invitación**). No hay
+  recuperación de contraseña (no existe el mecanismo).
+- **Ruta inicial:** `/` está dentro de `RutaProtegida`: un visitante sin sesión va a `/login`
+  (recordando la ruta pedida en `state.from`); con sesión, `Inicio` muestra el dashboard según el
+  rol (no hay rutas de dashboard distintas por rol). Cualquier otra ruta desconocida vuelve a `/`.
+- **Nginx:** `try_files $uri $uri/ /index.html` y `listen 80 default_server`: el acceso directo a
+  cualquier ruta de la SPA ya funciona y una ruta pública nueva no requiere cambios en Nginx.
+
+### A.3 Paquete de marca: `nexora-brand-assets.zip`
+
+Ubicación inspeccionada: el adjunto de la sesión `c416469a-nexora-brand-assets.zip` (9 330 bytes,
+SHA-256 `8978f9d5397031d171aaedfe5f94d4fd53ad967abdaef1dc7608a8b293aa32cc`). `unzip -t` sin
+errores; extraído en un directorio temporal, **no** copiado al repositorio.
+
+| Archivo | Lienzo | Contenido | Uso propuesto |
+| --- | --- | --- | --- |
+| `nexora-logo-claro.svg` | 624,25 × 110 | Isotipo `#6B1E2E` + punto `#C9A86A` + palabra en trazos `#1C1416` | Logotipo sobre fondos claros (cabecera, login móvil, página pública) |
+| `nexora-logo-oscuro.svg` | 624,25 × 110 | Igual con trazo `#B2475C` y palabra `#F5EFE6` | Fondos oscuros (panel de marca del login, tema oscuro) |
+| `nexora-isotipo.svg` | 140 × 68 | «Bucle Operativo» solo | Barra lateral contraída, cargas |
+| `nexora-isotipo-oscuro.svg` | 140 × 68 | Isotipo con trazo `#B2475C` | Ídem en tema oscuro |
+| `nexora-isotipo-monocromo.svg` | 140 × 68 | Una tinta `#1C1416`, trazo abierto alrededor del punto | Comprobantes y documentos en blanco y negro (PDF/Word), si se aprueba |
+| `nexora-favicon.svg` | 150 × 150 | Isotipo con `<style>` y `prefers-color-scheme` | Sustituir `frontend/public/favicon.svg` |
+| `nexora-masterbrand.svg` | 1200 × 940 | Lámina de identidad (construcción, tokens, aplicación) | Solo referencia de diseño: **no** se sirve en la aplicación |
+| `README.md` | — | Paleta, usos y fragmentos de React/HTML | Referencia; sus fragmentos no se ejecutan |
+
+- **Seguridad:** XML bien formado en los siete SVG; sin `<script>`, manejadores `on*`, `href`,
+  `<image>`, `<foreignObject>` ni recursos externos. El único `<style>` es el del favicon.
+- **Dependencias:** ninguna. No trae bibliotecas, componentes, animaciones, `package.json` ni
+  scripts: **no hay nada que instalar**. Encaja con lo que ya hay (Vite importa SVG como URL, igual
+  que `BrandLogo.tsx`; Geist ya se sirve con `@fontsource-variable/geist`).
+- **Licencia:** el paquete no incluye licencia; se asume material propio del propietario (confirmar).
+- **Duplicados:** ninguno exacto; las variantes claro/oscuro difieren solo en los colores.
+- **Paleta (`--brand #6B1E2E`, `--brand-dark #B2475C`, `--gold #C9A86A`, `--text #1C1416`,
+  `--text-dark #F5EFE6`, `--surface-dark #1E181A`).** Los tokens actuales de
+  `src/brand/unisen/tokens.css` (azul `#1d2b4f` y terracota `#b5552d`) están marcados como
+  **marcadores de posición** desde el inicio, así que adoptar la paleta Nexora es sustituir
+  valores, no rediseñar. Contraste WCAG calculado:
+
+  | Par | Contraste | Lectura |
+  | --- | --- | --- |
+  | `#6B1E2E` sobre `#FFFFFF` / `#F6F5F1` | 11,35 / 10,40 : 1 | Válido para texto y botones primarios |
+  | `#FFFFFF` sobre `#6B1E2E` | 11,35 : 1 | Texto de botón primario válido |
+  | `#C9A86A` sobre `#FFFFFF` / `#F6F5F1` | 2,26 / 2,07 : 1 | **No** apto para texto ni para elementos gráficos informativos en tema claro: solo decorativo |
+  | `#C9A86A` sobre `#1E181A` / `#6B1E2E` | 7,74 / 5,02 : 1 | Válido como acento en superficies oscuras o de marca |
+  | `#B2475C` sobre `#1E181A` | 3,29 : 1 | Solo texto grande, iconos y bordes (≥ 3:1); **no** texto normal (< 4,5:1) |
+  | `#F5EFE6` sobre `#1E181A` | 15,30 : 1 | Texto principal del tema oscuro |
+
+  Consecuencia: en el tema oscuro el color primario de los textos y enlaces no puede ser
+  `#B2475C` tal cual; hará falta un tono más claro derivado (decisión de diseño de la Fase C).
+- **Adaptaciones necesarias:** los SVG traen `width`/`height` fijos (se escalan con
+  `height: …; width: auto`); el favicon hereda el tema del sistema, no un `data-theme` forzado.
+
+### A.4 B.6: datos disponibles para la vista de personal
+
+| Pregunta | Respuesta verificada |
+| --- | --- |
+| Relación usuario ↔ empresa | `usuarios.empresa_id` (nula solo para SUPER_ADMIN); FK compuestas `(empresa_id, usuario_id)` en todo lo que un usuario firma |
+| Roles y estados | `Rol` y `EstadoUsuario` (`PENDIENTE`, `ACTIVO`, `RECHAZADO`, `INACTIVO`), leídos de la BD en cada petición |
+| Endpoint existente | `GET /api/v1/trabajadores[?estado=]` (paginado, `Permisos.GESTION`, empresa de `TenantContextHolder`, solo rol TRABAJADOR) y `PATCH /{id}/estado` (aprobar, rechazar, desactivar, reactivar, con bloqueo de fila). Probado en `OnboardingTrabajadoresTest` y `AislamientoTrabajadoresTest` |
+| Vista equivalente | **No hay ninguna para el ADMINISTRADOR_COMERCIAL**: `/admin/invitaciones` solo gestiona códigos. El SUPER_ADMIN tiene `UsuariosEmpresa` en `EmpresaDetalle.tsx` (tabla de solo lectura reutilizable como patrón) |
+| Última conexión real | **No existe.** `AuthService.login` no persiste ni registra el inicio de sesión; `usuarios` no tiene columna de acceso |
+| Última operación registrada | Derivable, sin tablas nuevas: `solicitudes.usuario_id` (índice `ix_solicitudes_usuario_fecha`), `recepciones.recibida_por_id`, `ventas.vendida_por_id` (índice `ix_ventas_vendedor`), `movimientos_inventario.usuario_id`, `devoluciones_venta.registrada_por_id`. `recepciones` y `movimientos_inventario` no tienen índice por usuario |
+| Auditoría general | No hay tabla de eventos; solo columnas de autoría y el log |
+
+Consecuencia importante: los trabajadores que se registran con el **código de empresa** quedan
+`PENDIENTE` y hoy **ningún administrador puede aprobarlos desde la interfaz** (solo por API); además
+`/registro` no ofrece esa vía. El README ya lo lista en «Pendiente en el backend».
+
+**Propuesta para la Fase B (no implementada):** página `/admin/personal` (ADMINISTRADOR_COMERCIAL)
+con `DataTable`, `usePaginatedResource` y `EstadosBadges`, filtro por estado y columnas nombre,
+usuario, estado y alta. Actividad: un endpoint nuevo de solo lectura, `Permisos.ADMINISTRADOR_COMERCIAL`,
+que agregue por trabajador de la página (una consulta por fuente, sin N+1) la **última operación
+registrada** con su tipo (p. ej. «Solicitud · 20/10/2026») y conteos del período; rotulado siempre
+como «Última operación», nunca como «Última conexión». Sin datos → «Sin actividad registrada».
+La «última conexión» exigiría una migración (`usuarios.ultimo_acceso_en`, escrita en el login) y
+**no** se propone sin autorización. Decidir si la vista incluye las acciones de aprobar, rechazar,
+desactivar y reactivar (ya implementadas y autorizadas en el backend) o si es solo de consulta.
+
+### A.5 B.6.2: tarjeta del administrador para el trabajador
+
+- **Cómo se determina:** «administrador principal» = el `ADMINISTRADOR_COMERCIAL` de menor id de la
+  empresa (`UsuarioRepository.findPrimeroConRolPorEmpresa`). Hoy solo se crea uno por empresa (con
+  la empresa), pero **la BD no lo impide** y la gestión de varios administradores está sin decidir:
+  la relación es inequívoca por convención, no por esquema. Puede estar `INACTIVO`.
+- **Qué ve ya el trabajador:** el nombre de quien revisó cada solicitud suya (`revisadoPor` en
+  `SolicitudResponseDTO`) y, en *Mi perfil*, su empresa (nombre y código).
+- **Valor práctico:** bajo. Quien más lo necesitaría (cuenta `PENDIENTE`, `RECHAZADA` o `INACTIVA`)
+  **no puede iniciar sesión** (403 con `motivo`), así que una tarjeta dentro de la aplicación no le
+  llega. Un trabajador activo ya ve a su revisor.
+- **Recomendación:** **posponer** hasta decidir si habrá varios administradores. Si se aprueba:
+  campo opcional en `GET /api/auth/me` solo para TRABAJADOR, con el nombre visible de los
+  administradores **activos** (sin correo ni username), calculado al vuelo (sin duplicar datos), y una
+  tarjeta discreta en *Mi perfil*.
+
+### A.6 B.7: página pública de bienvenida
+
+- **Encaje propuesto (Fase C, no implementado):** en `/`, un componente que muestre la página
+  pública sin sesión y `Inicio` con sesión; `/login` y `/registro` se conservan; `RutaProtegida`
+  sigue llevando a `/login` cualquier ruta privada (los enlaces directos no cambian). Un usuario con
+  sesión nunca ve la página pública. Sin endpoints nuevos: el contenido es estático.
+- **Contenido verificable:** solicitudes y aprobación, órdenes de compra con documento PDF/Word,
+  entregas y recepción con incidencias, existencias y kárdex con código de barras, punto de venta
+  con comprobante interno (no es factura electrónica), dashboards por rol, multiempresa con
+  aislamiento. Botón principal «Iniciar sesión»; enlace secundario «Tengo un código de invitación»
+  (`/registro`), que es el único registro habilitado. Sin clientes, cifras ni testimonios.
+- **A decidir:** si la página vive en `/` (recomendado) o en una ruta propia; si se menciona Unisen
+  (p. ej. en el pie) o solo Nexora.
+
+### A.7 Referencias técnicas al nombre y al dominio
+
+**Dominio `rrtf.duckdns.org`** (14 apariciones):
+
+| Dónde | Tipo | Para migrar a `nexora.duckdns.org` |
+| --- | --- | --- |
+| `.env.example` (`APP_DOMAIN`), `docker-compose.yml` (`CORS_ALLOWED_ORIGINS` deriva de `APP_DOMAIN`) | Configuración | Cambiar `APP_DOMAIN` en el `.env` del VPS (durante la transición, admitir ambos orígenes) |
+| `application.yml` (valor por defecto de `CORS_ALLOWED_ORIGINS`), `backend-spring/.env.example` | Configuración | Actualizar el valor por defecto |
+| `frontend/nginx.conf` (`server_name`, comentario) | Configuración | Añadir el nombre; como es `default_server`, ya atiende cualquier `Host` |
+| `AuthControllerTest` (3), `application-test.yml` | Pruebas de CORS | Actualizar junto con lo anterior |
+| `README.md` (6), `backend-spring/README.md` (2), `deploy/aatenea/README.md`, `CLAUDE.md`, `frontend/.env.example`, comentario en `lib/axios.ts` | Documentación | Actualizar al migrar |
+| Fuera del repositorio: DNS de DuckDNS, certificado y proxy del host (Caddy u otro), `.env` del VPS | Infraestructura | **No verificado**; requiere autorización |
+
+La SPA usa `/api` en el mismo origen y Spring usa `forward-headers-strategy: framework` con
+`X-Forwarded-Host` de Nginx, así que las peticiones del propio dominio deberían reconocerse como
+mismo origen; debe comprobarse con un login real tras el cambio.
+
+**Nombre:** 247 clases Java en `com.unisen.sgp`; `sgp-backend`/`sgp-frontend` (Maven y npm);
+proyecto Compose `sgp`, BD y usuario `sgp`, imágenes `unisen/sgp-*`; `src/brand/unisen/` y las
+variables `--unisen-*`; script y rutas del VPS (`/root/sgp-unisen`, `/root/sgp-private`).
+**Se conservan**: renombrarlos no aporta nada visible y rompe despliegue, scripts o datos. Tres
+identificadores **no deben cambiarse** sin un plan propio: el emisor JWT `unisen-sgp` (cerraría todas
+las sesiones), la clave `sgp.session` del `localStorage` (ídem) y la BD `sgp` (datos de producción).
+
+Textos **visibles** con «Unisen» que pasarían a Nexora en la Fase C: `<title>` de `index.html`,
+`alt` de `BrandLogo.tsx`, `AuthLayout.tsx` (lema y pie), `Login.tsx` («usuario de Unisen»),
+`pages/admin/Empresas.tsx` (descripción), título de la API en `OpenApiConfig.java` y la línea de
+cabecera del archivo de cuentas demo de `sgp-aatenea.sh`.
+
+### A.8 Verificación ejecutada en esta sesión
+
+| Comando | Resultado |
+| --- | --- |
+| `cd frontend && npm run lint` | Sin avisos ni errores (código de salida 0) |
+| `cd frontend && npm test` | 51 pruebas, 0 fallos |
+| `cd frontend && npm run build` | Correcto (`tsc -b` + Vite) |
+| `cd backend-spring && ./mvnw test` (H2) | 312 pruebas, 0 fallos, 0 errores (el `README.md` dice 303: discrepancia ya registrada como pendiente en `CLAUDE.md`, no se corrige aquí) |
+
+No se ejecutó la suite contra PostgreSQL ni un recorrido en navegador (no hay cambios funcionales
+que verificar). No se ejecutó Docker.
+
+### A.9 Riesgos y pendientes detectados
+
+1. Trabajadores `PENDIENTE` sin interfaz de aprobación (A.4): el flujo «código de empresa» está a
+   medias para el usuario final.
+2. Sin límite de intentos en login y registro (pendiente desde la Fase 0).
+3. Sin cambio ni recuperación de contraseña (pendiente desde la Fase 0).
+4. El acento dorado no es apto para texto en tema claro y el borgoña oscuro no lo es para texto
+   normal en tema oscuro (A.3).
+5. La migración de dominio depende de DNS, TLS y proxy fuera del repositorio, no verificados.
+
+### A.10 Decisiones que necesita el propietario antes de seguir
+
+1. Autorizar la Fase B y, en ella, si la vista de personal incluye las acciones de estado ya
+   existentes o solo consulta (A.4).
+2. Aceptar que el resumen de actividad muestre «última operación registrada» y no «última conexión»,
+   o autorizar la migración para registrar accesos.
+3. Posponer la tarjeta del administrador (recomendado) o implementarla con el diseño de A.5.
+4. Autorizar la Fase C: página pública en `/`, sustitución de los tokens por la paleta Nexora (con
+   el ajuste de contraste del tema oscuro) y de los logotipos y el favicon.
+5. Papel de Unisen frente a Nexora en los textos (pie, documentos PDF/Word) y licencia del paquete.
+6. Fecha y procedimiento de la migración al dominio `nexora.duckdns.org`.
