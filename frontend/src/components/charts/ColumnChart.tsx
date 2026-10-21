@@ -92,7 +92,7 @@ export function ColumnChart({ puntos, granularidad, unidad, descripcion }: Colum
               x2={ancho - MARGEN_DERECHO}
               y1={y(marca)}
               y2={y(marca)}
-              stroke="var(--unisen-color-border)"
+              stroke="var(--nexora-color-border)"
               strokeWidth={1}
               shapeRendering="crispEdges"
             />
@@ -118,7 +118,7 @@ export function ColumnChart({ puntos, granularidad, unidad, descripcion }: Colum
               {punto.valor > 0 && (
                 <path
                   d={`M${x},${base} V${base - alto + r} Q${x},${base - alto} ${x + r},${base - alto} H${x + grosor - r} Q${x + grosor},${base - alto} ${x + grosor},${base - alto + r} V${base} Z`}
-                  fill="var(--unisen-viz-series-1)"
+                  fill="var(--nexora-viz-series-1)"
                   fillOpacity={activo === indice ? 0.75 : 1}
                 />
               )}
@@ -151,7 +151,7 @@ export function ColumnChart({ puntos, granularidad, unidad, descripcion }: Colum
           x2={ancho - MARGEN_DERECHO}
           y1={MARGEN_SUPERIOR + ALTO_GRAFICA}
           y2={MARGEN_SUPERIOR + ALTO_GRAFICA}
-          stroke="var(--unisen-color-border-strong)"
+          stroke="var(--nexora-color-border-strong)"
           strokeWidth={1}
           shapeRendering="crispEdges"
         />

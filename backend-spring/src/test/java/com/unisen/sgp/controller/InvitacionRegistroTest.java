@@ -137,11 +137,11 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
     void registroConCodigoValidoCreaElUsuarioYConsumeElCodigo() throws Exception {
         String codigo = generarCodigo();
 
-        registrar("Nuevo.Usuario", "Nuevo@Unisen.com", PASSWORD_NUEVO, codigo)
+        registrar("Nuevo.Usuario", "Nuevo@Nexora.com", PASSWORD_NUEVO, codigo)
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNumber())
                 .andExpect(jsonPath("$.username").value("nuevo.usuario"))
-                .andExpect(jsonPath("$.email").value("nuevo@unisen.com"))
+                .andExpect(jsonPath("$.email").value("nuevo@nexora.com"))
                 .andExpect(jsonPath("$.nombre").value("Nombre De Prueba"))
                 .andExpect(jsonPath("$.rol").value("TRABAJADOR"))
                 .andExpect(jsonPath("$.password").doesNotExist())
@@ -172,7 +172,7 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
     @Test
     void registroGuardaNombresYApellidosPorSeparado() throws Exception {
         registrar(json(Map.of("nombres", "  Ana María ", "apellidos", " Compras Díaz ", "username", "ana",
-                        "email", "ana@unisen.com", "password", PASSWORD_NUEVO, "codigoInvitacion", generarCodigo())))
+                        "email", "ana@nexora.com", "password", PASSWORD_NUEVO, "codigoInvitacion", generarCodigo())))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.nombres").value("Ana María"))
                 .andExpect(jsonPath("$.apellidos").value("Compras Díaz"))
@@ -185,7 +185,7 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
     @Test
     void registroExigeNombresYApellidosSinConsumirLaInvitacion() throws Exception {
         String codigo = generarCodigo();
-        registrar(json(Map.of("username", "sin.nombre", "email", "sin.nombre@unisen.com", "password", PASSWORD_NUEVO,
+        registrar(json(Map.of("username", "sin.nombre", "email", "sin.nombre@nexora.com", "password", PASSWORD_NUEVO,
                         "codigoInvitacion", codigo, "nombres", " ")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.nombres").value("Los nombres son obligatorios."))
@@ -198,7 +198,7 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
         String codigo = generarCodigo();
         String comoLoTeclea = " " + codigo.toLowerCase().replace("-", " ") + " ";
 
-        registrar("flexible", "flexible@unisen.com", PASSWORD_NUEVO, comoLoTeclea)
+        registrar("flexible", "flexible@nexora.com", PASSWORD_NUEVO, comoLoTeclea)
                 .andExpect(status().isCreated());
         assertThat(filaInvitacion(codigo).get("usado")).isEqualTo(true);
     }
@@ -206,9 +206,9 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
     @Test
     void unCodigoYaUsadoNoSirveDosVeces() throws Exception {
         String codigo = generarCodigo();
-        registrar("primero", "primero@unisen.com", PASSWORD_NUEVO, codigo).andExpect(status().isCreated());
+        registrar("primero", "primero@nexora.com", PASSWORD_NUEVO, codigo).andExpect(status().isCreated());
 
-        registrar("segundo", "segundo@unisen.com", PASSWORD_NUEVO, codigo)
+        registrar("segundo", "segundo@nexora.com", PASSWORD_NUEVO, codigo)
                 .andExpect(status().isBadRequest())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE))
                 .andExpect(jsonPath("$.errors.codigoInvitacion").value("El código de invitación ya fue utilizado."));
@@ -221,7 +221,7 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
         jdbcTemplate.update("UPDATE codigos_invitacion SET fecha_expiracion = ? WHERE codigo = ?",
                 Timestamp.from(Instant.now().minusSeconds(1)), codigo);
 
-        registrar("tarde", "tarde@unisen.com", PASSWORD_NUEVO, codigo)
+        registrar("tarde", "tarde@nexora.com", PASSWORD_NUEVO, codigo)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.codigoInvitacion")
                         .value("El código de invitación ha caducado. Solicita uno nuevo al administrador."));
@@ -231,7 +231,7 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
 
     @Test
     void unCodigoInexistenteSeRechaza() throws Exception {
-        registrar("intruso", "intruso@unisen.com", PASSWORD_NUEVO, "AAAA-BBBB-CCCC-DDDD")
+        registrar("intruso", "intruso@nexora.com", PASSWORD_NUEVO, "AAAA-BBBB-CCCC-DDDD")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Datos inválidos"))
                 .andExpect(jsonPath("$.errors.codigoInvitacion").value("El código de invitación no es válido."));
@@ -241,7 +241,7 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
     @Test
     void sinCodigoValidoNoSeRevelaSiElUsernameExiste() throws Exception {
         // "admin" existe, pero la respuesta solo habla del código.
-        registrar("admin", "otro@unisen.com", PASSWORD_NUEVO, "AAAA-BBBB-CCCC-DDDD")
+        registrar("admin", "otro@nexora.com", PASSWORD_NUEVO, "AAAA-BBBB-CCCC-DDDD")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.codigoInvitacion").exists())
                 .andExpect(jsonPath("$.errors.username").doesNotExist());
@@ -251,21 +251,21 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
     void usernameRepetidoDevuelve409YNoConsumeElCodigo() throws Exception {
         String codigo = generarCodigo();
 
-        registrar("  ADMIN ", "distinto@unisen.com", PASSWORD_NUEVO, codigo)
+        registrar("  ADMIN ", "distinto@nexora.com", PASSWORD_NUEVO, codigo)
                 .andExpect(status().isConflict())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE))
                 .andExpect(jsonPath("$.errors.username").value("Ese nombre de usuario ya está en uso."));
         assertThat(filaInvitacion(codigo).get("usado")).isEqualTo(false);
 
         // La transacción se deshizo: el mismo código sigue sirviendo.
-        registrar("disponible", "distinto@unisen.com", PASSWORD_NUEVO, codigo).andExpect(status().isCreated());
+        registrar("disponible", "distinto@nexora.com", PASSWORD_NUEVO, codigo).andExpect(status().isCreated());
     }
 
     @Test
     void emailRepetidoDevuelve409YNoConsumeElCodigo() throws Exception {
         String codigo = generarCodigo();
 
-        registrar("otro.admin", "Admin@Unisen.com", PASSWORD_NUEVO, codigo)
+        registrar("otro.admin", "Admin@Nexora.com", PASSWORD_NUEVO, codigo)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errors.email").value("Ya existe un usuario con este correo."));
         assertThat(filaInvitacion(codigo).get("usado")).isEqualTo(false);
@@ -295,7 +295,7 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
     void usernamesFueraDelPatronSeRechazan() throws Exception {
         String codigo = generarCodigo();
         for (String username : List.of("ab", ".ana", "ana.", "ana@x", "x".repeat(51))) {
-            registrar(username, "valido@unisen.com", PASSWORD_NUEVO, codigo)
+            registrar(username, "valido@nexora.com", PASSWORD_NUEVO, codigo)
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.errors.username").exists());
         }
@@ -304,7 +304,7 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
     @Test
     void passwordDeMasDe72BytesSeRechazaAunqueTengaMenosDe72Caracteres() throws Exception {
         // 40 caracteres de 2 bytes en UTF-8 = 80 bytes: BCrypt truncaría la contraseña.
-        registrar("bytes", "bytes@unisen.com", "ñ".repeat(40), generarCodigo())
+        registrar("bytes", "bytes@nexora.com", "ñ".repeat(40), generarCodigo())
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.password").value("La contraseña no puede superar 72 bytes."));
     }
@@ -315,7 +315,7 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
         mockMvc.perform(post(REGISTRO_URL)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer token-basura")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("nombres", "Nombre", "apellidos", "De Prueba", "username", "con.token", "email", "con.token@unisen.com",
+                        .content(json(Map.of("nombres", "Nombre", "apellidos", "De Prueba", "username", "con.token", "email", "con.token@nexora.com",
                                 "password", PASSWORD_NUEVO, "codigoInvitacion", codigo))))
                 .andExpect(status().isCreated());
     }
@@ -330,7 +330,7 @@ class InvitacionRegistroTest extends ApiIntegrationTest {
             for (String username : List.of("carrera.uno", "carrera.dos")) {
                 Callable<Integer> tarea = () -> {
                     salida.await();
-                    return registrar(username, username + "@unisen.com", PASSWORD_NUEVO, codigo)
+                    return registrar(username, username + "@nexora.com", PASSWORD_NUEVO, codigo)
                             .andReturn().getResponse().getStatus();
                 };
                 resultados.add(executor.submit(tarea));

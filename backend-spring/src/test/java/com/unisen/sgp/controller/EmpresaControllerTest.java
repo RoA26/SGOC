@@ -113,11 +113,11 @@ class EmpresaControllerTest extends ApiIntegrationTest {
     void siElAdministradorNoSePuedeCrearNoQuedaNingunaEmpresa() throws Exception {
         int empresasAntes = contar("SELECT COUNT(*) FROM empresas");
 
-        // "admin" ya existe (ADMINISTRADOR_COMERCIAL de Unisen): la empresa se inserta primero y luego se deshace.
+        // "admin" ya existe (ADMINISTRADOR_COMERCIAL de Nexora): la empresa se inserta primero y luego se deshace.
         postJson(URL, superAdmin, empresa("Huérfana", "811111111-1", "admin", "nuevo@huerfana.com"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errors['administrador.username']").value("Ese nombre de usuario ya está en uso."));
-        postJson(URL, superAdmin, empresa("Huérfana", "811111111-1", "nuevo.gerente", "ADMIN@unisen.com"))
+        postJson(URL, superAdmin, empresa("Huérfana", "811111111-1", "nuevo.gerente", "ADMIN@nexora.com"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errors['administrador.email']").value("Ya existe un usuario con este correo."));
 
@@ -184,9 +184,9 @@ class EmpresaControllerTest extends ApiIntegrationTest {
         getJson(URL, superAdmin)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.page.totalElements").value(2))
-                .andExpect(jsonPath("$.content[0].nombre").value("Unisen"))
+                .andExpect(jsonPath("$.content[0].nombre").value("Nexora"))
                 .andExpect(jsonPath("$.content[0].codigoEmpresa").value(empresa.getCodigoEmpresa()))
-                .andExpect(jsonPath("$.content[0].codigo").value("UNIS01"))
+                .andExpect(jsonPath("$.content[0].codigo").value("NEXO01"))
                 .andExpect(jsonPath("$.content[0].administrador.username").value("admin"))
                 .andExpect(jsonPath("$.content[1].nombre").value("Zeta"))
                 .andExpect(jsonPath("$.content[1].administrador").doesNotExist());
@@ -210,6 +210,6 @@ class EmpresaControllerTest extends ApiIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + superAdmin)
                         .header(TenantFilter.HEADER_TENANT, empresa.getId().toString()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.nombre").value("Unisen"));
+                .andExpect(jsonPath("$.nombre").value("Nexora"));
     }
 }

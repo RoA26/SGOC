@@ -13,7 +13,7 @@ const listarMock = vi.mocked(empresaService.listar)
 
 const base = { activa: true, codigoEmpresa: 'XXXX-XXXX-XXXX-XXXX', creadoEn: '2026-10-21T10:00:00Z' }
 const EMPRESAS: Empresa[] = [
-  { ...base, id: 3, nombre: 'Unisen', codigo: 'UNIS01', nit: '901000000-1', demo: false },
+  { ...base, id: 3, nombre: 'Nexora', codigo: 'UNIS01', nit: '901000000-1', demo: false },
   { ...base, id: 9, nombre: 'Mercado Verde S.A.S.', codigo: 'MVSA01', nit: '999100000001', demo: true },
 ]
 
@@ -41,7 +41,7 @@ describe('Empresas (SUPER_ADMIN): empresas demo', () => {
     const filas = within(tabla).getAllByRole('row').slice(1)
     expect(filas).toHaveLength(2)
     const [filaReal, filaDemo] = filas as [HTMLElement, HTMLElement]
-    expect(within(filaReal).getByText('Unisen')).toBeInTheDocument()
+    expect(within(filaReal).getByText('Nexora')).toBeInTheDocument()
     expect(within(filaReal).queryByText('Demo')).not.toBeInTheDocument()
     expect(within(filaDemo).getByText('Mercado Verde S.A.S.')).toBeInTheDocument()
     expect(within(filaDemo).getByText('Demo')).toBeInTheDocument()

@@ -17,7 +17,7 @@ export function AuthLayout({ title, description, children }: AuthLayoutProps) {
       <aside className="relative hidden flex-col justify-between overflow-hidden bg-brand-panel p-12 text-brand-panel-foreground lg:flex">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-32 -bottom-40 size-[28rem] rounded-full bg-accent/20 blur-3xl"
+          className="pointer-events-none absolute -right-32 -bottom-40 size-[28rem] rounded-full bg-brand-panel-accent/15 blur-3xl"
         />
         <BrandLogo variant="claro" className="relative h-10 w-auto self-start" />
         <div className="relative max-w-md">
@@ -25,13 +25,13 @@ export function AuthLayout({ title, description, children }: AuthLayoutProps) {
             Sistema de gestión de compras
           </p>
           <h2 className="mt-4 font-serif text-5xl leading-[1.05] xl:text-6xl">
-            Órdenes de compra, <em className="text-accent">claras</em> de principio a fin.
+            Órdenes de compra, <em className="text-brand-panel-accent">claras</em> de principio a fin.
           </h2>
           <p className="mt-6 text-base leading-relaxed text-brand-panel-muted">
-            Solicita, aprueba y da seguimiento a cada compra de Unisen desde un único lugar.
+            Solicita, aprueba y da seguimiento a cada compra de tu empresa desde un único lugar.
           </p>
         </div>
-        <p className="relative text-xs text-brand-panel-muted">© {CURRENT_YEAR} Unisen</p>
+        <p className="relative text-xs text-brand-panel-muted">© {CURRENT_YEAR} Nexora</p>
       </aside>
 
       {/* Formulario */}
@@ -44,7 +44,7 @@ export function AuthLayout({ title, description, children }: AuthLayoutProps) {
 
           {children}
 
-          <p className="mt-10 text-center text-xs text-foreground-muted lg:hidden">© {CURRENT_YEAR} Unisen</p>
+          <p className="mt-10 text-center text-xs text-foreground-muted lg:hidden">© {CURRENT_YEAR} Nexora</p>
         </div>
       </main>
     </div>

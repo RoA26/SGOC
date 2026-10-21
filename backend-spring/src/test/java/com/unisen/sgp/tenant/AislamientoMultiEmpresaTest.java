@@ -28,7 +28,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
- * Aislamiento entre empresas (tenants): "Unisen" ({@code empresa}, con adminToken y
+ * Aislamiento entre empresas (tenants): "Nexora" ({@code empresa}, con adminToken y
  * usuarioToken de la clase base) frente a "Ferretería Norte" ({@code norte}), y el
  * SUPER_ADMIN en modo global y con {@code X-Tenant-ID}.
  */
@@ -102,32 +102,32 @@ class AislamientoMultiEmpresaTest extends ApiIntegrationTest {
 
     @Test
     void cadaEmpresaSoloVeYModificaSusCatalogos() throws Exception {
-        long proveedorUnisen = crear(PROVEEDORES, adminToken, proveedor("900123456-7", "Aceros Andinos"));
-        long productoUnisen = crear(PRODUCTOS, adminToken, producto("TOR-001", proveedorUnisen));
+        long proveedorNexora = crear(PROVEEDORES, adminToken, proveedor("900123456-7", "Aceros Andinos"));
+        long productoNexora = crear(PRODUCTOS, adminToken, producto("TOR-001", proveedorNexora));
 
         // La empresa la fija el contexto, no el cliente.
-        assertThat(empresaDe("proveedores", proveedorUnisen)).isEqualTo(empresa.getId());
-        assertThat(empresaDe("productos", productoUnisen)).isEqualTo(empresa.getId());
+        assertThat(empresaDe("proveedores", proveedorNexora)).isEqualTo(empresa.getId());
+        assertThat(empresaDe("productos", productoNexora)).isEqualTo(empresa.getId());
 
         getJson(PROVEEDORES, gerenteNorte).andExpect(jsonPath("$.page.totalElements").value(0));
         getJson(PRODUCTOS, usuarioNorte).andExpect(jsonPath("$.page.totalElements").value(0));
-        // Por id tampoco: para Norte, los datos de Unisen no existen.
-        getJson(PROVEEDORES + "/" + proveedorUnisen, gerenteNorte).andExpect(status().isNotFound());
-        getJson(PRODUCTOS + "/" + productoUnisen, gerenteNorte).andExpect(status().isNotFound());
-        putJson(PROVEEDORES + "/" + proveedorUnisen, gerenteNorte, proveedor("900123456-7", "Hackeado"))
+        // Por id tampoco: para Norte, los datos de Nexora no existen.
+        getJson(PROVEEDORES + "/" + proveedorNexora, gerenteNorte).andExpect(status().isNotFound());
+        getJson(PRODUCTOS + "/" + productoNexora, gerenteNorte).andExpect(status().isNotFound());
+        putJson(PROVEEDORES + "/" + proveedorNexora, gerenteNorte, proveedor("900123456-7", "Hackeado"))
                 .andExpect(status().isNotFound());
-        deleteJson(PRODUCTOS + "/" + productoUnisen, gerenteNorte).andExpect(status().isNotFound());
+        deleteJson(PRODUCTOS + "/" + productoNexora, gerenteNorte).andExpect(status().isNotFound());
 
-        getJson(PROVEEDORES + "/" + proveedorUnisen, adminToken)
+        getJson(PROVEEDORES + "/" + proveedorNexora, adminToken)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.razonSocial").value("Aceros Andinos"));
     }
 
     @Test
     void nitYSkuSonUnicosPorEmpresaNoEnTodaLaPlataforma() throws Exception {
-        long proveedorUnisen = crear(PROVEEDORES, adminToken, proveedor("900123456-7", "Aceros Andinos"));
+        long proveedorNexora = crear(PROVEEDORES, adminToken, proveedor("900123456-7", "Aceros Andinos"));
         long proveedorNorte = crear(PROVEEDORES, gerenteNorte, proveedor("900123456-7", "Aceros Andinos"));
-        crear(PRODUCTOS, adminToken, producto("TOR-001", proveedorUnisen));
+        crear(PRODUCTOS, adminToken, producto("TOR-001", proveedorNexora));
         crear(PRODUCTOS, gerenteNorte, producto("TOR-001", proveedorNorte));
 
         postJson(PROVEEDORES, adminToken, proveedor("900123456-7", "Repetido"))
@@ -140,13 +140,13 @@ class AislamientoMultiEmpresaTest extends ApiIntegrationTest {
 
     @Test
     void noSePuedenReferenciarDatosDeOtraEmpresa() throws Exception {
-        long proveedorUnisen = crear(PROVEEDORES, adminToken, proveedor("900123456-7", "Aceros Andinos"));
-        long productoUnisen = crear(PRODUCTOS, adminToken, producto("TOR-001", proveedorUnisen));
+        long proveedorNexora = crear(PROVEEDORES, adminToken, proveedor("900123456-7", "Aceros Andinos"));
+        long productoNexora = crear(PRODUCTOS, adminToken, producto("TOR-001", proveedorNexora));
 
-        postJson(PRODUCTOS, gerenteNorte, producto("ROB-001", proveedorUnisen))
+        postJson(PRODUCTOS, gerenteNorte, producto("ROB-001", proveedorNexora))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.proveedorId").exists());
-        postJson(SOLICITUDES, usuarioNorte, solicitud(productoUnisen))
+        postJson(SOLICITUDES, usuarioNorte, solicitud(productoNexora))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors['detalles[0].productoId']").value("El producto no existe o fue dado de baja."));
     }
@@ -155,14 +155,14 @@ class AislamientoMultiEmpresaTest extends ApiIntegrationTest {
 
     @Test
     void lasSolicitudesNoSeVenNiSeRevisanEntreEmpresas() throws Exception {
-        long proveedorUnisen = crear(PROVEEDORES, adminToken, proveedor("900123456-7", "Aceros Andinos"));
-        long productoUnisen = crear(PRODUCTOS, adminToken, producto("TOR-001", proveedorUnisen));
-        long solicitudUnisen = crear(SOLICITUDES, usuarioToken, solicitud(productoUnisen));
-        assertThat(empresaDe("solicitudes", solicitudUnisen)).isEqualTo(empresa.getId());
+        long proveedorNexora = crear(PROVEEDORES, adminToken, proveedor("900123456-7", "Aceros Andinos"));
+        long productoNexora = crear(PRODUCTOS, adminToken, producto("TOR-001", proveedorNexora));
+        long solicitudNexora = crear(SOLICITUDES, usuarioToken, solicitud(productoNexora));
+        assertThat(empresaDe("solicitudes", solicitudNexora)).isEqualTo(empresa.getId());
 
         getJson(SOLICITUDES, gerenteNorte).andExpect(jsonPath("$.page.totalElements").value(0));
-        getJson(SOLICITUDES + "/" + solicitudUnisen, gerenteNorte).andExpect(status().isNotFound());
-        patchJson(SOLICITUDES + "/" + solicitudUnisen + "/estado", gerenteNorte, "{\"estado\": \"APROBADA\"}")
+        getJson(SOLICITUDES + "/" + solicitudNexora, gerenteNorte).andExpect(status().isNotFound());
+        patchJson(SOLICITUDES + "/" + solicitudNexora + "/estado", gerenteNorte, "{\"estado\": \"APROBADA\"}")
                 .andExpect(status().isNotFound());
 
         getJson(SOLICITUDES, adminToken).andExpect(jsonPath("$.page.totalElements").value(1));
@@ -252,29 +252,29 @@ class AislamientoMultiEmpresaTest extends ApiIntegrationTest {
 
     @Test
     void superAdminRevisaSolicitudesConCabeceraPeroNoLasCrea() throws Exception {
-        long proveedorUnisen = crear(PROVEEDORES, adminToken, proveedor("900123456-7", "Aceros Andinos"));
-        long productoUnisen = crear(PRODUCTOS, adminToken, producto("TOR-001", proveedorUnisen));
-        long solicitudUnisen = crear(SOLICITUDES, usuarioToken, solicitud(productoUnisen));
+        long proveedorNexora = crear(PROVEEDORES, adminToken, proveedor("900123456-7", "Aceros Andinos"));
+        long productoNexora = crear(PRODUCTOS, adminToken, producto("TOR-001", proveedorNexora));
+        long solicitudNexora = crear(SOLICITUDES, usuarioToken, solicitud(productoNexora));
         String cambio = "{\"estado\": \"APROBADA\"}";
 
-        enviar(patch(SOLICITUDES + "/" + solicitudUnisen + "/estado").contentType(MediaType.APPLICATION_JSON)
+        enviar(patch(SOLICITUDES + "/" + solicitudNexora + "/estado").contentType(MediaType.APPLICATION_JSON)
                 .content(cambio), superAdmin, null)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Contexto de empresa requerido"));
-        mockMvc.perform(patch(SOLICITUDES + "/" + solicitudUnisen + "/estado").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(patch(SOLICITUDES + "/" + solicitudNexora + "/estado").contentType(MediaType.APPLICATION_JSON)
                         .content(cambio).header(HttpHeaders.AUTHORIZATION, "Bearer " + superAdmin)
                         .header(TenantFilter.HEADER_TENANT, TenantFilter.MODO_GLOBAL))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Empresa no seleccionada"));
-        enviar(patch(SOLICITUDES + "/" + solicitudUnisen + "/estado").contentType(MediaType.APPLICATION_JSON)
+        enviar(patch(SOLICITUDES + "/" + solicitudNexora + "/estado").contentType(MediaType.APPLICATION_JSON)
                 .content(cambio), superAdmin, norte.getId())
                 .andExpect(status().isNotFound());
-        enviar(patch(SOLICITUDES + "/" + solicitudUnisen + "/estado").contentType(MediaType.APPLICATION_JSON)
+        enviar(patch(SOLICITUDES + "/" + solicitudNexora + "/estado").contentType(MediaType.APPLICATION_JSON)
                 .content(cambio), superAdmin, empresa.getId())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.revisadoPor.username").value("plataforma"));
 
-        postComo(SOLICITUDES, superAdmin, empresa.getId(), solicitud(productoUnisen))
+        postComo(SOLICITUDES, superAdmin, empresa.getId(), solicitud(productoNexora))
                 .andExpect(status().isForbidden());
     }
 
@@ -348,13 +348,13 @@ class AislamientoMultiEmpresaTest extends ApiIntegrationTest {
 
     @Test
     void hibernateFiltraPorElTenantDelContexto() throws Exception {
-        long proveedorUnisen = crear(PROVEEDORES, adminToken, proveedor("900123456-7", "Aceros Andinos"));
+        long proveedorNexora = crear(PROVEEDORES, adminToken, proveedor("900123456-7", "Aceros Andinos"));
         crear(PROVEEDORES, gerenteNorte, proveedor("800000001", "Ferretería"));
 
         List<String> deNorte = TenantContextHolder.conEmpresa(norte.getId(),
                 () -> proveedorRepository.findAll().stream().map(Proveedor::getRazonSocial).toList());
         assertThat(deNorte).containsExactly("Ferretería");
-        assertThat(TenantContextHolder.conEmpresa(norte.getId(), () -> proveedorRepository.findById(proveedorUnisen)))
+        assertThat(TenantContextHolder.conEmpresa(norte.getId(), () -> proveedorRepository.findById(proveedorNexora)))
                 .as("la carga por id también se filtra").isEmpty();
         // Sin empresa (tenant raíz): todas.
         assertThat(proveedorRepository.findAll()).hasSize(2);

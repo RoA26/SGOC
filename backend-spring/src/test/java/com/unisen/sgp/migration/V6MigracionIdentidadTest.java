@@ -32,10 +32,10 @@ class V6MigracionIdentidadTest {
         long base = jdbc.queryForObject("SELECT id FROM empresas WHERE nit = '000000000-0'", Long.class);
         String usuario = "INSERT INTO usuarios (username, email, password_hash, nombre, rol, activo, empresa_id) "
                 + "VALUES (?, ?, 'hash', ?, ?, ?, ?)";
-        jdbc.update(usuario, "admin", "admin@unisen.com", "Admin", "SUPER_ADMIN", true, null);
-        jdbc.update(usuario, "gerente", "gerente@unisen.com", "Gerente", "GERENTE", true, base);
-        jdbc.update(usuario, "ana", "ana@unisen.com", "Ana", "USUARIO", true, base);
-        jdbc.update(usuario, "baja", "baja@unisen.com", "Baja", "USUARIO", false, base);
+        jdbc.update(usuario, "admin", "admin@nexora.com", "Admin", "SUPER_ADMIN", true, null);
+        jdbc.update(usuario, "gerente", "gerente@nexora.com", "Gerente", "GERENTE", true, base);
+        jdbc.update(usuario, "ana", "ana@nexora.com", "Ana", "USUARIO", true, base);
+        jdbc.update(usuario, "baja", "baja@nexora.com", "Baja", "USUARIO", false, base);
 
         migrarHasta(dataSource, "6");
 

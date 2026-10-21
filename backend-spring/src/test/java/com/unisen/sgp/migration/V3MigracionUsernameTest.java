@@ -25,7 +25,7 @@ class V3MigracionUsernameTest {
         migrarHasta(dataSource, "2");
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
         String insert = "INSERT INTO usuarios (email, password_hash, nombre, rol) VALUES (?, 'hash', 'X', 'USUARIO')";
-        jdbc.update(insert, "Admin@Unisen.com");
+        jdbc.update(insert, "Admin@Nexora.com");
         jdbc.update(insert, "ana+compras@empresa-a.com");
         jdbc.update(insert, "ana+compras@empresa-b.com");
         jdbc.update(insert, "un.nombre.de.usuario.extremadamente.largo.para.el.campo@x.com");

@@ -27,7 +27,7 @@ import org.springframework.test.web.servlet.ResultActions;
  * Onboarding de trabajadores (Hito 2): registro con el código de empresa → PENDIENTE → el
  * ADMINISTRADOR_COMERCIAL aprueba o rechaza → acceso según el estado de la BD, no según el JWT.
  *
- * <p>Base: "Unisen" ({@code empresa}) con su ADMINISTRADOR_COMERCIAL ({@code adminToken}) y un trabajador
+ * <p>Base: "Nexora" ({@code empresa}) con su ADMINISTRADOR_COMERCIAL ({@code adminToken}) y un trabajador
  * activo ({@code usuarioToken}).
  */
 class OnboardingTrabajadoresTest extends ApiIntegrationTest {

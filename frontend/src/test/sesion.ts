@@ -10,14 +10,14 @@ export function iniciarSesionComo(rol: Rol, empresaSupervisada: number | null = 
     nombre: `Persona ${rol}`,
     rol,
     empresaId: rol === 'SUPER_ADMIN' ? null : 1,
-    empresaNombre: rol === 'SUPER_ADMIN' ? null : 'Unisen',
+    empresaNombre: rol === 'SUPER_ADMIN' ? null : 'Nexora',
     empresaCodigo: rol === 'SUPER_ADMIN' ? null : 'UNIS01',
     expiresAt: Date.now() + 3_600_000,
   })
   if (empresaSupervisada !== null) {
     useEmpresaSeleccionadaStore.setState({
       empresaId: empresaSupervisada,
-      empresa: { id: empresaSupervisada, nombre: 'Unisen', codigo: 'UNIS01' },
+      empresa: { id: empresaSupervisada, nombre: 'Nexora', codigo: 'UNIS01' },
     })
   } else {
     useEmpresaSeleccionadaStore.setState({ empresaId: null, empresa: null })

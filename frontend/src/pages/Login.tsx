@@ -51,7 +51,7 @@ export default function Login() {
   }
 
   return (
-    <AuthLayout title="Inicia sesión" description="Accede con tu usuario de Unisen para continuar.">
+    <AuthLayout title="Inicia sesión" description="Accede con tu usuario de Nexora para continuar.">
       <form className="mt-8 space-y-5" onSubmit={handleSubmit(entrar)} noValidate>
         {errors.root?.server ? (
           <p role="alert" className="u-alert u-alert--error">

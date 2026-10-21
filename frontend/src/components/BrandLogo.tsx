@@ -1,5 +1,7 @@
-import logoClaro from '@/brand/unisen/unisen-logo-claro.svg'
-import logoOscuro from '@/brand/unisen/unisen-logo-oscuro.svg'
+// En el paquete de marca, el nombre indica el tema en que se usa: «claro» va sobre fondos claros
+// (borgoña y tinta) y «oscuro» sobre fondos oscuros (rosa y crema).
+import logoFondoClaro from '@/brand/nexora/nexora-logo-claro.svg'
+import logoFondoOscuro from '@/brand/nexora/nexora-logo-oscuro.svg'
 
 interface BrandLogoProps {
   /**
@@ -13,12 +15,12 @@ interface BrandLogoProps {
 
 export function BrandLogo({ variant = 'auto', className }: BrandLogoProps) {
   if (variant !== 'auto') {
-    return <img src={variant === 'claro' ? logoClaro : logoOscuro} alt="Unisen" className={className} />
+    return <img src={variant === 'claro' ? logoFondoOscuro : logoFondoClaro} alt="Nexora" className={className} />
   }
   return (
     <picture>
-      <source srcSet={logoClaro} media="(prefers-color-scheme: dark)" />
-      <img src={logoOscuro} alt="Unisen" className={className} />
+      <source srcSet={logoFondoOscuro} media="(prefers-color-scheme: dark)" />
+      <img src={logoFondoClaro} alt="Nexora" className={className} />
     </picture>
   )
 }

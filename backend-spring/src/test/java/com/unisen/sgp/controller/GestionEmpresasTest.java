@@ -99,12 +99,12 @@ class GestionEmpresasTest extends ApiIntegrationTest {
                 .andExpect(status().isCreated())).get("id").asLong();
 
         // No ve ni toca datos de otra empresa, ni aunque envíe X-Tenant-ID.
-        long proveedorUnisen = crearProveedor("900123456-7", "Aceros Andinos");
+        long proveedorNexora = crearProveedor("900123456-7", "Aceros Andinos");
         getJson("/api/v1/proveedores", adminNascar)
                 .andExpect(jsonPath("$.page.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].id").value(proveedorNascar));
-        getJson("/api/v1/proveedores/" + proveedorUnisen, adminNascar).andExpect(status().isNotFound());
-        conTenant(get("/api/v1/proveedores/" + proveedorUnisen), adminNascar, empresa.getId())
+        getJson("/api/v1/proveedores/" + proveedorNexora, adminNascar).andExpect(status().isNotFound());
+        conTenant(get("/api/v1/proveedores/" + proveedorNexora), adminNascar, empresa.getId())
                 .andExpect(status().isNotFound());
         getJson("/api/v1/proveedores/" + proveedorNascar, adminToken).andExpect(status().isNotFound());
         // Ni administra empresas: eso es exclusivo del SUPER_ADMIN.
@@ -163,7 +163,7 @@ class GestionEmpresasTest extends ApiIntegrationTest {
         postJson(URL, superAdmin, """
                 {"nombre": "Sola", "nit": "902000000-1", "codigo": "SOLA01",
                  "administrador": {"nombres": "Sola", "apellidos": "Admin", "username": "admin.sola",
-                                   "email": "COMPRAS@unisen.com", "password": "ClaveGerente2026"}}
+                                   "email": "COMPRAS@nexora.com", "password": "ClaveGerente2026"}}
                 """)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errors['administrador.email']").value("Ya existe un usuario con este correo."));
@@ -205,10 +205,10 @@ class GestionEmpresasTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.errors.nombre").exists());
         getJson(URL + "/codigo-sugerido", superAdmin).andExpect(status().isBadRequest());
 
-        // "Unisen" (la empresa base de los tests) ya tiene UNIS01.
-        getJson(URL + "/codigo-disponible?codigo=unis01", superAdmin)
+        // "Nexora" (la empresa base de los tests) ya tiene NEXO01.
+        getJson(URL + "/codigo-disponible?codigo=nexo01", superAdmin)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.codigo").value("UNIS01"))
+                .andExpect(jsonPath("$.codigo").value("NEXO01"))
                 .andExpect(jsonPath("$.disponible").value(false));
         getJson(URL + "/codigo-disponible?codigo=NASC01", superAdmin)
                 .andExpect(jsonPath("$.disponible").value(true));
@@ -237,7 +237,7 @@ class GestionEmpresasTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.content[0].administrador.nombre").value("Light Yagami NASCAR"))
                 .andExpect(jsonPath("$.content[0].administrador.nombres").value("Light"))
                 .andExpect(jsonPath("$.content[0].administrador.password").doesNotExist())
-                .andExpect(jsonPath("$.content[1].nombre").value("Unisen"))
+                .andExpect(jsonPath("$.content[1].nombre").value("Nexora"))
                 .andExpect(jsonPath("$.content[1].administrador.username").value("admin"))
                 .andExpect(jsonPath("$.content[2].nombre").value("Zeta"))
                 .andExpect(jsonPath("$.content[2].administrador").doesNotExist());
@@ -296,7 +296,7 @@ class GestionEmpresasTest extends ApiIntegrationTest {
         String codigoRegistro = jdbcTemplate.queryForObject(
                 "SELECT codigo_empresa FROM empresas WHERE id = ?", String.class, empresa.getId());
         mockMvc.perform(post("/api/auth/registro").contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("nombres", "Nombre", "apellidos", "De Prueba", "username", "pendiente", "email", "pendiente@unisen.com",
+                        .content(json(Map.of("nombres", "Nombre", "apellidos", "De Prueba", "username", "pendiente", "email", "pendiente@nexora.com",
                                 "password", "ClaveTrabajador2026", "codigoEmpresa", codigoRegistro))))
                 .andExpect(status().isCreated());
         long nascarId = crear(empresa("NASCAR", "901555555-5", "NASC01", "admin.nascar")).get("id").asLong();
@@ -410,7 +410,7 @@ class GestionEmpresasTest extends ApiIntegrationTest {
         postJson("/api/v1/proveedores", adminNascar,
                 "{\"nit\": \"900777777-7\", \"razonSocial\": \"Llantas del Sur\", \"email\": \"ventas@llantas.com\"}")
                 .andExpect(status().isCreated());
-        crearProveedor("900123456-7", "Aceros Andinos"); // de Unisen
+        crearProveedor("900123456-7", "Aceros Andinos"); // de Nexora
 
         // Supervisando NASCAR: sigue siendo SUPER_ADMIN, sin empresa propia.
         conTenant(get("/api/auth/me"), superAdmin, nascarId)

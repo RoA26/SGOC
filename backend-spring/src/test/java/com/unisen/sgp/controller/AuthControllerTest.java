@@ -75,10 +75,10 @@ class AuthControllerTest {
     @BeforeEach
     void setUp() {
         BaseDeDatosDePrueba.vaciar(jdbcTemplate);
-        empresa = empresaRepository.save(new Empresa("Unisen", "900000001-1", "UNIS01", CodigosInvitacion.generar()));
-        ana = usuarioService.crearUsuario("Ana.Compras", "Ana.Compras@Unisen.com", "Ana", "Compras", PASSWORD,
+        empresa = empresaRepository.save(new Empresa("Nexora", "900000001-1", "NEXO01", CodigosInvitacion.generar()));
+        ana = usuarioService.crearUsuario("Ana.Compras", "Ana.Compras@Nexora.com", "Ana", "Compras", PASSWORD,
                 Rol.TRABAJADOR, empresa);
-        inactivo = usuarioService.crearUsuario("baja", "baja@unisen.com", "Usuario", "de Baja", PASSWORD,
+        inactivo = usuarioService.crearUsuario("baja", "baja@nexora.com", "Usuario", "de Baja", PASSWORD,
                 Rol.TRABAJADOR, empresa);
         inactivo.cambiarEstado(EstadoUsuario.INACTIVO);
         usuarioRepository.save(inactivo);
@@ -110,7 +110,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.accessToken", not(blankOrNullString())))
                 .andExpect(jsonPath("$.usuario.id").value(ana.getId()))
                 .andExpect(jsonPath("$.usuario.username").value("ana.compras"))
-                .andExpect(jsonPath("$.usuario.email").value("ana.compras@unisen.com"))
+                .andExpect(jsonPath("$.usuario.email").value("ana.compras@nexora.com"))
                 .andExpect(jsonPath("$.usuario.nombre").value("Ana Compras"))
                 .andExpect(jsonPath("$.usuario.rol").value("TRABAJADOR"))
                 .andExpect(jsonPath("$.usuario.empresaId").value(empresa.getId()))
@@ -128,7 +128,7 @@ class AuthControllerTest {
 
     @Test
     void elCorreoYaNoSirveParaIniciarSesion() throws Exception {
-        login("ana.compras@unisen.com", PASSWORD)
+        login("ana.compras@nexora.com", PASSWORD)
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.detail").value("Usuario o contraseña incorrectos."));
     }
@@ -187,7 +187,7 @@ class AuthControllerTest {
     @Test
     void loginConElCampoEmailAntiguoDevuelve400() throws Exception {
         mockMvc.perform(post(LOGIN_URL).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"ana.compras@unisen.com\",\"password\":\"x\"}"))
+                        .content("{\"email\":\"ana.compras@nexora.com\",\"password\":\"x\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.username").value("El usuario es obligatorio."));
     }
@@ -217,7 +217,7 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(ana.getId()))
                 .andExpect(jsonPath("$.username").value("ana.compras"))
-                .andExpect(jsonPath("$.email").value("ana.compras@unisen.com"))
+                .andExpect(jsonPath("$.email").value("ana.compras@nexora.com"))
                 .andExpect(jsonPath("$.rol").value("TRABAJADOR"));
     }
 
@@ -270,7 +270,7 @@ class AuthControllerTest {
     /** Antes del Hito 4 el {@code sub} era el correo: esos tokens dejan de resolver un usuario. */
     @Test
     void tokenAntiguoConElCorreoComoSubjectDevuelve401() throws Exception {
-        Usuario comoAntes = new Usuario("ana.compras@unisen.com", ana.getEmail(), ana.getPasswordHash(),
+        Usuario comoAntes = new Usuario("ana.compras@nexora.com", ana.getEmail(), ana.getPasswordHash(),
                 ana.getNombres(), ana.getApellidos(), ana.getRol(), empresa);
         String tokenAntiguo = jwtUtil.generateToken(UsuarioPrincipal.from(comoAntes));
 

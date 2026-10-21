@@ -763,7 +763,7 @@ SQL
     local n; n=$(grep -c . <<<"$cuentas")
     (( n == 10 )) || alto "Hay $n cuentas demo en la base (se esperaban 10)."
     {
-        echo "SGP (Unisen) — cuentas DEMO de prueba · generado $(date -Iseconds) en Aatenea"
+        echo "Nexora — cuentas DEMO de prueba · generado $(date -Iseconds) en Aatenea"
         echo "Solo datos ficticios (empresas con demo = true). Ninguna cuenta real."
         echo
         echo "Contraseña PÚBLICA de demostración, común a las 10 cuentas demo (solo protege datos ficticios;"

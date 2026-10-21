@@ -10,7 +10,7 @@ const globalMock = vi.mocked(analiticaService.global)
 const porEmpresaMock = vi.mocked(analiticaService.ordenesPorEmpresa)
 
 const POR_ESTADO = { BORRADOR: 0, EMITIDA: 1, RECIBIDA_PARCIALMENTE: 0, RECIBIDA: 0, CANCELADA: 0 }
-const REAL = { id: 1, nombre: 'Unisen', codigo: 'UNIS01', demo: false }
+const REAL = { id: 1, nombre: 'Nexora', codigo: 'UNIS01', demo: false }
 const DEMO = { id: 9, nombre: 'Mercado Verde S.A.S.', codigo: 'MVSA01', demo: true }
 
 function respuesta(filtro: FiltroGlobal): AnaliticaGlobal {
@@ -83,6 +83,6 @@ describe('DashboardGlobal: empresas reales y de demostración', () => {
 
     expect(await screen.findByText(/empresas reales y de demostración juntas/)).toBeInTheDocument()
     expect(screen.getAllByText('Demo').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('Unisen').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Nexora').length).toBeGreaterThanOrEqual(1)
   })
 })

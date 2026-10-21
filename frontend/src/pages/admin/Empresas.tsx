@@ -124,7 +124,7 @@ export default function Empresas() {
       <PageHeader
         eyebrow="Administración"
         title="Empresas"
-        description="Organizaciones registradas en Unisen, con su código empresarial y su administrador principal."
+        description="Organizaciones registradas en Nexora, con su código empresarial y su administrador principal."
         actions={
           <button type="button" className="u-btn u-btn--primary" onClick={() => setCreando(true)}>
             <Plus className="size-4" aria-hidden="true" />

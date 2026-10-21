@@ -31,10 +31,10 @@ class V8aV10MigracionIdentidadTest {
         long norte = jdbc.queryForObject("SELECT id FROM empresas WHERE codigo = 'NORT01'", Long.class);
         String usuario = "INSERT INTO usuarios (username, email, password_hash, nombre, rol, empresa_id, estado, activo) "
                 + "VALUES (?, ?, 'hash', ?, ?, ?, ?, ?)";
-        jdbc.update(usuario, "admin", "admin@unisen.com", "Administrador", "SUPER_ADMIN", null, "ACTIVO", true);
-        jdbc.update(usuario, "laura", "laura@unisen.com", "Laura Gerente Ruiz", "GERENTE", base, "ACTIVO", true);
-        jdbc.update(usuario, "ana", "ana@unisen.com", "María del Pilar De la Torre", "USUARIO", base, "ACTIVO", true);
-        jdbc.update(usuario, "pedro", "pedro@unisen.com", "pedro", "USUARIO", base, "PENDIENTE", false);
+        jdbc.update(usuario, "admin", "admin@nexora.com", "Administrador", "SUPER_ADMIN", null, "ACTIVO", true);
+        jdbc.update(usuario, "laura", "laura@nexora.com", "Laura Gerente Ruiz", "GERENTE", base, "ACTIVO", true);
+        jdbc.update(usuario, "ana", "ana@nexora.com", "María del Pilar De la Torre", "USUARIO", base, "ACTIVO", true);
+        jdbc.update(usuario, "pedro", "pedro@nexora.com", "pedro", "USUARIO", base, "PENDIENTE", false);
         jdbc.update(usuario, "baja", "baja@norte.com", "Baja", "USUARIO", norte, "INACTIVO", false);
         long laura = idDe(jdbc, "laura");
         long ana = idDe(jdbc, "ana");

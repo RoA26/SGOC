@@ -1,5 +1,5 @@
 # =============================================================================
-# Unisen SGP - Configuración base
+# Nexora - Configuración base
 # Todo valor sensible o dependiente del entorno se inyecta por variables de
 # entorno (Docker / VPS). En local pueden definirse en un fichero `.env`.
 # =============================================================================

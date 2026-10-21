@@ -1,8 +1,8 @@
 @import 'tailwindcss';
 
-/* Marca Unisen: tokens globales y componentes base (capa "components"). */
-@import './brand/unisen/tokens.css';
-@import './brand/unisen/componentes.css' layer(components);
+/* Marca Nexora: tokens globales y componentes base (capa "components"). */
+@import './brand/nexora/tokens.css';
+@import './brand/nexora/componentes.css' layer(components);
 
 /* Tailwind v4 lee el tema desde el archivo de configuración en TypeScript. */
 @config '../tailwind.config.ts';

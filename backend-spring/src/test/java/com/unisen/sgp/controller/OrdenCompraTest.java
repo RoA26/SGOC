@@ -266,7 +266,7 @@ class OrdenCompraTest extends ComprasApiTest {
         long proveedorNorte = leer(postJson("/api/v1/proveedores", intruso,
                 "{\"nit\": \"900333333-3\", \"razonSocial\": \"Norteños\", \"email\": \"n@n.com\"}")).get("id").asLong();
 
-        // Ids de Unisen manipulados en cada endpoint: 404, nunca 200 ni 403 (no se revela que existen).
+        // Ids de Nexora manipulados en cada endpoint: 404, nunca 200 ni 403 (no se revela que existen).
         getJson(ORDENES + "/" + borrador, intruso).andExpect(status().isNotFound());
         getJson(ORDENES, intruso).andExpect(jsonPath("$.page.totalElements").value(0));
         putJson(ORDENES + "/" + borrador, intruso, json(Map.of("detalles", List.of(Map.of("productoId", tornillo, "cantidad", 9)))))
@@ -276,7 +276,7 @@ class OrdenCompraTest extends ComprasApiTest {
         recibir(emitidaId, intruso, new long[] {lineaEmitida, 4}).andExpect(status().isNotFound());
         getJson(ORDENES + "/" + emitidaId + "/recepciones", intruso).andExpect(status().isNotFound());
         postJson(ORDENES + "/desde-solicitud/" + solicitud, intruso, "").andExpect(status().isNotFound());
-        // Proveedor o productos de Unisen en una orden de Norte: campos inválidos.
+        // Proveedor o productos de Nexora en una orden de Norte: campos inválidos.
         postJson(ORDENES, intruso, json(Map.of("proveedorId", aceros, "detalles", List.of(Map.of("productoId", tornillo, "cantidad", 1)))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.proveedorId").exists());
@@ -284,7 +284,7 @@ class OrdenCompraTest extends ComprasApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors['detalles[0].productoId']").exists());
 
-        // Nada cambió en Unisen.
+        // Nada cambió en Nexora.
         getJson(ORDENES + "/" + borrador, adminToken).andExpect(jsonPath("$.estado").value("BORRADOR"))
                 .andExpect(jsonPath("$.detalles[0].cantidad").value(3));
         getJson(ORDENES + "/" + emitidaId, adminToken).andExpect(jsonPath("$.estado").value("EMITIDA"));

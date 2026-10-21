@@ -23,7 +23,7 @@ app:
     # Clave exclusiva de tests (no usar en ningún otro entorno).
     secret: C3LPGb/hXLJuWguuQNdojKmT+oqHgYVu1ysc5uP5JDww2XPg6n4BThTiam3ZmzUT
     expiration: 1h
-    issuer: unisen-sgp-test
+    issuer: nexora-test
   security:
     bcrypt-strength: 4
     cors:

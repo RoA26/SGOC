@@ -35,7 +35,7 @@ public record RegistroRequestDTO(
                         + "y empezar y terminar con letra o número.")
         String username,
 
-        @Schema(example = "ana@unisen.com")
+        @Schema(example = "ana@empresa.com")
         @NotBlank(message = "El correo es obligatorio.")
         @Email(regexp = Patrones.EMAIL, message = "El correo no tiene un formato válido.")
         @Size(max = Usuario.EMAIL_MAX_LENGTH, message = "El correo es demasiado largo.")

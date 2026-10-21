@@ -1,16 +1,16 @@
 import type { Config } from 'tailwindcss'
 
 /**
- * Tema de Tailwind conectado a la marca Unisen.
+ * Tema de Tailwind conectado a la marca Nexora.
  *
  * Ningún color o tipografía está escrito aquí: cada clase apunta a una variable
- * CSS de `src/brand/unisen/tokens.css` o `componentes.css`. Así, `bg-primary`
- * genera `background-color: var(--unisen-color-primary)`, el modo oscuro llega
+ * CSS de `src/brand/nexora/tokens.css` o `componentes.css`. Así, `bg-primary`
+ * genera `background-color: var(--nexora-color-primary)`, el modo oscuro llega
  * gratis desde los tokens y cambiar la marca no exige recompilar este archivo.
  *
  * Las opacidades siguen funcionando (`bg-primary/10`) gracias a color-mix().
  */
-const token = (name: string): string => `var(--unisen-${name})`
+const token = (name: string): string => `var(--nexora-${name})`
 
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
@@ -40,6 +40,7 @@ export default {
           panel: token('color-brand-panel'),
           'panel-foreground': token('color-brand-panel-text'),
           'panel-muted': token('color-brand-panel-muted'),
+          'panel-accent': token('color-brand-panel-accent'),
         },
         danger: {
           DEFAULT: token('color-danger'),

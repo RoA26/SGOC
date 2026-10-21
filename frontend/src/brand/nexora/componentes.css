@@ -1,0 +1,141 @@
+/* =============================================================================
+ * Nexora · Componentes base
+ *
+ *   Define tokens de componente (derivados de tokens.css) y clases base `u-*`.
+ *   Se importa en la capa `components` de Tailwind: las utilidades pueden
+ *   sobrescribir estas clases cuando haga falta.
+ * ============================================================================= */
+
+:root {
+  --nexora-control-height: 2.75rem;
+  --nexora-control-radius: var(--nexora-radius-md);
+  --nexora-control-border: var(--nexora-color-border-strong);
+  --nexora-control-bg: var(--nexora-color-surface);
+  --nexora-card-radius: var(--nexora-radius-xl);
+}
+
+/* --- Campos de formulario --- */
+.u-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--nexora-color-text);
+}
+
+.u-input {
+  display: block;
+  width: 100%;
+  height: var(--nexora-control-height);
+  padding-inline: 0.875rem;
+  border: 1px solid var(--nexora-control-border);
+  border-radius: var(--nexora-control-radius);
+  background: var(--nexora-control-bg);
+  color: var(--nexora-color-text);
+  font: inherit;
+  font-size: 0.9375rem;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.u-input::placeholder {
+  color: var(--nexora-color-text-muted);
+  opacity: 0.7;
+}
+
+.u-input:focus {
+  outline: none;
+  border-color: var(--nexora-color-focus);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--nexora-color-focus) 25%, transparent);
+}
+
+.u-input[aria-invalid='true'] {
+  border-color: var(--nexora-color-danger);
+}
+
+.u-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.u-field-error {
+  font-size: 0.8125rem;
+  color: var(--nexora-color-danger);
+}
+
+/* --- Botones --- */
+.u-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: var(--nexora-control-height);
+  padding-inline: 1.125rem;
+  border: 1px solid transparent;
+  border-radius: var(--nexora-control-radius);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, opacity 120ms ease;
+}
+
+.u-btn:focus-visible {
+  outline: 2px solid var(--nexora-color-focus);
+  outline-offset: 2px;
+}
+
+.u-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.u-btn--primary {
+  background: var(--nexora-color-primary);
+  color: var(--nexora-color-on-primary);
+}
+
+.u-btn--primary:hover:not(:disabled) {
+  background: var(--nexora-color-primary-hover);
+}
+
+.u-btn--ghost {
+  background: transparent;
+  border-color: var(--nexora-color-border-strong);
+  color: var(--nexora-color-text);
+}
+
+.u-btn--ghost:hover:not(:disabled) {
+  background: var(--nexora-color-surface-muted);
+}
+
+/* --- Tarjetas y avisos --- */
+.u-card {
+  border: 1px solid var(--nexora-color-border);
+  border-radius: var(--nexora-card-radius);
+  background: var(--nexora-color-surface);
+  box-shadow: var(--nexora-shadow-card);
+}
+
+.u-alert {
+  border: 1px solid transparent;
+  border-radius: var(--nexora-radius-md);
+  padding: 0.75rem 0.875rem;
+  font-size: 0.875rem;
+}
+
+.u-alert--error {
+  border-color: var(--nexora-color-danger-border);
+  background: var(--nexora-color-danger-surface);
+  color: var(--nexora-color-danger);
+}
+
+.u-alert--success {
+  border-color: var(--nexora-color-success-border);
+  background: var(--nexora-color-success-surface);
+  color: var(--nexora-color-success);
+}
+
+.u-alert--warning {
+  border-color: var(--nexora-color-warning-border);
+  background: var(--nexora-color-warning-surface);
+  color: var(--nexora-color-warning);
+}

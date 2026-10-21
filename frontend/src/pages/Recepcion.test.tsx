@@ -103,7 +103,7 @@ describe('Recibir mercancía (trabajador)', () => {
     detalleMock.mockResolvedValue(DETALLE)
     registrarMock.mockResolvedValue({
       id: 11, ordenId: 7, ordenNumero: 7, proveedor: 'Aceros Andinos', recibidaEn: '2026-10-19T15:00:00Z',
-      recibidaPor: { id: 2, username: 'compras', nombre: 'Compras Unisen' },
+      recibidaPor: { id: 2, username: 'compras', nombre: 'Compras Nexora' },
       detalles: [{ id: 1, detalleOrdenId: 70, producto: DETALLE.lineas[0]!.producto, cantidad: 6 }],
       incidencias: [{ id: 5, tipo: 'DANADO', detalleOrdenId: 70, cantidad: 2 }],
       unidades: 6,
@@ -147,7 +147,7 @@ describe('Recibir mercancía (trabajador)', () => {
     expect(payload.claveIdempotencia).toMatch(/^[0-9a-f-]{36}$/)
 
     expect(await screen.findByRole('region', { name: 'Resultado de la recepción' })).toHaveTextContent(
-      /Recepción registrada .* por Compras Unisen/,
+      /Recepción registrada .* por Compras Nexora/,
     )
   })
 

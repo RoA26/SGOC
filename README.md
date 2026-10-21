@@ -1,4 +1,4 @@
-# Unisen SGP: Sistema de Gestión de Órdenes de Compra
+# Nexora: Sistema de Gestión de Órdenes de Compra
 
 Producción: **https://rrtf.duckdns.org**
 
@@ -30,7 +30,7 @@ absolutas en el código. PostgreSQL y Spring Boot no publican puertos hacia inte
     ├── nginx.conf
     ├── tailwind.config.ts   Tema conectado a las variables CSS de la marca
     └── src/
-        ├── brand/unisen/    tokens.css, componentes.css, logos SVG (marca Unisen)
+        ├── brand/nexora/    tokens.css, componentes.css, logos SVG (marca Nexora)
         ├── lib/axios.ts     Instancia única de Axios (VITE_API_URL)
         ├── store/           Sesión con Zustand (accessToken, nombre…)
         ├── schemas/         Esquemas Zod (authSchema, proveedorSchema, productoSchema) = validaciones del backend
@@ -131,7 +131,7 @@ nada; asigna a cada empresa existente el código empresarial `EMP` + su id (`EMP
 conserva su código de registro de trabajadores.
 
 **Al actualizar un despliegue anterior al Hito 4:** la migración V3 asigna a cada usuario
-existente un username a partir de su correo (`admin@unisen.com` → `admin`), las sesiones
+existente un username a partir de su correo (`admin@nexora.com` → `admin`), las sesiones
 abiertas caducan (hay que volver a entrar) y el login pasa a pedir el username.
 
 El arranque va en orden: PostgreSQL sano → backend listo (readiness) → Nginx. Si el backend se
@@ -170,35 +170,37 @@ npm install
 npm run dev                          # http://localhost:5173 (proxy /api → :8081)
 ```
 
-## Marca Unisen
+## Marca Nexora
 
-Todos los recursos de marca viven en `frontend/src/brand/unisen/`:
+Todos los recursos de marca viven en `frontend/src/brand/nexora/` (tomados del paquete
+`nexora-brand-assets`; el favicon está en `frontend/public/favicon.svg`):
 
 | Archivo | Uso |
 | --- | --- |
-| `tokens.css` | Colores, tipografías, radios y sombras como variables `--unisen-*` (modo claro y oscuro) |
+| `tokens.css` | Colores, tipografías, radios y sombras como variables `--nexora-*` (modo claro y oscuro) |
 | `componentes.css` | Tokens de componente y clases base `u-input`, `u-btn`, `u-card`, `u-alert`… |
-| `unisen-logo-claro.svg` | Logo para fondos oscuros (panel de marca del login) |
-| `unisen-logo-oscuro.svg` | Logo para fondos claros (móvil, cabecera) |
+| `nexora-logo-claro.svg` | Logo para fondos **claros** (cabecera, login en móvil) |
+| `nexora-logo-oscuro.svg` | Logo para fondos **oscuros** (panel de marca del login, tema oscuro) |
 
-> ⚠ **Ahora mismo son marcadores de posición.** Para integrar los oficiales, sustituye estos
-> archivos con los mismos nombres. Si el `tokens.css` oficial usa otros nombres de variable,
-> ajusta solo el mapeo de `frontend/tailwind.config.ts`.
+Paleta: borgoña `#6B1E2E` (primario en claro), acento dorado `#C9A86A`, tinta `#1C1416`, crema
+`#F5EFE6` y superficie oscura `#1E181A`. Donde un color de la marca no alcanza el contraste de
+texto (el dorado sobre claro; `#B2475C` sobre oscuro) `tokens.css` usa un tono derivado y anota el
+contraste.
 
 `tailwind.config.ts` no contiene valores, solo referencias a variables. Por ejemplo, `bg-primary`
-genera `var(--unisen-color-primary)`. Así el modo oscuro y cualquier cambio de marca se aplican
+genera `var(--nexora-color-primary)`. Así el modo oscuro y cualquier cambio de marca se aplican
 desde los tokens. Las opacidades funcionan igual (`bg-accent/20`).
 
 | Clases de Tailwind | Variable |
 | --- | --- |
-| `bg-background` | `--unisen-color-bg` |
-| `bg-surface`, `bg-surface-muted` | `--unisen-color-surface`, `--unisen-color-surface-muted` |
-| `text-foreground`, `text-foreground-muted` | `--unisen-color-text`, `--unisen-color-text-muted` |
-| `bg-primary`, `text-primary-foreground` | `--unisen-color-primary`, `--unisen-color-on-primary` |
-| `text-accent` | `--unisen-color-accent` |
-| `bg-brand-panel`, `text-brand-panel-foreground` | `--unisen-color-brand-panel`, `--unisen-color-brand-panel-text` |
-| `font-sans`, `font-serif` | `--unisen-font-sans` (Geist), `--unisen-font-serif` (Instrument Serif) |
-| `rounded-{sm,md,lg,xl}`, `shadow-card`, `h-control` | `--unisen-radius-*`, `--unisen-shadow-card`, `--unisen-control-height` |
+| `bg-background` | `--nexora-color-bg` |
+| `bg-surface`, `bg-surface-muted` | `--nexora-color-surface`, `--nexora-color-surface-muted` |
+| `text-foreground`, `text-foreground-muted` | `--nexora-color-text`, `--nexora-color-text-muted` |
+| `bg-primary`, `text-primary-foreground` | `--nexora-color-primary`, `--nexora-color-on-primary` |
+| `text-accent` | `--nexora-color-accent` |
+| `bg-brand-panel`, `text-brand-panel-foreground`, `text-brand-panel-accent` | `--nexora-color-brand-panel`, `--nexora-color-brand-panel-text`, `--nexora-color-brand-panel-accent` |
+| `font-sans`, `font-serif` | `--nexora-font-sans` (Geist), `--nexora-font-serif` (Instrument Serif) |
+| `rounded-{sm,md,lg,xl}`, `shadow-card`, `h-control` | `--nexora-radius-*`, `--nexora-shadow-card`, `--nexora-control-height` |
 
 Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, sin CDN externos.
 

@@ -28,7 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 /**
- * Base de los tests HTTP: BD limpia, la empresa "Unisen" con un ADMINISTRADOR_COMERCIAL ({@code adminToken})
+ * Base de los tests HTTP: BD limpia, la empresa "Nexora" con un ADMINISTRADOR_COMERCIAL ({@code adminToken})
  * y un TRABAJADOR ({@code usuarioToken}) ACTIVOS, con tokens reales obtenidos vía /api/auth/login
  * (se ejercita la cadena de seguridad completa).
  */
@@ -61,15 +61,15 @@ public abstract class ApiIntegrationTest {
     void prepararBaseDeDatos() throws Exception {
         BaseDeDatosDePrueba.vaciar(jdbcTemplate);
 
-        empresa = crearEmpresa("Unisen", "900000001-1");
-        usuarioService.crearUsuario("admin", "admin@unisen.com", "Admin", "Unisen", PASSWORD, Rol.ADMINISTRADOR_COMERCIAL, empresa);
-        usuarioService.crearUsuario("compras", "compras@unisen.com", "Compras", "Unisen", PASSWORD, Rol.TRABAJADOR,
+        empresa = crearEmpresa("Nexora", "900000001-1");
+        usuarioService.crearUsuario("admin", "admin@nexora.com", "Admin", "Nexora", PASSWORD, Rol.ADMINISTRADOR_COMERCIAL, empresa);
+        usuarioService.crearUsuario("compras", "compras@nexora.com", "Compras", "Nexora", PASSWORD, Rol.TRABAJADOR,
                 empresa);
         adminToken = login("admin");
         usuarioToken = login("compras");
     }
 
-    /** Con el código empresarial que propondría la aplicación (Unisen → UNIS01). */
+    /** Con el código empresarial que propondría la aplicación (Nexora → NEXO01). */
     protected Empresa crearEmpresa(String nombre, String nit) {
         String codigo = CodigosEmpresariales.sugerir(nombre, empresaRepository::findCodigosConPrefijo);
         return empresaRepository.save(new Empresa(nombre, nit, codigo, CodigosInvitacion.generar()));
@@ -77,7 +77,7 @@ public abstract class ApiIntegrationTest {
 
     /** Crea un usuario y devuelve su token. Con {@code empresa} null, el rol debe ser SUPER_ADMIN. */
     protected String crearUsuarioYEntrar(String username, Rol rol, Empresa empresaDelUsuario) throws Exception {
-        usuarioService.crearUsuario(username, username + "@unisen.com", username, "Prueba", PASSWORD, rol,
+        usuarioService.crearUsuario(username, username + "@nexora.com", username, "Prueba", PASSWORD, rol,
                 empresaDelUsuario);
         return login(username);
     }

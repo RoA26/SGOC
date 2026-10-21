@@ -143,7 +143,7 @@ class ReporteYComprobanteVentaTest extends VentasApiTest {
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("V-00001.pdf")))
                 .andReturn().getResponse().getContentAsByteArray();
         String texto = texto(pdf);
-        assertThat(texto).contains("Unisen", "NIT 900000001-1", "COMPROBANTE INTERNO DE VENTA", "V-00001",
+        assertThat(texto).contains("Nexora", "NIT 900000001-1", "COMPROBANTE INTERNO DE VENTA", "V-00001",
                 "Cliente de mostrador", "Producto CAM-01", "Producto ARR-01", "IVA 19 %", "Excluido",
                 "$ 18.000", "$ 3.420", "$ 2.500", "TOTAL COP", "$ 23.920", "Efectivo")
                 .contains("No es factura electrónica");

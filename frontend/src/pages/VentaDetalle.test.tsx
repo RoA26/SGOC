@@ -13,7 +13,7 @@ vi.mock('@/services/ventaService', () => ({
 const obtenerMock = vi.mocked(ventaService.obtener)
 const devolverMock = vi.mocked(ventaService.devolver)
 
-const persona = { id: 2, username: 'compras', nombre: 'Compras Unisen' }
+const persona = { id: 2, username: 'compras', nombre: 'Compras Nexora' }
 const VENTA: Venta = {
   id: 5, numero: 5, numeroVisible: 'V-00005', estado: 'CONFIRMADA', vendidaEn: '2026-10-20T15:00:00Z', vendidaPor: persona,
   subtotal: 30000, descuentoLineas: 0, descuentoGeneral: 0, baseGravable: 30000, impuestos: 5700, total: 35700,

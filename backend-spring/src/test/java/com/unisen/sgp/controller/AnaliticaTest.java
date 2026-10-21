@@ -140,7 +140,7 @@ class AnaliticaTest extends ComprasApiTest {
 
     @Test
     void laEmpresaSoloCuentaSusDatosYLaPlataformaLosDeTodas() throws Exception {
-        // Unisen: una orden emitida (10 × 1000) y recibida en parte (4), otra cancelada tras emitirla
+        // Nexora: una orden emitida (10 × 1000) y recibida en parte (4), otra cancelada tras emitirla
         // y un borrador. Stock mínimo de la tuerca: 5, con 3 unidades → crítica.
         JsonNode emitida = ordenEmitida(proveedor, tornillo, 10);
         recibir(emitida.get("id").asLong(), adminToken, new long[] {emitida.at("/detalles/0/id").asLong(), 4})
@@ -155,7 +155,7 @@ class AnaliticaTest extends ComprasApiTest {
         postJson("/api/v1/solicitudes", usuarioToken, json(Map.of("justificacion", "Reposición",
                 "detalles", List.of(Map.of("productoId", tornillo, "cantidad", 2))))).andExpect(status().isCreated());
 
-        // Norte: dos órdenes emitidas de mayor valor, que Unisen no debe ver.
+        // Norte: dos órdenes emitidas de mayor valor, que Nexora no debe ver.
         long proveedorNorte = leer(postJson("/api/v1/proveedores", adminOtra,
                 "{\"nit\": \"900333333-3\", \"razonSocial\": \"Norteños\", \"email\": \"n@n.com\"}")).get("id").asLong();
         long productoNorte = leer(postJson("/api/v1/productos", adminOtra, """
@@ -166,29 +166,29 @@ class AnaliticaTest extends ComprasApiTest {
             emitir(id, adminOtra).andExpect(status().isOk());
         }
 
-        JsonNode unisen = leer(getJson(EMPRESA, adminToken).andExpect(status().isOk()));
-        assertThat(unisen.at("/compras/ordenesEmitidas").asLong()).isEqualTo(2);
+        JsonNode nexora = leer(getJson(EMPRESA, adminToken).andExpect(status().isOk()));
+        assertThat(nexora.at("/compras/ordenesEmitidas").asLong()).isEqualTo(2);
         // El valor comprometido excluye la orden cancelada: solo 10 × 1000.
-        assertThat(unisen.at("/compras/valorComprometido").decimalValue()).isEqualByComparingTo("10000");
-        assertThat(unisen.at("/compras/valorRecibido").decimalValue()).isEqualByComparingTo("4000");
-        assertThat(unisen.at("/compras/totalHistorico").asLong()).isEqualTo(3);
-        assertThat(unisen.at("/compras/ordenesPorEstado/BORRADOR").asLong()).isEqualTo(1);
-        assertThat(unisen.at("/compras/ordenesPorEstado/RECIBIDA_PARCIALMENTE").asLong()).isEqualTo(1);
-        assertThat(unisen.at("/compras/ordenesPorEstado/CANCELADA").asLong()).isEqualTo(1);
-        assertThat(unisen.at("/compras/ordenesPorEstado/EMITIDA").asLong()).isZero();
-        assertThat(unisen.at("/recepciones/enPeriodo").asLong()).isEqualTo(1);
-        assertThat(unisen.at("/recepciones/unidades").asLong()).isEqualTo(4);
+        assertThat(nexora.at("/compras/valorComprometido").decimalValue()).isEqualByComparingTo("10000");
+        assertThat(nexora.at("/compras/valorRecibido").decimalValue()).isEqualByComparingTo("4000");
+        assertThat(nexora.at("/compras/totalHistorico").asLong()).isEqualTo(3);
+        assertThat(nexora.at("/compras/ordenesPorEstado/BORRADOR").asLong()).isEqualTo(1);
+        assertThat(nexora.at("/compras/ordenesPorEstado/RECIBIDA_PARCIALMENTE").asLong()).isEqualTo(1);
+        assertThat(nexora.at("/compras/ordenesPorEstado/CANCELADA").asLong()).isEqualTo(1);
+        assertThat(nexora.at("/compras/ordenesPorEstado/EMITIDA").asLong()).isZero();
+        assertThat(nexora.at("/recepciones/enPeriodo").asLong()).isEqualTo(1);
+        assertThat(nexora.at("/recepciones/unidades").asLong()).isEqualTo(4);
         LocalDate hoy = LocalDate.now(BOGOTA);
-        JsonNode ultimoDia = unisen.at("/recepciones/evolucion").get(29);
+        JsonNode ultimoDia = nexora.at("/recepciones/evolucion").get(29);
         assertThat(ultimoDia.get("fecha").asText()).isEqualTo(hoy.toString());
         assertThat(ultimoDia.get("valor").asLong()).isEqualTo(1);
-        assertThat(unisen.at("/inventario/productosActivos").asLong()).isEqualTo(2);
-        assertThat(unisen.at("/inventario/disponibles").asLong()).isEqualTo(2);
-        assertThat(unisen.at("/inventario/criticos").asLong()).isEqualTo(1);
-        assertThat(unisen.at("/inventario/agotados").asLong()).isZero();
-        assertThat(unisen.at("/inventario/requierenAtencion/0/sku").asText()).isEqualTo("TUE-01");
-        assertThat(unisen.at("/inventario/requierenAtencion/0/estado").asText()).isEqualTo("CRITICO");
-        assertThat(unisen.at("/solicitudesPorEstado/PENDIENTE").asLong()).isEqualTo(1);
+        assertThat(nexora.at("/inventario/productosActivos").asLong()).isEqualTo(2);
+        assertThat(nexora.at("/inventario/disponibles").asLong()).isEqualTo(2);
+        assertThat(nexora.at("/inventario/criticos").asLong()).isEqualTo(1);
+        assertThat(nexora.at("/inventario/agotados").asLong()).isZero();
+        assertThat(nexora.at("/inventario/requierenAtencion/0/sku").asText()).isEqualTo("TUE-01");
+        assertThat(nexora.at("/inventario/requierenAtencion/0/estado").asText()).isEqualTo("CRITICO");
+        assertThat(nexora.at("/solicitudesPorEstado/PENDIENTE").asLong()).isEqualTo(1);
 
         JsonNode norte = leer(getJson(EMPRESA, adminOtra).andExpect(status().isOk()));
         assertThat(norte.at("/compras/ordenesEmitidas").asLong()).isEqualTo(2);
@@ -196,9 +196,9 @@ class AnaliticaTest extends ComprasApiTest {
         assertThat(norte.at("/recepciones/totalHistorico").asLong()).isZero();
         assertThat(norte.at("/solicitudesPorEstado/PENDIENTE").asLong()).isZero();
 
-        // El SUPER_ADMIN supervisando Unisen ve exactamente lo mismo que su administrador.
+        // El SUPER_ADMIN supervisando Nexora ve exactamente lo mismo que su administrador.
         JsonNode supervision = leer(getEnEmpresa(EMPRESA, superAdmin, empresa.getId()).andExpect(status().isOk()));
-        assertThat(supervision.get("compras")).isEqualTo(unisen.get("compras"));
+        assertThat(supervision.get("compras")).isEqualTo(nexora.get("compras"));
 
         // Plataforma: todas las empresas; Norte primero (más órdenes en el período).
         JsonNode global = leer(getGlobal(GLOBAL, superAdmin).andExpect(status().isOk()));
@@ -206,7 +206,7 @@ class AnaliticaTest extends ComprasApiTest {
         assertThat(global.at("/ordenes/totalHistorico").asLong()).isEqualTo(5);
         assertThat(global.at("/topEmpresas/0/nombre").asText()).isEqualTo("Ferretería Norte");
         assertThat(global.at("/topEmpresas/0/ordenes").asLong()).isEqualTo(2);
-        assertThat(global.at("/topEmpresas/1/nombre").asText()).isEqualTo("Unisen");
+        assertThat(global.at("/topEmpresas/1/nombre").asText()).isEqualTo("Nexora");
         assertThat(global.at("/topEmpresas/1/valorComprometido").decimalValue()).isEqualByComparingTo("10000");
         assertThat(global.at("/evolucionOrdenes").get(29).get("valor").asLong()).isEqualTo(4);
 
@@ -214,7 +214,7 @@ class AnaliticaTest extends ComprasApiTest {
         assertThat(porEmpresa.at("/page/totalElements").asLong()).isEqualTo(2);
         assertThat(porEmpresa.at("/content/0/codigo").asText()).isEqualTo(otra.getCodigo());
         assertThat(porEmpresa.at("/content/1/ordenesEnPeriodo").asLong()).isEqualTo(2);
-        // Abiertas ahora en Unisen: el borrador y la parcialmente recibida.
+        // Abiertas ahora en Nexora: el borrador y la parcialmente recibida.
         assertThat(porEmpresa.at("/content/1/ordenesAbiertas").asLong()).isEqualTo(2);
     }
 
@@ -240,7 +240,7 @@ class AnaliticaTest extends ComprasApiTest {
             emitir(id, adminDemo).andExpect(status().isOk());
         }
 
-        // Por defecto, solo las reales (Unisen y Norte): la demo no aparece en ninguna cifra.
+        // Por defecto, solo las reales (Nexora y Norte): la demo no aparece en ninguna cifra.
         JsonNode reales = leer(getGlobal(GLOBAL, superAdmin).andExpect(status().isOk()));
         assertThat(reales.get("alcance").asText()).isEqualTo("REALES");
         assertThat(reales.at("/empresas/total").asLong()).isEqualTo(2);
@@ -249,7 +249,7 @@ class AnaliticaTest extends ComprasApiTest {
         assertThat(reales.at("/ordenes/porEstado/EMITIDA").asLong()).isEqualTo(1);
         assertThat(reales.at("/evolucionOrdenes").get(29).get("valor").asLong()).isEqualTo(1);
         assertThat(reales.get("topEmpresas")).hasSize(1);
-        assertThat(reales.at("/topEmpresas/0/nombre").asText()).isEqualTo("Unisen");
+        assertThat(reales.at("/topEmpresas/0/nombre").asText()).isEqualTo("Nexora");
         assertThat(reales.at("/topEmpresas/0/demo").asBoolean()).isFalse();
 
         JsonNode soloDemo = leer(getGlobal(GLOBAL + "?alcance=DEMO", superAdmin).andExpect(status().isOk()));

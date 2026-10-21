@@ -118,7 +118,7 @@ export default function Registro() {
               inputMode="email"
               className="u-input"
               autoComplete="email"
-              placeholder="nombre@unisen.com"
+              placeholder="nombre@empresa.com"
             />
           )}
         </FormField>

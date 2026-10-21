@@ -1,4 +1,4 @@
-# Unisen SGP: backend Spring Boot
+# Nexora: backend Spring Boot
 
 API REST del Sistema de Gestión de Órdenes de Compra: core Spring Boot y seguridad JWT
 (Hito 1), catálogos de proveedores y productos (Hito 3), login por username con códigos de
@@ -214,9 +214,9 @@ curl -X POST http://localhost:8081/api/auth/invitaciones \
 
 # 2. La persona invitada se registra con sus nombres y apellidos (obligatorios desde V9)
 curl -X POST http://localhost:8081/api/auth/registro -H 'Content-Type: application/json' \
-  -d '{"username":"ana.compras","email":"ana@unisen.com","password":"UnaClaveSegura2026",
+  -d '{"username":"ana.compras","email":"ana@empresa.com","password":"UnaClaveSegura2026",
        "codigoInvitacion":"7KQ2-M9XA-4HPR-T3VW","nombres":"Ana","apellidos":"Compras"}'
-# → 201 {"id":5,"username":"ana.compras","email":"ana@unisen.com","nombre":"Ana Compras","rol":"TRABAJADOR"}
+# → 201 {"id":5,"username":"ana.compras","email":"ana@empresa.com","nombre":"Ana Compras","rol":"TRABAJADOR"}
 ```
 
 - **Códigos:** 16 caracteres Base32 de Crockford generados con `SecureRandom` (80 bits), en
@@ -240,7 +240,7 @@ curl -X POST http://localhost:8081/api/auth/registro -H 'Content-Type: applicati
 
 **Migración V3 sobre datos existentes:** los usuarios previos reciben como username la parte
 local de su correo en minúsculas (`+` → `_`, máximo 40 caracteres) y, si dos coinciden, el de
-id mayor recibe el sufijo `_<id>` (`admin@unisen.com` → `admin`, `admin@otra.com` → `admin_3`).
+id mayor recibe el sufijo `_<id>` (`admin@nexora.com` → `admin`, `admin@otra.com` → `admin_3`).
 Los JWT emitidos antes llevaban el correo como `sub` y dejan de ser válidos (`401`): hay que
 volver a iniciar sesión.
 

@@ -25,9 +25,9 @@ class V5MigracionMultiEmpresaTest {
         // Instalación en V4: un ADMIN, un GERENTE, un USUARIO y datos de negocio.
         migrarHasta(dataSource, "4");
         String usuario = "INSERT INTO usuarios (username, email, password_hash, nombre, rol) VALUES (?, ?, 'hash', ?, ?)";
-        jdbc.update(usuario, "admin", "admin@unisen.com", "Admin", "ADMIN");
-        jdbc.update(usuario, "gerente", "gerente@unisen.com", "Gerente", "GERENTE");
-        jdbc.update(usuario, "ana", "ana@unisen.com", "Ana", "USUARIO");
+        jdbc.update(usuario, "admin", "admin@nexora.com", "Admin", "ADMIN");
+        jdbc.update(usuario, "gerente", "gerente@nexora.com", "Gerente", "GERENTE");
+        jdbc.update(usuario, "ana", "ana@nexora.com", "Ana", "USUARIO");
         long adminId = idDe(jdbc, "admin");
         long anaId = idDe(jdbc, "ana");
         jdbc.update("INSERT INTO proveedores (nit, razon_social, email) VALUES ('900123456-7', 'Aceros', 'v@a.com')");

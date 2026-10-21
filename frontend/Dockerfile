@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # =============================================================================
-# Unisen SGP - Frontend React servido por Nginx
+# Nexora - Frontend React servido por Nginx
 #   docker build -t unisen/sgp-frontend ./frontend
 # =============================================================================
 

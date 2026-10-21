@@ -1,5 +1,5 @@
 # =============================================================================
-# Unisen SGP - Orquestación completa (rrtf.duckdns.org)
+# Nexora - Orquestación completa (rrtf.duckdns.org)
 #
 #   cp .env.example .env    # rellena las variables obligatorias
 #   docker compose up -d --build

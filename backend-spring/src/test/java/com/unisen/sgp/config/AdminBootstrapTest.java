@@ -14,9 +14,9 @@ import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest(properties = {
         "app.bootstrap.admin.username=Admin",
-        "app.bootstrap.admin.email=Admin@Unisen.com",
+        "app.bootstrap.admin.email=Admin@Nexora.com",
         "app.bootstrap.admin.password=AdminInicial123",
-        "app.bootstrap.admin.nombre=Admin Unisen",
+        "app.bootstrap.admin.nombre=Admin Nexora",
         // BD propia para no interferir con el resto de tests.
         "spring.datasource.url=jdbc:h2:mem:sgp-bootstrap;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1"
 })
@@ -33,10 +33,10 @@ class AdminBootstrapTest {
     @Test
     void creaElAdministradorAlArrancarYEsIdempotente() {
         Usuario admin = usuarioRepository.findByUsername("admin").orElseThrow();
-        assertThat(admin.getEmail()).isEqualTo("admin@unisen.com");
+        assertThat(admin.getEmail()).isEqualTo("admin@nexora.com");
         assertThat(admin.getRol()).isEqualTo(Rol.SUPER_ADMIN);
         assertThat(admin.getEmpresa()).as("el SUPER_ADMIN no pertenece a ninguna empresa").isNull();
-        assertThat(admin.getNombre()).isEqualTo("Admin Unisen");
+        assertThat(admin.getNombre()).isEqualTo("Admin Nexora");
         assertThat(admin.isActivo()).isTrue();
         assertThat(passwordEncoder.matches("AdminInicial123", admin.getPasswordHash())).isTrue();
 

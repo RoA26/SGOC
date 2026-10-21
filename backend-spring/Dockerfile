@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # =============================================================================
-# Unisen SGP - Backend Spring Boot
+# Nexora - Backend Spring Boot
 #   docker build -t unisen/sgp-backend ./backend-spring
 # =============================================================================
 

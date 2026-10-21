@@ -791,3 +791,38 @@ No se ejecutó la suite contra PostgreSQL ni un recorrido con backend y BD reale
 3. `recepciones` no tiene índice por `recibida_por_id`; con volúmenes grandes, valorar uno (migración).
 4. El registro con código de empresa sigue sin campo en `/registro` (la aprobación ya está en *Personal*).
 5. B.6.2 (tarjeta del administrador) pospuesta, por los motivos de A.5.
+
+## Cambio de marca: Unisen → Nexora
+
+Fecha: 21/10/2026. Instrucción del propietario: todo lo que diga «Unisen» pasa a «Nexora». Este
+documento conserva las menciones a Unisen de las fases anteriores porque es un registro histórico.
+
+### Qué cambió
+
+| Ámbito | Cambio |
+| --- | --- |
+| Marca del frontend | `src/brand/unisen/` → `src/brand/nexora/`; variables `--unisen-*` → `--nexora-*`; logotipos y favicon del paquete `nexora-brand-assets` (sin modificar). En el paquete, `nexora-logo-claro.svg` va sobre fondos claros y `nexora-logo-oscuro.svg` sobre oscuros: `BrandLogo` lo traduce a su convenio (`variant="claro"` = logotipo claro para fondo oscuro) |
+| Paleta (`tokens.css`) | Borgoña `#6B1E2E` como primario en claro, superficies crema, panel de marca `#1E181A`, acento dorado. Tonos derivados donde la marca no llega al contraste de texto: dorado `#7A5C24` en claro (≥ 5,1:1), primario `#E09AA8` en oscuro (7,8:1), rojo de peligro oscuro `#F97066` para no confundirlo con el primario rosado. Nuevo token `--nexora-color-brand-panel-accent` (dorado puro, 7,7:1 sobre el panel). La serie de las gráficas (azul validado) no cambia |
+| Textos visibles | Título de la página, `alt` del logotipo, login, panel de marca (el lema ya no nombra a la empresa cliente), descripción de *Empresas*, ejemplo de correo del registro (`nombre@empresa.com`), título de la API (`Nexora API`) y ejemplo de correo de la API |
+| Configuración y comentarios | Cabeceras de `application.yml`, `docker-compose.yml`, Dockerfiles y `nginx.conf`; `<name>`/`<description>` del `pom.xml`; `ADMIN_EMAIL` de ejemplo en los `.env.example` (no afecta al administrador ya creado); texto del archivo de cuentas demo del script de Aatenea |
+| Pruebas | Empresa, correos y variables de las pruebas; emisor JWT de las pruebas (`nexora-test`) |
+| Documentación | `README.md`, `backend-spring/README.md`, `CLAUDE.md` |
+
+### Qué no cambió (requiere decisión del propietario)
+
+| Identificador | Motivo |
+| --- | --- |
+| Comentario de `V3__refactor_usuarios_e_invitaciones.sql` | Migración aplicada: cambiar un byte altera su checksum y Flyway detendría el arranque en producción. No se edita nunca |
+| Emisor JWT `unisen-sgp` (`application.yml`, `.env.example`) | Cambiarlo invalida todas las sesiones abiertas (todos deben volver a entrar). Si el `.env` del VPS define `JWT_ISSUER`, además habría que cambiarlo allí |
+| Imágenes `unisen/sgp-*` (`docker-compose.yml`, Dockerfiles, script y README de Aatenea) | El script de despliegue etiqueta y restaura las imágenes de retorno con ese prefijo: cambiarlo sin migrar el procedimiento rompería el *rollback* |
+| Ruta `/root/sgp-unisen` del VPS | Es un directorio real del servidor |
+| Paquete Java `com.unisen.sgp` y `groupId` `com.unisen` | 247 archivos; invisible para el usuario; el propietario pidió no renombrar paquetes automáticamente |
+| Prefijo `u-` de las clases CSS (`u-btn`, `u-card`…) | No contiene la palabra; renombrarlo tocaría casi todos los componentes |
+
+### Verificación
+
+| Comando | Resultado |
+| --- | --- |
+| `./mvnw test` (H2) | 317 pruebas, 0 fallos. Las 5 que fallaron en la primera ejecución esperaban el código `UNIS01`, que la aplicación deriva del nombre de la empresa de prueba; con «Nexora» es `NEXO01` y se actualizaron |
+| `npm run lint` · `tsc -b` · `npm test` · `npm run build` | Sin avisos ni errores · 60 pruebas, 0 fallos · build correcto |
+| Navegador (Playwright + Chromium, API simulada) | Login y *Personal* en escritorio claro, escritorio oscuro y móvil: título «Nexora · Órdenes de Compra», logotipo correcto para cada fondo y cargado, favicon de Nexora, sin desbordamiento ni errores de consola |

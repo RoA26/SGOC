@@ -56,12 +56,12 @@ class DocumentoPdfOrdenTest extends ComprasApiTest {
 
         String texto = texto(bytes);
         assertThat(texto)
-                .contains("Unisen", "NIT 900000001-1", "Código empresarial UNIS01")
+                .contains("Nexora", "NIT 900000001-1", "Código empresarial NEXO01")
                 .contains("ORDEN DE COMPRA", "OC-00001")
                 .contains("Aceros Andinos", "900111111-1", "ventas@aceros.com", "6015550101", "Calle 10 # 20-30, Bogotá")
                 .contains("TOR-01", "Tornillo hexagonal", "TUE-01", "Tuerca")
                 .contains("$ 10.000", "$ 450.000", "Total COP", "$ 460.000")
-                .contains("Admin Unisen", "Administrador comercial")
+                .contains("Admin Nexora", "Administrador comercial")
                 // El extractor de texto no conserva el espacio antes del total de páginas.
                 .containsPattern("Página 1 de\\s?1\\b");
         // El total del PDF es el de la orden (misma regla: suma de líneas).

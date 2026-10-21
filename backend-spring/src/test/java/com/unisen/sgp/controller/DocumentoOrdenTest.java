@@ -60,14 +60,14 @@ class DocumentoOrdenTest extends ComprasApiTest {
         assertThat(entradasZip(bytes)).contains("word/document.xml", "[Content_Types].xml", "word/footer1.xml");
         String texto = textoDe(bytes);
         assertThat(texto)
-                .contains("Unisen", "NIT 900000001-1", "Código empresarial UNIS01")
+                .contains("Nexora", "NIT 900000001-1", "Código empresarial NEXO01")
                 .contains("ORDEN DE COMPRA", "OC-00001")
                 .contains("Aceros Andinos", "900111111-1", "ventas@aceros.com", "6015550101", "Calle 10 # 20-30, Bogotá")
                 .contains("3 de noviembre de 2026", "08:00 – 12:00", "Estimada (pendiente de confirmar por el proveedor)")
                 .contains("TOR-01", "Tornillo hexagonal", "TUE-01", "Tuerca")
                 .contains("1.500", "$ 1.250", "$ 10.000", "$ 300", "$ 450.000")
                 .contains("Total COP", "$ 460.000", "sin impuestos ni descuentos")
-                .contains("Admin Unisen", "Administrador comercial");
+                .contains("Admin Nexora", "Administrador comercial");
         // No se inventan datos que el sistema no tiene.
         assertThat(texto).doesNotContain("IVA").doesNotContain("Firma");
 

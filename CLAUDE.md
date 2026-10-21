@@ -1,4 +1,4 @@
-# Unisen SGP (SGOC): Sistema de Gestión de Órdenes de Compra
+# Nexora (SGOC): Sistema de Gestión de Órdenes de Compra
 
 **Este directorio (`~/dev/SeNa/SGOC`) es el proyecto activo.** `~/dev/SeNa/proyecto_sgoc` es
 una copia antigua del mismo repositorio que solo se conserva como referencia.
@@ -43,7 +43,7 @@ Calidad (ejecutar antes de dar algo por terminado):
   Una migración aplicada nunca se edita: siempre una nueva `V<n+1>__descripcion`.
 - Ningún warning del compilador está permitido (rompe el build).
 - Frontend: los esquemas Zod reflejan las validaciones del backend; la marca va por variables
-  CSS en `src/brand/unisen/` y `tailwind.config.ts` solo referencia variables.
+  CSS en `src/brand/nexora/` y `tailwind.config.ts` solo referencia variables.
 - Precios en COP enteros.
 
 ## Reglas de negocio y seguridad que no se rompen

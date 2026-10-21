@@ -269,7 +269,7 @@ class SolicitudControllerTest extends ApiIntegrationTest {
         // El solicitante ve el resultado de la revisión.
         getJson(URL + "/" + id, usuarioToken)
                 .andExpect(jsonPath("$.estado").value("APROBADA"))
-                .andExpect(jsonPath("$.revisadoPor.nombre").value("Admin Unisen"));
+                .andExpect(jsonPath("$.revisadoPor.nombre").value("Admin Nexora"));
     }
 
     @Test

@@ -41,17 +41,17 @@ class PerfilYSesionTest extends ApiIntegrationTest {
                         .content(json(Map.of("username", "admin", "password", PASSWORD))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.usuario.nombres").value("Admin"))
-                .andExpect(jsonPath("$.usuario.apellidos").value("Unisen"))
-                .andExpect(jsonPath("$.usuario.nombre").value("Admin Unisen"))
+                .andExpect(jsonPath("$.usuario.apellidos").value("Nexora"))
+                .andExpect(jsonPath("$.usuario.nombre").value("Admin Nexora"))
                 .andExpect(jsonPath("$.usuario.datosPersonalesCompletos").value(true))
                 .andExpect(jsonPath("$.usuario.rol").value("ADMINISTRADOR_COMERCIAL"))
-                .andExpect(jsonPath("$.usuario.empresaNombre").value("Unisen"))
-                .andExpect(jsonPath("$.usuario.empresaCodigo").value("UNIS01"));
+                .andExpect(jsonPath("$.usuario.empresaNombre").value("Nexora"))
+                .andExpect(jsonPath("$.usuario.empresaCodigo").value("NEXO01"));
 
         getJson(ME, usuarioToken)
                 .andExpect(jsonPath("$.rol").value("TRABAJADOR"))
                 .andExpect(jsonPath("$.empresaId").value(empresa.getId()))
-                .andExpect(jsonPath("$.empresaNombre").value("Unisen"));
+                .andExpect(jsonPath("$.empresaNombre").value("Nexora"));
 
         // El SUPER_ADMIN no pertenece a ninguna empresa.
         String superAdmin = crearUsuarioYEntrar("plataforma", Rol.SUPER_ADMIN, null);
@@ -63,10 +63,10 @@ class PerfilYSesionTest extends ApiIntegrationTest {
 
     @Test
     void unCambioDeNombreComercialSeVeSinVolverAIniciarSesion() throws Exception {
-        jdbcTemplate.update("UPDATE empresas SET nombre = 'Unisen Global S.A.S.' WHERE id = ?", empresa.getId());
+        jdbcTemplate.update("UPDATE empresas SET nombre = 'Nexora Global S.A.S.' WHERE id = ?", empresa.getId());
 
         // Mismo token: el perfil se lee de la BD, no del JWT.
-        getJson(ME, adminToken).andExpect(jsonPath("$.empresaNombre").value("Unisen Global S.A.S."));
+        getJson(ME, adminToken).andExpect(jsonPath("$.empresaNombre").value("Nexora Global S.A.S."));
     }
 
     @Test
@@ -85,13 +85,13 @@ class PerfilYSesionTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.apellidos").value("De la Torre"))
                 .andExpect(jsonPath("$.nombre").value("María del Pilar De la Torre"))
                 .andExpect(jsonPath("$.datosPersonalesCompletos").value(true))
-                .andExpect(jsonPath("$.empresaNombre").value("Unisen"));
+                .andExpect(jsonPath("$.empresaNombre").value("Nexora"));
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT nombres || '|' || apellidos FROM usuarios WHERE username = 'compras'", String.class))
                 .isEqualTo("María del Pilar|De la Torre");
         // Las demás cuentas no cambian.
         assertThat(jdbcTemplate.queryForObject("SELECT nombre FROM usuarios WHERE username = 'admin'", String.class))
-                .isEqualTo("Admin Unisen");
+                .isEqualTo("Admin Nexora");
     }
 
     @Test
@@ -109,7 +109,7 @@ class PerfilYSesionTest extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.rol").value("TRABAJADOR"))
                 .andExpect(jsonPath("$.empresaId").value(empresa.getId()));
         assertThat(jdbcTemplate.queryForObject("SELECT nombre FROM usuarios WHERE username = 'admin'", String.class))
-                .isEqualTo("Admin Unisen");
+                .isEqualTo("Admin Nexora");
 
         mockMvc.perform(patch(ME).contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of("nombres", "A", "apellidos", "B"))))

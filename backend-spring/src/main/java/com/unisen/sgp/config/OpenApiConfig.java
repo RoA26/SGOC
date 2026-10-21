@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @OpenAPIDefinition(
         info = @Info(
-                title = "Unisen SGP API",
+                title = "Nexora API",
                 version = "v1",
                 description = "API REST del Sistema de Gestión de Órdenes de Compra"),
         security = @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME))

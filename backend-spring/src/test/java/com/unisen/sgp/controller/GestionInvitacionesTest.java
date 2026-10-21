@@ -172,7 +172,7 @@ class GestionInvitacionesTest extends ApiIntegrationTest {
         String codigo = generar(adminToken).get("codigo").asText();
         long id = idDe(codigo);
 
-        // Para Norte, la invitación de Unisen no existe.
+        // Para Norte, la invitación de Nexora no existe.
         revocar(id, adminNorte).andExpect(status().isNotFound());
         mockMvc.perform(delete(URL + "/" + id).header(HttpHeaders.AUTHORIZATION, "Bearer " + adminNorte)
                         .header(TenantFilter.HEADER_TENANT, empresa.getId().toString()))

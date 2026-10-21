@@ -26,7 +26,7 @@ class JwtUtilTest {
 
     private static final String SECRET = "C3LPGb/hXLJuWguuQNdojKmT+oqHgYVu1ysc5uP5JDww2XPg6n4BThTiam3ZmzUT";
     private static final String OTHER_SECRET = "EAmn61r4UgBaB6CruVK2IcvGTCPxvwRmgbApH3SjMGs5JDA9TSVfffbT9aeBMc5T";
-    private static final String ISSUER = "unisen-sgp-test";
+    private static final String ISSUER = "nexora-test";
     private static final Instant NOW = Instant.parse("2026-01-15T10:00:00Z");
 
     private JwtUtil jwtUtil;
@@ -35,9 +35,9 @@ class JwtUtilTest {
     @BeforeEach
     void setUp() throws ReflectiveOperationException {
         jwtUtil = jwtUtilAt(NOW, SECRET, ISSUER);
-        Empresa empresa = new Empresa("Unisen", "900000001-1", "UNIS01", "AAAA-BBBB-CCCC-DDDD");
+        Empresa empresa = new Empresa("Nexora", "900000001-1", "NEXO01", "AAAA-BBBB-CCCC-DDDD");
         asignarId(Empresa.class, empresa, 7L);
-        Usuario entidad = new Usuario("Ana.Compras", "Ana@Unisen.com", "$2a$04$hash", "Ana", "Compras", Rol.TRABAJADOR,
+        Usuario entidad = new Usuario("Ana.Compras", "Ana@Nexora.com", "$2a$04$hash", "Ana", "Compras", Rol.TRABAJADOR,
                 empresa);
         asignarId(Usuario.class, entidad, 42L);
         usuario = UsuarioPrincipal.from(entidad);
@@ -51,7 +51,7 @@ class JwtUtilTest {
 
     @Test
     void elTokenDeUnSuperAdminNoLlevaEmpresa() throws ReflectiveOperationException {
-        Usuario superAdmin = new Usuario("root", "root@unisen.com", "$2a$04$hash", "Plataforma", null, Rol.SUPER_ADMIN,
+        Usuario superAdmin = new Usuario("root", "root@nexora.com", "$2a$04$hash", "Plataforma", null, Rol.SUPER_ADMIN,
                 null);
         asignarId(Usuario.class, superAdmin, 1L);
 
