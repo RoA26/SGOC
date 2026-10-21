@@ -66,6 +66,7 @@ bash /root/sgp-private/sgp-aatenea.sh estado         # debe decir «Sin operacio
 | — | `bash /root/sgp-private/sgp-aatenea.sh recuperar` | Tras una interrupción: ver «Recuperación» | — |
 | — | `bash /root/sgp-private/sgp-aatenea.sh rollback` | Vuelve a las imágenes de la fase 1 sin tocar la BD | Solo si Flyway no cambió (lo comprueba) |
 | — | `RESPALDO=… CONFIRMAR_RESTAURACION=… bash … restaurar` | **Destructivo**: ver «Vuelta atrás» | Solo con autorización |
+| — | `bash … normalizar-probar` / `CONFIRMAR_NORMALIZACION=si bash … normalizar` | Quita la marca y los textos «demo» de las empresas de la seed: ver «Normalización» | Solo con autorización |
 
 Reglas comunes:
 
@@ -141,6 +142,42 @@ empresas, o una empresa tiene cuentas pero no datos). Opciones:
 
 No hay un borrado automático de los datos demo: retirarlos más adelante exige restaurar el respaldo
 previo a la seed o una operación nueva y revisada.
+
+### Normalización (las empresas de la seed sin marca «demo»)
+
+Tras la seed, las cinco empresas y sus diez cuentas pueden pasar a verse como datos normales.
+**Siguen siendo ficticios**: solo desaparecen la marca y las etiquetas «demo». Cambian exclusivamente
+estas columnas de estas filas, localizadas por su clave natural (código + NIT, username, empresa + NIT,
+empresa + SKU):
+
+| Qué | Antes | Después |
+| --- | --- | --- |
+| `empresas.demo` de las 5 empresas | `true` | `false`: sin insignia «Demo»; la analítica las cuenta como empresas normales |
+| `usuarios.email` de las 10 cuentas | `usuario@<código>.sgp-demo.test` | `usuario@<empresa>.example.com` (dominio reservado para pruebas, RFC 2606) |
+| `proveedores.razon_social` y `email` (MVSA01, SCA002) | `… (demo)`, `@….sgp-demo.test` | sin «(demo)», `@<proveedor>.example.com` |
+| `productos.descripcion` (11 productos) | `Producto ficticio de demostración.` | vacía |
+
+No cambian IDs, usernames, nombres, roles, estados, contraseñas, códigos, NIT, existencias, kárdex,
+órdenes, ventas, devoluciones ni historial (los textos «(demo)» del historial y los Word ya generados
+se conservan). No hay migración, compilación ni reinicio.
+
+1. `bash /root/sgp-private/sgp-aatenea.sh normalizar-probar` — sin tocar producción: copia de la BD en
+   un PostgreSQL desechable sin red; allí aplica, repite (0 filas), revierte, vuelve a aplicar y
+   comprueba que una colisión la detiene sin escribir nada. Elimina la copia al terminar.
+2. `CONFIRMAR_NORMALIZACION=si bash /root/sgp-private/sgp-aatenea.sh normalizar` — en una ventana sin
+   actividad: pruebas HTTP previas (si fallan, no toca nada), respaldo `sgp_pre_normalizacion_*`
+   verificado, huella, **una transacción** con comprobaciones previas (cada fila localizada, cuentas en
+   su empresa y con su rol, valores actuales de la seed o ya normalizados, ningún correo de destino en
+   uso por otra cuenta) y comprobación final, huella de nuevo (fuera de los campos acordados no puede
+   cambiar nada: todas las tablas, empresas reales incluidas) y pruebas HTTP de login y aislamiento.
+3. Vuelta atrás: `CONFIRMAR_NORMALIZACION=si DIRECCION=revertir bash … normalizar` devuelve exactamente
+   los valores de la seed (o `restaurar` el respaldo `sgp_pre_normalizacion_*`).
+
+Es idempotente: repetirla cambia 0 filas. Si alguien cambió a mano uno de esos valores, se detiene sin
+escribir y lo indica. Después de normalizar, la seed y las órdenes que buscan empresas con
+`demo = true` (`fase3`, `fase4`, la lista de `estado`) ya no las reconocen: `fase3` se detendría por
+colisión de códigos sin escribir nada, y `fase4` por no encontrar las 10 cuentas. Las pruebas HTTP
+localizan las empresas por código y NIT, así que siguen funcionando.
 
 ## 4. Recuperación tras una interrupción
 

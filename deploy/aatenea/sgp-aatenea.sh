@@ -14,6 +14,9 @@
 #   bash sgp-aatenea.sh rollback               # vuelve a las imágenes de la fase 1 (sin tocar la BD)
 #   RESPALDO=<ruta .dump> CONFIRMAR_RESTAURACION=<nombre del .dump> bash sgp-aatenea.sh restaurar
 #                                              # DESTRUCTIVO: respalda la BD actual y después restaura el volcado
+#   bash sgp-aatenea.sh normalizar-probar      # prueba la normalización de los datos de prueba en una copia desechable
+#   CONFIRMAR_NORMALIZACION=si [DIRECCION=revertir] bash sgp-aatenea.sh normalizar
+#                                              # quita la marca demo y los textos «demo» de las empresas de la seed
 #
 # Una operación interrumpida (fase2, fase3, rollback, restaurar) queda anotada en un diario que no
 # depende de ningún trap; se reanuda repitiendo la misma orden con REANUDAR=1 (README, «Recuperación»).
@@ -53,6 +56,7 @@ OPERACIONES='fase2 fase3 rollback restauracion'
 EJEC=                  # directorio propio de esta ejecución
 DESP=; ID_DESP=        # despliegue en uso
 CONTENEDOR_PRUEBA=; N_PRUEBA=0
+COPIA_PRUEBA=          # volcado temporal de «normalizar-probar» (copia de datos reales)
 PARCIALES=()           # respaldos .parcial creados por esta ejecución
 TMP_HTTP=              # cabeceras con tokens de las pruebas HTTP
 PERFIL_DEMO_ACTIVO=0   # 1 mientras el backend puede estar con el perfil demo
@@ -262,13 +266,11 @@ from information_schema.tables where table_schema = 'public' and table_type = 'B
 SQL
 }
 
-# Restauración de prueba en un PostgreSQL desechable, sin red, con la misma imagen que producción.
-# Comprueba que pg_restore termina sin errores y, si se da $2, que cada tabla tiene esas filas.
-# Deja en $EJEC los conteos y el historial de Flyway de la copia. El contenedor lo elimina esta función
-# o, si la ejecución se corta, al_salir; si ni eso llega a ejecutarse, la siguiente ejecución.
-verificar_restauracion() { # $1 = volcado, [$2 = archivo con los conteos esperados]
-    local base imagen limite
-    base=$(basename "${1%.parcial}")
+# PostgreSQL desechable, sin red y con la misma imagen que producción, con la base restore_check vacía.
+# Deja su nombre en CONTENEDOR_PRUEBA (lo elimina limpiar_contenedor_prueba o, si la ejecución se corta,
+# al_salir; si ni eso llega a ejecutarse, la siguiente ejecución).
+arrancar_contenedor_prueba() {
+    local imagen limite
     N_PRUEBA=$(( N_PRUEBA + 1 ))
     CONTENEDOR_PRUEBA="sgp-restore-check-$MARCA-$N_PRUEBA"
     imagen=$(docker inspect -f '{{.Config.Image}}' "$(id_de postgres)")
@@ -280,6 +282,16 @@ verificar_restauracion() { # $1 = volcado, [$2 = archivo con los conteos esperad
         (( $(date +%s) < limite )) || alto "El PostgreSQL de prueba no arrancó."
         sleep 2
     done
+}
+
+# Restauración de prueba en un PostgreSQL desechable, sin red, con la misma imagen que producción.
+# Comprueba que pg_restore termina sin errores y, si se da $2, que cada tabla tiene esas filas.
+# Deja en $EJEC los conteos y el historial de Flyway de la copia. El contenedor lo elimina esta función
+# o, si la ejecución se corta, al_salir; si ni eso llega a ejecutarse, la siguiente ejecución.
+verificar_restauracion() { # $1 = volcado, [$2 = archivo con los conteos esperados]
+    local base
+    base=$(basename "${1%.parcial}")
+    arrancar_contenedor_prueba
     docker exec -i "$CONTENEDOR_PRUEBA" pg_restore -U postgres -d restore_check --no-owner --no-privileges --exit-on-error < "$1" \
         || alto "La restauración de prueba de $1 falló: el respaldo NO es válido."
     restaurada() { docker exec -i "$CONTENEDOR_PRUEBA" psql -U postgres -d restore_check -v ON_ERROR_STOP=1 -X -q -At -F "|"; }
@@ -826,7 +838,8 @@ pruebas_http() {
             ok "$4 → $c, $5 elementos"
         else ok "$4 → $c"; fi
     }
-    primero() { sql <<<"select min(x.id) from $1 x join empresas e on e.id = x.empresa_id where e.codigo = '$2' and e.demo;"; }
+    # Empresas de la seed por código y NIT (no por la marca demo, que «normalizar» retira).
+    primero() { sql <<<"select min(x.id) from $1 x join empresas e on e.id = x.empresa_id join (values $SEED_EMPRESAS) s(codigo, nit, nombre, activa) on s.codigo = e.codigo and s.nit = e.nit where e.codigo = '$2';"; }
     local sol_sc ord_sc prod_sc ord_mv
     sol_sc=$(primero solicitudes SCA002); ord_sc=$(primero ordenes_compra SCA002)
     prod_sc=$(primero productos SCA002); ord_mv=$(primero ordenes_compra MVSA01)
@@ -851,7 +864,7 @@ pruebas_http() {
     comprobar "$laura" /api/v1/trabajadores 403 "laura.torres no gestiona trabajadores"
 
     local cb p1 p2
-    cb=$(sql <<<"select p.codigo_barras from productos p join empresas e on e.id = p.empresa_id where e.codigo = 'MVSA01' and e.demo and p.sku = 'AGUA-600';")
+    cb=$(sql <<<"select p.codigo_barras from productos p join empresas e on e.id = p.empresa_id join (values $SEED_EMPRESAS) s(codigo, nit, nombre, activa) on s.codigo = e.codigo and s.nit = e.nit where e.codigo = 'MVSA01' and p.sku = 'AGUA-600';")
     comprobar "$carlos" "/api/v1/productos/buscar?codigo=$cb" 200 "carlos.mendoza busca el código de barras compartido"
     p1=$(grep -o '"producto":{"id":[0-9]*' "$tmp/g.json" | grep -o '[0-9]*$')
     comprobar "$andres" "/api/v1/productos/buscar?codigo=$cb" 200 "andres.rojas busca el mismo código"
@@ -859,6 +872,291 @@ pruebas_http() {
     [[ -n $p1 && -n $p2 && $p1 != "$p2" ]] || alto "El código compartido no se resolvió por empresa ($p1 / $p2)."
     ok "Mismo código de barras → producto distinto en cada empresa ($p1 ≠ $p2)"
     rm -rf "$TMP_HTTP"; TMP_HTTP=
+}
+
+# ---- Normalización de los datos de prueba -----------------------------------------
+# Las cinco empresas y diez cuentas de la seed pasan a verse como datos normales (siguen siendo
+# ficticios): empresas.demo = false, correos @<empresa>.example.com (dominio reservado para pruebas,
+# RFC 2606) y el catálogo de MVSA01 y SCA002 sin «(demo)». Solo cambian esas columnas de esas filas;
+# las filas se localizan por su clave natural (código + NIT, username, empresa + NIT, empresa + SKU) y
+# nunca se crean ni se borran. IDs, usernames, nombres, roles, estados, contraseñas, códigos, NIT,
+# kárdex, órdenes, ventas e historial no se tocan. «revertir» devuelve exactamente los valores de la seed.
+NORM_OBJETIVOS=$(cat <<'SQL'
+create temp table norm_empresas (codigo text primary key, nit text not null unique);
+insert into norm_empresas values
+  ('MVSA01', '999100000001'), ('SCA002', '999100000002'), ('DNS003', '999100000003'),
+  ('CHS004', '999100000004'), ('LAS005', '999100000005');
+create temp table norm_usuarios (username text primary key, codigo text not null, rol text not null,
+  email_original text not null unique, email_nuevo text not null unique);
+insert into norm_usuarios values
+  ('carlos.mendoza', 'MVSA01', 'ADMINISTRADOR_COMERCIAL', 'carlos.mendoza@mvsa01.sgp-demo.test', 'carlos.mendoza@mercadoverde.example.com'),
+  ('laura.torres', 'MVSA01', 'TRABAJADOR', 'laura.torres@mvsa01.sgp-demo.test', 'laura.torres@mercadoverde.example.com'),
+  ('andres.rojas', 'SCA002', 'ADMINISTRADOR_COMERCIAL', 'andres.rojas@sca002.sgp-demo.test', 'andres.rojas@suministroscaribe.example.com'),
+  ('maria.castro', 'SCA002', 'TRABAJADOR', 'maria.castro@sca002.sgp-demo.test', 'maria.castro@suministroscaribe.example.com'),
+  ('diego.martinez', 'DNS003', 'ADMINISTRADOR_COMERCIAL', 'diego.martinez@dns003.sgp-demo.test', 'diego.martinez@distribucionesnova.example.com'),
+  ('sofia.ramirez', 'DNS003', 'TRABAJADOR', 'sofia.ramirez@dns003.sgp-demo.test', 'sofia.ramirez@distribucionesnova.example.com'),
+  ('miguel.ortiz', 'CHS004', 'ADMINISTRADOR_COMERCIAL', 'miguel.ortiz@chs004.sgp-demo.test', 'miguel.ortiz@comercialhorizonte.example.com'),
+  ('valentina.gomez', 'CHS004', 'TRABAJADOR', 'valentina.gomez@chs004.sgp-demo.test', 'valentina.gomez@comercialhorizonte.example.com'),
+  ('sergio.vega', 'LAS005', 'ADMINISTRADOR_COMERCIAL', 'sergio.vega@las005.sgp-demo.test', 'sergio.vega@logisticaandina.example.com'),
+  ('paula.navarro', 'LAS005', 'TRABAJADOR', 'paula.navarro@las005.sgp-demo.test', 'paula.navarro@logisticaandina.example.com');
+create temp table norm_proveedores (codigo text, nit text, razon_original text not null, razon_nueva text not null,
+  email_original text not null, email_nuevo text not null, primary key (codigo, nit));
+insert into norm_proveedores values
+  ('MVSA01', '999200000011', 'Granos del Valle S.A.S. (demo)', 'Granos del Valle S.A.S.',
+   'ventas@granos-del-valle.sgp-demo.test', 'ventas@granosdelvalle.example.com'),
+  ('MVSA01', '999200000012', 'Lácteos La Pradera S.A.S. (demo)', 'Lácteos La Pradera S.A.S.',
+   'pedidos@lacteos-pradera.sgp-demo.test', 'pedidos@lacteoslapradera.example.com'),
+  ('MVSA01', '999200000099', 'Bebidas del Río S.A.S. (demo)', 'Bebidas del Río S.A.S.',
+   'ventas@bebidas-del-rio.sgp-demo.test', 'ventas@bebidasdelrio.example.com'),
+  ('SCA002', '999200000021', 'Papelería Mayorista del Caribe (demo)', 'Papelería Mayorista del Caribe',
+   'ventas@papeleria-caribe.sgp-demo.test', 'ventas@papeleriacaribe.example.com'),
+  ('SCA002', '999200000099', 'Bebidas del Río S.A.S. (demo)', 'Bebidas del Río S.A.S.',
+   'ventas@bebidas-del-rio.sgp-demo.test', 'ventas@bebidasdelrio.example.com');
+create temp table norm_productos (codigo text, sku text, descripcion_original text not null, primary key (codigo, sku));
+insert into norm_productos select v.codigo, v.sku, 'Producto ficticio de demostración.' from (values
+  ('MVSA01', 'MV-ARR-500'), ('MVSA01', 'MV-ACE-1L'), ('MVSA01', 'MV-GAL-PQ'), ('MVSA01', 'MV-LEC-1L'),
+  ('MVSA01', 'MV-HUE-30'), ('MVSA01', 'MV-CAF-250'), ('MVSA01', 'AGUA-600'),
+  ('SCA002', 'SC-RES-CAR'), ('SCA002', 'SC-BOL-NEG'), ('SCA002', 'SC-CUA-100'), ('SCA002', 'AGUA-600')) v(codigo, sku);
+-- Filas que se normalizan (tabla, id), localizadas por su clave natural.
+create temp table norm_filas as
+  select 'empresas'::text as tabla, e.id from empresas e join norm_empresas n on n.codigo = e.codigo and n.nit = e.nit
+  union all
+  select 'usuarios', u.id from usuarios u join norm_usuarios n on n.username = u.username
+  union all
+  select 'proveedores', p.id from proveedores p join empresas e on e.id = p.empresa_id
+    join norm_empresas ne on ne.codigo = e.codigo and ne.nit = e.nit join norm_proveedores n on n.codigo = e.codigo and n.nit = p.nit
+  union all
+  select 'productos', p.id from productos p join empresas e on e.id = p.empresa_id
+    join norm_empresas ne on ne.codigo = e.codigo and ne.nit = e.nit join norm_productos n on n.codigo = e.codigo and n.sku = p.sku;
+SQL
+)
+
+# Huella para comprobar que solo cambia lo acordado. Líneas «sección|tabla|filas|md5»:
+#   parcial  todas las tablas, todas las filas, sin las columnas que se normalizan
+#   ajenas   filas completas de empresas, usuarios, proveedores y productos que NO se normalizan
+#   objetivo filas completas que se normalizan
+# $1 = función que ejecuta SQL por stdin.
+huella_normalizacion() {
+    "$1" <<SQL
+$NORM_OBJETIVOS
+create temp table norm_excluidas (tabla text primary key, columnas text[] not null);
+insert into norm_excluidas values ('empresas', '{demo}'), ('usuarios', '{email}'),
+  ('proveedores', '{razon_social,email}'), ('productos', '{descripcion}');
+select format('select %L || ''|'' || count(*) || ''|'' || md5(coalesce(string_agg(x, E''\\n'' order by x), '''')) '
+              'from (select (to_jsonb(t) - %L::text[])::text as x from %I t) s',
+              'parcial|' || t.table_name, coalesce(x.columnas, '{}'), t.table_name)
+from information_schema.tables t left join norm_excluidas x on x.tabla = t.table_name
+where t.table_schema = 'public' and t.table_type = 'BASE TABLE' order by t.table_name
+\gexec
+select format('select %L || ''|'' || count(*) || ''|'' || md5(coalesce(string_agg(t::text, E''\\n'' order by t::text), '''')) '
+              'from %I t where t.id %s (select f.id from norm_filas f where f.tabla = %L)',
+              s.seccion || '|' || x.tabla, x.tabla, s.operador, x.tabla)
+from norm_excluidas x cross join (values ('ajenas', 'not in'), ('objetivo', 'in')) s(seccion, operador)
+order by s.seccion, x.tabla
+\gexec
+SQL
+}
+
+# SQL de la normalización: una sola transacción. Si una comprobación falla no se escribe nada.
+# Idempotente: solo actualiza lo que aún no tiene el valor de destino. Salida: «tabla|filas cambiadas».
+sql_normalizacion() { # $1 = aplicar | revertir
+    printf '\\set direccion %s\n' "$1"
+    printf '%s\n' 'begin;' "set local lock_timeout = '10s';" \
+        'lock table empresas, usuarios, proveedores, productos in share row exclusive mode;' "$NORM_OBJETIVOS"
+    cat <<'SQL'
+create temp table norm_cfg as select :'direccion'::text = 'aplicar' as aplicar, :'direccion'::text as direccion;
+do $$
+declare
+  aplicar boolean;
+  n bigint;
+  lista text;
+  problemas text[] := '{}';
+begin
+  if (select direccion from norm_cfg) not in ('aplicar', 'revertir') then
+    raise exception 'direccion debe ser aplicar o revertir';
+  end if;
+  select c.aplicar into aplicar from norm_cfg c;
+  -- Cada clave natural localiza exactamente una fila.
+  select count(*) into n from norm_filas where tabla = 'empresas';
+  if n <> 5 then problemas := problemas || format('empresas localizadas por código y NIT: %s de 5', n); end if;
+  select count(*) into n from norm_filas where tabla = 'usuarios';
+  if n <> 10 then problemas := problemas || format('cuentas localizadas: %s de 10', n); end if;
+  select count(*) into n from norm_filas where tabla = 'proveedores';
+  if n <> 5 then problemas := problemas || format('proveedores localizados: %s de 5', n); end if;
+  select count(*) into n from norm_filas where tabla = 'productos';
+  if n <> 11 then problemas := problemas || format('productos localizados: %s de 11', n); end if;
+  -- Cada cuenta sigue en su empresa y con su rol.
+  select string_agg(n.username, ', ') into lista from norm_usuarios n
+    where not exists (select 1 from usuarios u join empresas e on e.id = u.empresa_id join norm_empresas ne on ne.codigo = e.codigo and ne.nit = e.nit
+                      where u.username = n.username and e.codigo = n.codigo and u.rol = n.rol);
+  if lista is not null then problemas := problemas || ('cuentas fuera de su empresa o con otro rol: ' || lista); end if;
+  -- Valor actual: el de la seed o el ya normalizado. Otro valor lo puso una persona y se respeta.
+  select string_agg(u.username, ', ') into lista from usuarios u join norm_usuarios n on n.username = u.username
+    where u.email not in (n.email_original, n.email_nuevo);
+  if lista is not null then problemas := problemas || ('correo cambiado a mano en: ' || lista); end if;
+  select string_agg(n.codigo || '/' || n.nit, ', ') into lista from proveedores p join norm_filas f on f.tabla = 'proveedores' and f.id = p.id
+    join empresas e on e.id = p.empresa_id join norm_proveedores n on n.codigo = e.codigo and n.nit = p.nit
+    where p.razon_social not in (n.razon_original, n.razon_nueva) or p.email not in (n.email_original, n.email_nuevo);
+  if lista is not null then problemas := problemas || ('proveedor cambiado a mano: ' || lista); end if;
+  select string_agg(n.codigo || '/' || n.sku, ', ') into lista from productos p join norm_filas f on f.tabla = 'productos' and f.id = p.id
+    join empresas e on e.id = p.empresa_id join norm_productos n on n.codigo = e.codigo and n.sku = p.sku
+    where p.descripcion is not null and p.descripcion <> n.descripcion_original;
+  if lista is not null then problemas := problemas || ('descripción de producto escrita a mano: ' || lista); end if;
+  -- Unicidad (uq_usuarios_email): ningún correo de destino lo usa otra cuenta.
+  select string_agg(u.username || ' (' || u.email || ')', ', ') into lista from usuarios u join norm_usuarios n
+    on u.email = case when aplicar then n.email_nuevo else n.email_original end
+    where u.username <> n.username;
+  if lista is not null then problemas := problemas || ('correo de destino en uso por otra cuenta: ' || lista); end if;
+  if cardinality(problemas) > 0 then
+    raise exception 'Normalización detenida sin escribir nada: %', array_to_string(problemas, '; ');
+  end if;
+end $$;
+with c as (select aplicar from norm_cfg),
+     cambio as (update empresas t set demo = not c.aplicar from c, norm_filas f
+                where f.tabla = 'empresas' and f.id = t.id and t.demo is distinct from (not c.aplicar) returning t.id)
+select 'empresas|' || count(*) from cambio;
+with c as (select aplicar from norm_cfg),
+     cambio as (update usuarios t set email = case when c.aplicar then n.email_nuevo else n.email_original end
+                from c, norm_usuarios n where n.username = t.username
+                  and t.email is distinct from case when c.aplicar then n.email_nuevo else n.email_original end returning t.id)
+select 'usuarios|' || count(*) from cambio;
+with c as (select aplicar from norm_cfg),
+     cambio as (update proveedores t
+                set razon_social = case when c.aplicar then n.razon_nueva else n.razon_original end,
+                    email = case when c.aplicar then n.email_nuevo else n.email_original end
+                from c, norm_filas f, empresas e, norm_proveedores n
+                where f.tabla = 'proveedores' and f.id = t.id and e.id = t.empresa_id and n.codigo = e.codigo and n.nit = t.nit
+                  and (t.razon_social, t.email) is distinct from
+                      (case when c.aplicar then n.razon_nueva else n.razon_original end,
+                       case when c.aplicar then n.email_nuevo else n.email_original end) returning t.id)
+select 'proveedores|' || count(*) from cambio;
+with c as (select aplicar from norm_cfg),
+     cambio as (update productos t set descripcion = case when c.aplicar then null else n.descripcion_original end
+                from c, norm_filas f, empresas e, norm_productos n
+                where f.tabla = 'productos' and f.id = t.id and e.id = t.empresa_id and n.codigo = e.codigo and n.sku = t.sku
+                  and t.descripcion is distinct from case when c.aplicar then null else n.descripcion_original end returning t.id)
+select 'productos|' || count(*) from cambio;
+do $$
+declare
+  aplicar boolean;
+  n bigint;
+begin
+  select c.aplicar into aplicar from norm_cfg c;
+  select count(*) into n from empresas t join norm_filas f on f.tabla = 'empresas' and f.id = t.id where t.demo = not aplicar;
+  if n <> 5 then raise exception 'comprobación final: % de 5 empresas con el valor de destino', n; end if;
+  select count(*) into n from usuarios t join norm_usuarios u on u.username = t.username
+    where t.email = case when aplicar then u.email_nuevo else u.email_original end;
+  if n <> 10 then raise exception 'comprobación final: % de 10 cuentas con el correo de destino', n; end if;
+  select count(*) into n from proveedores t join norm_filas f on f.tabla = 'proveedores' and f.id = t.id
+    join empresas e on e.id = t.empresa_id join norm_proveedores p on p.codigo = e.codigo and p.nit = t.nit
+    where t.razon_social = case when aplicar then p.razon_nueva else p.razon_original end
+      and t.email = case when aplicar then p.email_nuevo else p.email_original end;
+  if n <> 5 then raise exception 'comprobación final: % de 5 proveedores con el valor de destino', n; end if;
+  select count(*) into n from productos t join norm_filas f on f.tabla = 'productos' and f.id = t.id
+    join empresas e on e.id = t.empresa_id join norm_productos p on p.codigo = e.codigo and p.sku = t.sku
+    where t.descripcion is not distinct from case when aplicar then null else p.descripcion_original end;
+  if n <> 11 then raise exception 'comprobación final: % de 11 productos con el valor de destino', n; end if;
+end $$;
+commit;
+SQL
+}
+
+# Compara las secciones indicadas (expresión regular, p. ej. 'parcial|ajenas') de dos huellas.
+huellas_iguales() { diff <(grep -E "^($1)\|" "$2") <(grep -E "^($1)\|" "$3"); }
+
+# Sin cambios en producción: copia de la BD en un PostgreSQL desechable sin red; allí aplica la
+# normalización, la repite (debe cambiar 0 filas), la revierte, la vuelve a aplicar y comprueba que una
+# colisión la detiene sin escribir nada. La copia se elimina al terminar.
+normalizar_probar() {
+    fase "NORMALIZACIÓN — prueba en una copia desechable (producción no se modifica)"
+    exigir_sin_pendientes
+    COPIA_PRUEBA=$EJEC/copia-prueba.dump
+    docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$COPIA_PRUEBA"
+    [[ -s $COPIA_PRUEBA ]] || alto "El volcado para la prueba está vacío."
+    arrancar_contenedor_prueba
+    docker exec -i "$CONTENEDOR_PRUEBA" pg_restore -U postgres -d restore_check --no-owner --no-privileges --exit-on-error \
+        < "$COPIA_PRUEBA" || alto "No se pudo restaurar la copia de prueba."
+    rm -f "$COPIA_PRUEBA"; COPIA_PRUEBA=
+    ok "Copia de la BD en $CONTENEDOR_PRUEBA (sin red)"
+    copia() { docker exec -i "$CONTENEDOR_PRUEBA" psql -U postgres -d restore_check -v ON_ERROR_STOP=1 -X -q -At -F "|"; }
+    local h=$EJEC/huella-copia c=$EJEC/cambios-copia total
+
+    huella_normalizacion copia > "$h-0"
+    sql_normalizacion aplicar | copia > "$c-1" || alto "La normalización falló en la copia (motivo arriba)."
+    total=$(awk -F'|' '{ s += $2 } END { print s + 0 }' "$c-1")
+    info "1.ª aplicación: $(tr '\n' ' ' < "$c-1")"
+    huella_normalizacion copia > "$h-1"
+    huellas_iguales 'parcial|ajenas' "$h-0" "$h-1" || alto "La normalización cambió algo fuera de los campos acordados."
+    ok "Fuera de los campos acordados no cambia nada ($(grep -c '^parcial|' "$h-1") tablas, filas ajenas incluidas)"
+
+    sql_normalizacion aplicar | copia > "$c-2" || alto "La segunda aplicación falló."
+    grep -qv '|0$' "$c-2" && alto "La segunda aplicación cambió filas: $(tr '\n' ' ' < "$c-2")"
+    huella_normalizacion copia > "$h-2"
+    huellas_iguales 'parcial|ajenas|objetivo' "$h-1" "$h-2" || alto "La segunda aplicación cambió datos."
+    ok "Idempotente: la segunda aplicación cambia 0 filas y la huella completa es idéntica"
+
+    sql_normalizacion revertir | copia > "$c-3" || alto "La reversión falló en la copia."
+    huella_normalizacion copia > "$h-3"
+    huellas_iguales 'parcial|ajenas' "$h-0" "$h-3" || alto "La reversión cambió algo fuera de los campos acordados."
+    if (( total == 31 )); then
+        huellas_iguales 'parcial|ajenas|objetivo' "$h-0" "$h-3" || alto "La reversión no devuelve exactamente el estado inicial."
+        ok "Reversible: «revertir» devuelve la huella completa inicial"
+    else
+        info "La BD ya estaba normalizada (o en parte): «revertir» deja los valores de la seed"
+    fi
+    sql_normalizacion aplicar | copia > "$c-4" || alto "La nueva aplicación tras revertir falló."
+    huella_normalizacion copia > "$h-4"
+    huellas_iguales 'parcial|ajenas|objetivo' "$h-1" "$h-4" || alto "Aplicar → revertir → aplicar no llega al mismo estado."
+    ok "Aplicar → revertir → aplicar llega exactamente al mismo estado"
+
+    # Colisiones, solo en la copia: un correo de destino ocupado por otra cuenta y una descripción escrita a mano.
+    sql_normalizacion revertir | copia > /dev/null || alto "No se pudo preparar la prueba de colisión."
+    copia <<'SQL' || alto "No se pudo preparar la prueba de colisión."
+update usuarios set email = 'carlos.mendoza@mercadoverde.example.com'
+  where id = (select min(id) from usuarios where rol = 'SUPER_ADMIN');
+update productos set descripcion = 'Descripción escrita a mano'
+  where sku = 'MV-ARR-500' and empresa_id = (select id from empresas where codigo = 'MVSA01' and nit = '999100000001');
+SQL
+    huella_normalizacion copia > "$h-5"
+    if sql_normalizacion aplicar | copia > "$c-6" 2> "$EJEC/error-colision"; then
+        alto "La normalización no se detuvo ante una colisión."
+    fi
+    if ! grep -q 'correo de destino en uso por otra cuenta' "$EJEC/error-colision" \
+            || ! grep -q 'descripción de producto escrita a mano' "$EJEC/error-colision"; then
+        alto "La normalización se detuvo por otro motivo: $(cat "$EJEC/error-colision")"
+    fi
+    huella_normalizacion copia > "$h-6"
+    huellas_iguales 'parcial|ajenas|objetivo' "$h-5" "$h-6" || alto "La normalización detenida escribió datos."
+    ok "Una colisión (correo ocupado, descripción escrita a mano) la detiene sin escribir nada"
+
+    limpiar_contenedor_prueba || alto "No se pudo eliminar la copia de prueba."
+    ok "Copia de prueba eliminada. Producción no se ha modificado"
+}
+
+# Aplica (o, con DIRECCION=revertir, deshace) la normalización en producción. Sin reinicios ni compilación.
+normalizar() {
+    local direccion=${DIRECCION:-aplicar}
+    fase "NORMALIZACIÓN DE LOS DATOS DE PRUEBA ($direccion)"
+    [[ $direccion == aplicar || $direccion == revertir ]] || alto "DIRECCION debe ser aplicar o revertir."
+    [[ ${CONFIRMAR_NORMALIZACION:-} == si ]] || alto "Solo se ejecuta con CONFIRMAR_NORMALIZACION=si (autorización expresa)."
+    exigir_sin_pendientes
+    validar_clave
+    esperar_sano backend 30 || alto "El backend no está sano."
+    sin_variables_demo || alto "El backend tiene variables demo: «bash $0 recuperar» antes de seguir."
+    info "Pruebas HTTP previas: si fallan, no se toca nada"
+    pruebas_http
+    respaldar sgp_pre_normalizacion
+    huella_normalizacion sql > "$EJEC/huella-antes"
+    sql_normalizacion "$direccion" | sql > "$EJEC/cambios" \
+        || alto "Normalización detenida: la transacción se deshizo y no se escribió nada (motivo arriba)."
+    ok "Filas cambiadas: $(tr '\n' ' ' < "$EJEC/cambios")"
+    huella_normalizacion sql > "$EJEC/huella-despues"
+    huellas_iguales 'parcial|ajenas' "$EJEC/huella-antes" "$EJEC/huella-despues" \
+        || alto "Cambió algo fuera de los campos acordados (¿actividad durante la ventana?). Revísalo antes de seguir; respaldo previo: $RESPALDO_HECHO"
+    ok "Fuera de los campos acordados no cambió nada ($(grep -c '^parcial|' "$EJEC/huella-despues") tablas; empresas reales y su historial incluidos)"
+    pruebas_http
+    esperar_sano backend 30 || alto "El backend no está sano al terminar."
+    ok "Normalización ($direccion) terminada. Respaldo previo: $RESPALDO_HECHO"
 }
 
 # -----------------------------------------------------------------------------
@@ -1062,6 +1360,7 @@ al_salir() {
     set +e
     limpiar_contenedor_prueba
     [[ -z $TMP_HTTP ]] || rm -rf "$TMP_HTTP"
+    [[ -z $COPIA_PRUEBA ]] || rm -f "$COPIA_PRUEBA"
     for op in "${PARCIALES[@]}"; do         # solo los parciales de esta ejecución: nunca fueron válidos
         if [[ -e $op ]]; then rm -f "$op"; info "Eliminado el respaldo parcial $op (incompleto)"; fi
     done
@@ -1086,8 +1385,8 @@ al_salir() {
 main() {
     local orden=${1:-}
     case $orden in
-        fase1|fase2|clave-demo|fase3|fase4|estado|recuperar|rollback|restaurar) ;;
-        *) echo "Uso: $0 fase1|fase2|clave-demo|fase3|fase4|estado|recuperar|rollback|restaurar"; exit 2 ;;
+        fase1|fase2|clave-demo|fase3|fase4|estado|recuperar|rollback|restaurar|normalizar-probar|normalizar) ;;
+        *) echo "Uso: $0 fase1|fase2|clave-demo|fase3|fase4|estado|recuperar|rollback|restaurar|normalizar-probar|normalizar"; exit 2 ;;
     esac
     command -v flock >/dev/null || { echo "  [ALTO] Falta flock (util-linux): sin él no se puede impedir una ejecución simultánea."; exit 1; }
     mkdir -p "$PRIVADO" "$ESTADO" "$DIARIO" "$HISTORIAL" "$ESTADO/despliegues" "$ESTADO/ejecuciones"
@@ -1128,6 +1427,8 @@ main() {
         recuperar) recuperar ;;
         rollback) rollback ;;
         restaurar) restaurar ;;
+        normalizar-probar) normalizar_probar ;;
+        normalizar) normalizar ;;
     esac
 }
 
