@@ -536,9 +536,12 @@ apartado no implementa nada de las Fases B (B.6) y C (B.7, B.8); todo lo de esas
 como propuesta.
 
 **Identidad comercial (decisión del propietario, 21/10/2026):** el producto se llama **Nexora**.
-«SGOC», «SGP» y «Unisen SGP» son nombres históricos o identificadores técnicos. El dominio público
-deseado es `nexora.duckdns.org`: no se ha comprobado su DNS, su certificado ni el proxy del host, y
-nada de esto se cambia sin autorización expresa.
+«SGOC», «SGP» y «Unisen SGP» son nombres históricos o identificadores técnicos.
+
+**Dominio:** el dominio **actual de producción es `https://rrtf.duckdns.org/`** y sigue siéndolo.
+`nexora.duckdns.org` es solo un destino **futuro** propuesto: no se ha comprobado su DNS, su
+certificado ni el proxy del host, no existe ninguna referencia a él en el código y nada se migra
+sin autorización expresa.
 
 ### A.1 Hitos de referencia frente al código real
 
@@ -673,9 +676,10 @@ desactivar y reactivar (ya implementadas y autorizadas en el backend) o si es so
 
 ### A.7 Referencias técnicas al nombre y al dominio
 
-**Dominio `rrtf.duckdns.org`** (14 apariciones):
+**Dominio actual `rrtf.duckdns.org`** (14 apariciones, todas vigentes y correctas hoy). Qué habría
+que tocar **si algún día** se migra:
 
-| Dónde | Tipo | Para migrar a `nexora.duckdns.org` |
+| Dónde | Tipo | Para una futura migración a `nexora.duckdns.org` |
 | --- | --- | --- |
 | `.env.example` (`APP_DOMAIN`), `docker-compose.yml` (`CORS_ALLOWED_ORIGINS` deriva de `APP_DOMAIN`) | Configuración | Cambiar `APP_DOMAIN` en el `.env` del VPS (durante la transición, admitir ambos orígenes) |
 | `application.yml` (valor por defecto de `CORS_ALLOWED_ORIGINS`), `backend-spring/.env.example` | Configuración | Actualizar el valor por defecto |
@@ -733,3 +737,57 @@ que verificar). No se ejecutó Docker.
    el ajuste de contraste del tema oscuro) y de los logotipos y el favicon.
 5. Papel de Unisen frente a Nexora en los textos (pie, documentos PDF/Word) y licencia del paquete.
 6. Fecha y procedimiento de la migración al dominio `nexora.duckdns.org`.
+
+## Fase B (Nexora): vista de personal (B.6)
+
+Fecha: 21/10/2026. Autorizada por el propietario tras la Fase A. Decisiones aplicadas, las
+recomendadas en A.4 y A.5: la vista incluye las acciones de estado que **ya existían** en el backend
+(no se crea ningún permiso nuevo); la actividad es la **última operación registrada**, nunca la
+última conexión; la tarjeta del administrador para el trabajador (B.6.2) **se pospone**.
+
+### B.1 Cambios
+
+| Capa | Archivo | Qué |
+| --- | --- | --- |
+| Backend | `TrabajadorController` | `GET /api/v1/trabajadores/actividad[?estado=]` (paginado, mismos filtros y orden que el listado) |
+| Backend | `PersonalService` (nuevo) | Reutiliza `UsuarioService.listarTrabajadores` (misma autorización `Permisos.GESTION` y misma empresa) y añade la actividad: una consulta agregada por fuente para toda la página (3 consultas fijas, sin N+1) |
+| Backend | `SolicitudRepository`, `RecepcionRepository`, `VentaRepository`, `ActividadPorUsuario` (nuevo) | `actividadPorUsuario(ids, desde)`: `MAX(fecha)` y `SUM(CASE fecha >= desde)` por usuario, filtrado además por `@TenantId` |
+| Backend | `PersonalDTO` (nuevo) | id, username, nombre, estado, alta y `actividad` (`ultimaOperacion {tipo, en}` u omitida, `dias`, `solicitudes`, `recepciones`, `ventas`). **Sin correo** |
+| Frontend | `pages/admin/Personal.tsx`, `features/personal/*` | Página `/admin/personal`: filtro por estado en la URL, tabla con estado, actividad y alta, acciones aprobar/rechazar/desactivar/reactivar (rechazar y desactivar con confirmación), estados de carga, error con reintento, lista vacía y «Sin actividad registrada» |
+| Frontend | `App.tsx`, `permisos.ts`, `navegacion.ts` | Ruta bajo `RutaConRol(ROLES_INVITACION)`, permiso de interfaz `gestionarPersonal` y entrada «Personal» en *Administración* |
+
+Sin migraciones, sin dependencias nuevas y sin cambios en seguridad, JWT, CORS, Nginx o Docker.
+
+**Qué cuenta como actividad:** solicitudes creadas (`solicitudes.usuario_id`), recepciones
+registradas (`recepciones.recibida_por_id`) y ventas realizadas (`ventas.vendida_por_id`, también
+las anuladas después). Las devoluciones no cuentan porque solo las registra el administrador. La
+ventana de los conteos son los últimos 30 días hasta el instante de la consulta.
+
+### B.2 Seguridad
+
+- La empresa la fija el servidor (`TenantContextHolder`): un ADMINISTRADOR_COMERCIAL solo ve su
+  empresa aunque envíe `X-Tenant-ID`; el TRABAJADOR recibe 403; el SUPER_ADMIN, 400 en modo global y
+  la empresa supervisada con `X-Tenant-ID: <id>` (como el listado existente). La interfaz solo
+  muestra la página al ADMINISTRADOR_COMERCIAL.
+- Los ids cuya actividad se consulta salen del listado del servidor, nunca del cliente, y las
+  consultas de actividad se filtran también por `@TenantId`.
+- Las acciones de estado usan el `PATCH` existente (fila bloqueada, 404 fuera de la empresa).
+
+### B.3 Verificación ejecutada
+
+| Comando | Resultado |
+| --- | --- |
+| `./mvnw test` (H2, `-Xlint:all -Werror`) | 317 pruebas, 0 fallos (312 anteriores + 5 de `PersonalActividadTest`: sin actividad y sin correo; atribución, operación más reciente y ventana de 30 días; aislamiento entre dos empresas y cabecera ignorada; filtro por estado; 403 del trabajador, 400 del SUPER_ADMIN global y 200 supervisando) |
+| `npm run lint` · `tsc -b` · `npm test` · `npm run build` | Sin avisos ni errores · 60 pruebas, 0 fallos (51 + 9 nuevas: actividad, página y menú) · build correcto |
+| Navegador (Playwright + Chromium) contra `vite preview` con la API **simulada** | Escritorio 1366 px claro y móvil 390 px oscuro: sin desbordamiento de página, tabla completa en escritorio, aprobar, desactivar con confirmación, filtro en la URL, un TRABAJADOR que abre la ruta vuelve a `/`, sin errores de consola |
+
+No se ejecutó la suite contra PostgreSQL ni un recorrido con backend y BD reales.
+
+### B.4 Limitaciones y pendientes
+
+1. **Última conexión:** no existe; registrarla exige una migración (`usuarios.ultimo_acceso_en`
+   escrita en el login) y una decisión del propietario.
+2. En móvil la tabla se desplaza en horizontal dentro de su tarjeta, como el resto de `DataTable`.
+3. `recepciones` no tiene índice por `recibida_por_id`; con volúmenes grandes, valorar uno (migración).
+4. El registro con código de empresa sigue sin campo en `/registro` (la aprobación ya está en *Personal*).
+5. B.6.2 (tarjeta del administrador) pospuesta, por los motivos de A.5.

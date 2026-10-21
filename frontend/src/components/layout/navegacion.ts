@@ -15,6 +15,7 @@ import {
   PackageOpen,
   Ticket,
   Truck,
+  Users,
   type LucideIcon,
 } from 'lucide-react'
 import type { Permisos } from '@/features/auth/permisos'
@@ -89,11 +90,14 @@ export function construirNavegacion(rol: Rol | null, permisos: Permisos): GrupoN
       ],
     })
   }
-  // SUPER_ADMIN: empresas y sus administradores. ADMINISTRADOR_COMERCIAL: invitar trabajadores a su empresa.
+  // SUPER_ADMIN: empresas y sus administradores. ADMINISTRADOR_COMERCIAL: su personal y las invitaciones.
   if (permisos.gestionarEmpresas) {
     grupos.push({ titulo: 'Administración', items: [{ to: '/admin/empresas', label: 'Empresas', icon: Building }] })
-  } else if (permisos.gestionarInvitaciones) {
-    grupos.push({ titulo: 'Administración', items: [{ to: '/admin/invitaciones', label: 'Invitar usuarios', icon: Ticket }] })
+  } else {
+    const administracion: ItemNavegacion[] = []
+    if (permisos.gestionarPersonal) administracion.push({ to: '/admin/personal', label: 'Personal', icon: Users })
+    if (permisos.gestionarInvitaciones) administracion.push({ to: '/admin/invitaciones', label: 'Invitar usuarios', icon: Ticket })
+    if (administracion.length > 0) grupos.push({ titulo: 'Administración', items: administracion })
   }
   return grupos
 }

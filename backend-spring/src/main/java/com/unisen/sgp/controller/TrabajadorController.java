@@ -1,8 +1,10 @@
 package com.unisen.sgp.controller;
 
 import com.unisen.sgp.model.dto.CambioEstadoUsuarioDTO;
+import com.unisen.sgp.model.dto.PersonalDTO;
 import com.unisen.sgp.model.dto.TrabajadorResponseDTO;
 import com.unisen.sgp.model.entity.EstadoUsuario;
+import com.unisen.sgp.service.PersonalService;
 import com.unisen.sgp.service.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -24,8 +26,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Trabajadores (rol TRABAJADOR) de la empresa en la que se trabaja: el ADMINISTRADOR_COMERCIAL revisa los que se
- * registraron con el código de empresa y los aprueba, rechaza, desactiva o reactiva. La
- * autorización (rol y empresa) vive en {@link UsuarioService}.
+ * registraron con el código de empresa y los aprueba, rechaza, desactiva o reactiva, y consulta su
+ * actividad registrada. La autorización (rol y empresa) vive en {@link UsuarioService} y
+ * {@link PersonalService}.
  */
 @RestController
 @RequestMapping("/api/v1/trabajadores")
@@ -33,9 +36,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class TrabajadorController {
 
     private final UsuarioService usuarioService;
+    private final PersonalService personalService;
 
-    public TrabajadorController(UsuarioService usuarioService) {
+    public TrabajadorController(UsuarioService usuarioService, PersonalService personalService) {
         this.usuarioService = usuarioService;
+        this.personalService = personalService;
     }
 
     @GetMapping
@@ -48,6 +53,20 @@ public class TrabajadorController {
             @ParameterObject @PageableDefault(size = 20, sort = {"creadoEn", "id"}, direction = Sort.Direction.DESC)
             Pageable pageable) {
         return usuarioService.listarTrabajadores(estado, pageable);
+    }
+
+    @GetMapping("/actividad")
+    @Operation(summary = "Personal: trabajadores de la empresa con su actividad registrada",
+            description = "Mismo listado y filtros que GET /api/v1/trabajadores, sin el correo, con la última operación "
+                    + "registrada (solicitud, recepción o venta) y los conteos de los últimos "
+                    + PersonalService.DIAS_RECIENTES + " días. No es la última conexión: los inicios de sesión no se registran.")
+    @ApiResponse(responseCode = "400", description = "SUPER_ADMIN sin X-Tenant-ID (modo global)")
+    @ApiResponse(responseCode = "403", description = "El usuario no es gestor")
+    public Page<PersonalDTO> listarConActividad(
+            @Parameter(description = "Filtra por estado") @RequestParam(required = false) EstadoUsuario estado,
+            @ParameterObject @PageableDefault(size = 20, sort = {"creadoEn", "id"}, direction = Sort.Direction.DESC)
+            Pageable pageable) {
+        return personalService.listar(estado, pageable);
     }
 
     @PatchMapping("/{id}/estado")

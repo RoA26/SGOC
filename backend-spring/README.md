@@ -123,6 +123,7 @@ e indica qué variable falta.
 | PATCH | `/api/v1/empresas/{id}/administradores/{usuarioId}/estado` | Bearer **SUPER_ADMIN** | `{estado: ACTIVO \| INACTIVO}` → `200` · `404` si no es administrador de esa empresa · `409` |
 | GET | `/api/v1/empresas/actual` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN con `X-Tenant-ID`** | `200` empresa en la que se trabaja, con su `codigo` y su `codigoEmpresa` · `400` sin empresa |
 | GET | `/api/v1/trabajadores?estado=` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN con `X-Tenant-ID`** | `200` página de trabajadores (rol TRABAJADOR) de esa empresa · `400` sin empresa · `403` |
+| GET | `/api/v1/trabajadores/actividad?estado=` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN con `X-Tenant-ID`** | `200` misma página sin el correo, con `actividad` (última operación registrada y conteos de 30 días; no es la última conexión) · `400` sin empresa · `403` |
 | PATCH | `/api/v1/trabajadores/{id}/estado` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN con `X-Tenant-ID`** | `{estado}` → `200` · `400` · `403` · `404` si no es trabajador de esa empresa · `409` transición no permitida |
 | GET | `/api/v1/proveedores` | Bearer | `200` página de proveedores activos |
 | GET | `/api/v1/proveedores/{id}` | Bearer | `200` proveedor · `404` |

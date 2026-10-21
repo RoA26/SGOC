@@ -215,6 +215,7 @@ Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, si
 | PATCH | `/api/v1/empresas/{id}/estado` · `/{id}/administradores/{usuarioId}/estado` | SUPER_ADMIN: activar o desactivar la empresa, o la cuenta de uno de sus administradores |
 | GET | `/api/v1/empresas/actual` | ADMINISTRADOR_COMERCIAL, o SUPER_ADMIN con `X-Tenant-ID: <id>`: empresa en la que se trabaja, con sus códigos |
 | GET · PATCH | `/api/v1/trabajadores[?estado=]` · `/{id}/estado` | ADMINISTRADOR_COMERCIAL, o SUPER_ADMIN con `X-Tenant-ID: <id>`: trabajadores de esa empresa; aprobar, rechazar, desactivar o reactivar |
+| GET | `/api/v1/trabajadores/actividad[?estado=]` | Mismos roles y filtros, sin el correo: última operación registrada (solicitud, recepción o venta) y conteos de los últimos 30 días. No es la última conexión (no se registran los inicios de sesión) |
 | POST | `/api/auth/invitaciones` | ADMINISTRADOR_COMERCIAL (o SUPER_ADMIN con `X-Tenant-ID: <id>`, solo por API): `{horasValidez?}` → `201` `{codigo, fechaExpiracion}` |
 | GET · DELETE | `/api/auth/invitaciones` · `/{id}` | Mismos roles: invitaciones de la empresa con su estado (sin el código completo); revocar una vigente (baja lógica) |
 | GET · PATCH | `/api/auth/me` | Perfil del usuario autenticado, leído de la BD: nombres, apellidos, rol, estado y empresa (`empresaNombre`, `empresaCodigo`); `PATCH {nombres, apellidos}` corrige los propios |
@@ -252,7 +253,7 @@ El SGOC es multi-empresa: cada empresa cliente ve solo sus datos y el backend lo
 | Rol | Empresa de trabajo | Menú |
 | --- | --- | --- |
 | `TRABAJADOR` («Trabajador») | La suya (de la sesión) | Inicio · Mis solicitudes · Punto de venta · Mis ventas · Recibir mercancía · Calendario · Existencias |
-| `ADMINISTRADOR_COMERCIAL` («Administrador comercial») | La suya (de la sesión) | Inicio · Solicitudes · Órdenes de compra · Entregas · Recepciones · Punto de venta · Ventas · Reportes · Gestión comercial · Calendario · Existencias · Productos · Proveedores · Invitar usuarios |
+| `ADMINISTRADOR_COMERCIAL` («Administrador comercial») | La suya (de la sesión) | Inicio · Solicitudes · Órdenes de compra · Entregas · Recepciones · Punto de venta · Ventas · Reportes · Gestión comercial · Calendario · Existencias · Productos · Proveedores · Personal · Invitar usuarios |
 | `SUPER_ADMIN` | Ninguna (modo global) o la que supervisa | Inicio · Solicitudes · Órdenes de compra · Entregas · Recepciones · Ventas, Reportes y Gestión comercial (supervisando, solo consulta) · Calendario (supervisando) · Existencias · Productos · Proveedores (consulta) · Empresas |
 
 - **Panel lateral:** muestra el nombre comercial y el código de la empresa, el nombre real del
@@ -267,7 +268,7 @@ El SGOC es multi-empresa: cada empresa cliente ve solo sus datos y el backend lo
   dura la pestaña (sessionStorage), se borra al cerrar sesión y *Volver al modo global* la quita.
   ADMINISTRADOR_COMERCIAL y TRABAJADOR nunca envían la cabecera (el backend la ignoraría).
 - **Rutas protegidas:** `/productos`, `/proveedores`, `/ordenes-compra[/:id]`, `/entregas`, `/recepciones`, `/comercial` y `/reportes` para ADMINISTRADOR_COMERCIAL y SUPER_ADMIN; `/recepcion` y `/pos` para ADMINISTRADOR_COMERCIAL y TRABAJADOR; `/ventas[/:id]` para todos (el trabajador, las suyas); `/recepcion/:ordenId` para todos (el SUPER_ADMIN, en consulta); `/inventario` y `/calendario` para todos;
-  `/admin/invitaciones` solo para ADMINISTRADOR_COMERCIAL; `/perfil` para todos; `/admin/empresas[/:id]` solo para SUPER_ADMIN; el
+  `/admin/personal` y `/admin/invitaciones` solo para ADMINISTRADOR_COMERCIAL; `/perfil` para todos; `/admin/empresas[/:id]` solo para SUPER_ADMIN; el
   resto vuelve al inicio.
 - **Sesiones anteriores** (con el rol `ADMIN`, que ya no existe) se descartan y piden iniciar
   sesión de nuevo. Las guardadas con `ADMIN_EMPRESA` (antes de V14) se traducen a
@@ -358,6 +359,13 @@ con un generador de contraseñas seguras). Se crean juntos o no se crea nada. Ca
 *Detalles* (ficha con datos, administrador, actividad real y usuarios; desde ella se desactiva o
 reactiva la empresa o la cuenta de su administrador, con confirmación) y *Supervisar*.
 
+**Personal (`/admin/personal`, ADMINISTRADOR_COMERCIAL):** los trabajadores de su empresa con el estado
+real de su cuenta y su actividad: la última operación registrada (solicitud, recepción o venta, con
+fecha) y los conteos de los últimos 30 días, o «Sin actividad registrada». No muestra la última
+conexión porque el sistema no guarda los inicios de sesión. Filtro por estado en la URL
+(`?estado=PENDIENTE`); aprueba o rechaza a quien se registró con el código de empresa y desactiva o
+reactiva cuentas (rechazar y desactivar piden confirmación).
+
 **Invitar usuarios (`/admin/invitaciones`, ADMINISTRADOR_COMERCIAL):** el administrador genera un código con
 un clic y lo copia, o copia el enlace de registro. Es el alta de trabajadores de su empresa (no de
 empresas). El código completo solo se muestra al generarlo; debajo, el historial de invitaciones
@@ -368,7 +376,7 @@ revocar una vigente, con confirmación.
 
 | Necesidad del frontend | Endpoint que falta |
 | --- | --- |
-| Registro con código de empresa y aprobación de trabajadores | Endpoints ya disponibles (Hito 2); falta la interfaz |
+| Registro con código de empresa | Endpoint disponible (Hito 2); falta el campo en `/registro` (la aprobación ya está en *Personal*) |
 | Cambio de contraseña (también la inicial del administrador) y recuperación | Sin definir: hoy no hay ningún mecanismo |
 | Empresa de cada solicitud en modo global | `empresaId`/`empresaNombre` en `SolicitudResponseDTO` |
 | Impuestos y descuentos en las órdenes; cierre de una orden con saldo pendiente | Pendiente de decisión |

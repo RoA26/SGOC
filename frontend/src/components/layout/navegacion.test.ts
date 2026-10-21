@@ -53,4 +53,10 @@ describe('menú según el rol', () => {
     expect(rutas('SUPER_ADMIN', true)).not.toEqual(expect.arrayContaining(['/ventas']))
     expect(rutas('SUPER_ADMIN', true)).not.toContain('/pos')
   })
+
+  it('el administrador comercial gestiona su personal; ni el trabajador ni el SUPER_ADMIN lo ven', () => {
+    expect(rutas('ADMINISTRADOR_COMERCIAL')).toEqual(expect.arrayContaining(['/admin/personal', '/admin/invitaciones']))
+    expect(rutas('TRABAJADOR')).not.toContain('/admin/personal')
+    expect(rutas('SUPER_ADMIN', true)).not.toContain('/admin/personal')
+  })
 })

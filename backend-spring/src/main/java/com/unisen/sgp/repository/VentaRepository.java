@@ -4,6 +4,8 @@ import com.unisen.sgp.model.entity.EstadoVenta;
 import com.unisen.sgp.model.entity.Venta;
 import jakarta.persistence.LockModeType;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,6 +15,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /** Ventas de la empresa actual (@TenantId). */
 public interface VentaRepository extends JpaRepository<Venta, Long>, JpaSpecificationExecutor<Venta> {
@@ -57,4 +60,17 @@ public interface VentaRepository extends JpaRepository<Venta, Long>, JpaSpecific
             return (root, query, cb) -> numero == null ? null : cb.equal(root.get("numero"), numero);
         }
     }
+
+    /**
+     * Actividad de los usuarios indicados como vendedores (vista de personal): la última de su
+     * historia y cuántas desde {@code desde}. Solo la empresa actual (@TenantId).
+     */
+    @Query("""
+            select v.vendidaPor.id as usuarioId, max(v.vendidaEn) as ultima,
+                   sum(case when v.vendidaEn >= :desde then 1 else 0 end) as recientes
+            from Venta v
+            where v.vendidaPor.id in :usuarioIds
+            group by v.vendidaPor.id""")
+    List<ActividadPorUsuario> actividadPorUsuario(@Param("usuarioIds") Collection<Long> usuarioIds,
+                                                  @Param("desde") Instant desde);
 }

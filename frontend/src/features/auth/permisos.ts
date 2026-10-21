@@ -23,7 +23,7 @@ export const ROLES_GESTION: readonly Rol[] = ['SUPER_ADMIN', 'ADMINISTRADOR_COME
 export const ROLES_EMPRESA: readonly Rol[] = ['ADMINISTRADOR_COMERCIAL', 'TRABAJADOR']
 /** Administración de la plataforma: empresas y sus administradores. */
 export const ROLES_PLATAFORMA: readonly Rol[] = ['SUPER_ADMIN']
-/** Invitar trabajadores: solo el administrador de la empresa, a la suya. */
+/** Personal e invitaciones de trabajadores: solo el administrador de la empresa, la suya. */
 export const ROLES_INVITACION: readonly Rol[] = ['ADMINISTRADOR_COMERCIAL']
 
 /**
@@ -62,6 +62,8 @@ export interface Permisos {
   verCatalogos: boolean
   gestionarCatalogos: boolean
   gestionarInvitaciones: boolean
+  /** Personal: trabajadores de su empresa con su actividad; aprobar, rechazar, desactivar, reactivar. */
+  gestionarPersonal: boolean
   /** Consulta, crea, supervisa y activa o desactiva empresas (cuenta raíz). */
   gestionarEmpresas: boolean
   /** Consulta órdenes de compra, recepciones y el kárdex (con costos). */
@@ -109,6 +111,7 @@ export function calcularPermisos({ rol, modoGlobal }: ContextoEmpresa): Permisos
     verCatalogos: gestor,
     gestionarCatalogos: adminEmpresa,
     gestionarInvitaciones: adminEmpresa,
+    gestionarPersonal: adminEmpresa,
     gestionarEmpresas: rol === 'SUPER_ADMIN',
     verCompras: gestor,
     gestionarCompras: adminEmpresa,

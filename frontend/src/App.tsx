@@ -17,6 +17,7 @@ import Registro from '@/pages/Registro'
 const EmpresaDetalle = lazy(() => import('@/pages/admin/EmpresaDetalle'))
 const Empresas = lazy(() => import('@/pages/admin/Empresas'))
 const Invitaciones = lazy(() => import('@/pages/admin/Invitaciones'))
+const Personal = lazy(() => import('@/pages/admin/Personal'))
 const Inventario = lazy(() => import('@/pages/Inventario'))
 const OrdenCompraDetalle = lazy(() => import('@/pages/OrdenCompraDetalle'))
 const OrdenesCompra = lazy(() => import('@/pages/OrdenesCompra'))
@@ -76,8 +77,9 @@ export default function App() {
                 <Route path="/reportes" element={<Reportes />} />
               </Route>
 
-              {/* Invitaciones de trabajadores: solo el ADMINISTRADOR_COMERCIAL, para su empresa. */}
+              {/* Personal e invitaciones de trabajadores: solo el ADMINISTRADOR_COMERCIAL, para su empresa. */}
               <Route element={<RutaConRol roles={ROLES_INVITACION} />}>
+                <Route path="/admin/personal" element={<Personal />} />
                 <Route path="/admin/invitaciones" element={<Invitaciones />} />
               </Route>
 

@@ -119,4 +119,17 @@ public interface RecepcionRepository extends JpaRepository<Recepcion, Long>, Jpa
     /** Idempotencia: la clave es única por empresa (uq_recepciones_clave). */
     @EntityGraph(attributePaths = {"orden", "recibidaPor"})
     Optional<Recepcion> findByClaveIdempotencia(String claveIdempotencia);
+
+    /**
+     * Recepciones que registró cada uno de los usuarios indicados (vista de personal): la última
+     * de su historia y cuántas desde {@code desde}. Solo la empresa actual (@TenantId).
+     */
+    @Query("""
+            select r.recibidaPor.id as usuarioId, max(r.recibidaEn) as ultima,
+                   sum(case when r.recibidaEn >= :desde then 1 else 0 end) as recientes
+            from Recepcion r
+            where r.recibidaPor.id in :usuarioIds
+            group by r.recibidaPor.id""")
+    List<ActividadPorUsuario> actividadPorUsuario(@Param("usuarioIds") Collection<Long> usuarioIds,
+                                                  @Param("desde") Instant desde);
 }
