@@ -781,7 +781,8 @@ ventana de los conteos son los últimos 30 días hasta el instante de la consult
 | `npm run lint` · `tsc -b` · `npm test` · `npm run build` | Sin avisos ni errores · 60 pruebas, 0 fallos (51 + 9 nuevas: actividad, página y menú) · build correcto |
 | Navegador (Playwright + Chromium) contra `vite preview` con la API **simulada** | Escritorio 1366 px claro y móvil 390 px oscuro: sin desbordamiento de página, tabla completa en escritorio, aprobar, desactivar con confirmación, filtro en la URL, un TRABAJADOR que abre la ruta vuelve a `/`, sin errores de consola |
 
-No se ejecutó la suite contra PostgreSQL ni un recorrido con backend y BD reales.
+En esa entrega no se ejecutó la suite contra PostgreSQL ni un recorrido con backend y BD reales; se hicieron
+después, en la «Validación local con PostgreSQL 16» (al final de este documento).
 
 ### B.4 Limitaciones y pendientes
 
@@ -808,7 +809,11 @@ documento conserva las menciones a Unisen de las fases anteriores porque es un r
 | Pruebas | Empresa, correos y variables de las pruebas; emisor JWT de las pruebas (`nexora-test`) |
 | Documentación | `README.md`, `backend-spring/README.md`, `CLAUDE.md` |
 
-### Qué no cambió (requiere decisión del propietario)
+### Qué no cambió (decisión del propietario: se conservan)
+
+Decisión confirmada el 21/10/2026: se mantienen los identificadores técnicos históricos para
+priorizar la estabilidad de producción; Nexora es la identidad visible. No se renombran en esta
+fase ni se hará otro renombrado general.
 
 | Identificador | Motivo |
 | --- | --- |
@@ -826,3 +831,68 @@ documento conserva las menciones a Unisen de las fases anteriores porque es un r
 | `./mvnw test` (H2) | 317 pruebas, 0 fallos. Las 5 que fallaron en la primera ejecución esperaban el código `UNIS01`, que la aplicación deriva del nombre de la empresa de prueba; con «Nexora» es `NEXO01` y se actualizaron |
 | `npm run lint` · `tsc -b` · `npm test` · `npm run build` | Sin avisos ni errores · 60 pruebas, 0 fallos · build correcto |
 | Navegador (Playwright + Chromium, API simulada) | Login y *Personal* en escritorio claro, escritorio oscuro y móvil: título «Nexora · Órdenes de Compra», logotipo correcto para cada fondo y cargado, favicon de Nexora, sin desbordamiento ni errores de consola |
+
+## Validación local con PostgreSQL 16 y sistema real
+
+Fecha: 21/10/2026. Base: `claude/loving-edison-5cogo9` = `49fd79c`, sin cambios pendientes. Sin
+merge, sin PR y sin despliegue. Producción (`rrtf.duckdns.org`), el VPS y su base de datos no se
+tocaron.
+
+### Entorno usado
+
+| Pieza | Configuración |
+| --- | --- |
+| PostgreSQL | 16.15 (paquete del sistema), clúster desechable fuera del repositorio, solo en `127.0.0.1:55432`, usuario local con contraseña aleatoria; bases vacías `sgp_test` (suite) y `sgp_validacion` (recorrido). Sin Docker |
+| Backend | `./mvnw spring-boot:run` con variables de entorno locales (`DB_*`, `JWT_SECRET` aleatorio, `ADMIN_*` de una cuenta SUPER_ADMIN local, `SWAGGER_ENABLED=false`); perfil por defecto (sin `demo`) |
+| Frontend | `vite` en `http://localhost:5173` con su proxy `/api` → `:8081` (mismo origen, como Nginx) |
+| Navegador | Chromium (Playwright) contra ese frontend: **sin respuestas simuladas** |
+
+Configuración necesaria: abrir el frontend como `http://localhost:5173`. Con `http://127.0.0.1:5173`
+el login responde 403 porque ese origen no está en `CORS_ALLOWED_ORIGINS` (comprobado: el mismo
+login con `Origin: http://localhost:5173` da 200). Es el comportamiento esperado de la configuración
+actual, no un fallo.
+
+### Resultados
+
+| Verificación | Resultado |
+| --- | --- |
+| Suite del backend contra PostgreSQL 16.15 (`SPRING_DATASOURCE_*` → `sgp_test`) | 317 pruebas, 0 fallos, 0 errores |
+| Migraciones en PostgreSQL vacío (suite y arranque del backend) | V1–V16 aplicadas, `success = true` en las 16 |
+| V3 intacta | SHA-256 idéntico en `HEAD`, en `main` y en su commit de alta (`f8edc23`); ningún otro commit la ha tocado. Ninguna migración difiere de `main` |
+| Recorrido de integración real (navegador → Vite → Spring Boot → PostgreSQL) | 43/43 comprobaciones en una ejecución limpia, sin errores de consola; 0 `ERROR` en el log del backend |
+| Filtro por estado de *Personal* (Inactivos, Activos, Pendientes, Todos) | 4/4 con las filas esperadas y la petición correcta al backend |
+| Contraste con la BD | Estados finales, empresa de cada usuario y autor de la solicitud coinciden con lo que mostraron la API y la interfaz |
+
+El recorrido cubrió: login correcto, incorrecto (401) y sin token (401); alta atómica de dos
+empresas con su administrador; registro con código de empresa (PENDIENTE) y con invitación por el
+formulario `/registro` (ACTIVO); login de una cuenta pendiente (403 con motivo, mostrado en la
+interfaz); *Personal* del administrador A (lista solo los suyos, «Sin actividad registrada», aprobar,
+desactivar con confirmación); actividad real (la solicitud del trabajador aparece con su fecha exacta
+y el conteo de 30 días, sin correo); el token vigente del desactivado deja de servir (403
+`INACTIVO`); aislamiento (B solo ve lo suyo, la cabecera `X-Tenant-ID` se ignora, B no cambia el estado
+de un trabajador de A: 404, ni ve su solicitud: 404); permisos (trabajador 403 en la API y sin acceso a
+`/admin/personal` en la interfaz; SUPER_ADMIN 400 sin contexto o en modo global y 200 supervisando).
+
+### Limitaciones (no superadas o no ejecutadas)
+
+1. Las pruebas de **actualización de migraciones con datos** (`V3MigracionUsernameTest` …
+   `V14aV16MigracionComercialTest`) y `AdminBootstrapTest` usan siempre su propia H2 en memoria,
+   también al ejecutar la suite contra PostgreSQL: la actualización versión a versión con datos solo
+   está probada en H2. En PostgreSQL se comprobó la cadena completa sobre una base vacía. Esta rama no
+   añade migraciones, así que sobre la base de producción (ya en V16) Flyway solo validaría checksums.
+2. No se probó contra una copia de los datos de producción (no se usaron ni se inventaron).
+3. Ni Nginx ni las imágenes Docker formaron parte del recorrido (el proxy fue el de Vite); no hubo
+   despliegue.
+4. No se midió el rendimiento de la consulta de actividad con volumen real.
+5. Ventas y recepciones como fuente de actividad están cubiertas por `PersonalActividadTest` (H2 y
+   PostgreSQL), no por el recorrido en navegador, que usó una solicitud.
+
+### Recursos del paquete de marca: dónde corresponden
+
+| Recurso | Pantallas internas y login | Página pública (B.7, pendiente) | Estado |
+| --- | --- | --- | --- |
+| `nexora-logo-claro.svg` / `nexora-logo-oscuro.svg` | Cabecera, panel lateral, login | Encabezado y pie | En uso en las internas y el login |
+| `nexora-favicon.svg` | Pestaña del navegador (toda la aplicación) | Ídem | En uso (`public/favicon.svg`) |
+| `nexora-isotipo.svg` / `nexora-isotipo-oscuro.svg` | Indicadores de carga o un menú contraído, si se diseñan | Elemento gráfico del *hero* | Sin usar |
+| `nexora-isotipo-monocromo.svg` | Documentos impresos en blanco y negro (comprobante, PDF/Word de la orden) | No aplica | Sin usar; integrarlo en los documentos es un cambio aparte |
+| `nexora-masterbrand.svg` | No | No | Solo referencia de diseño; no se sirve |
