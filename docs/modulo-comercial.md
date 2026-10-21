@@ -173,37 +173,107 @@ El trabajador solo tiene `GET /api/v1/reportes/ventas/mias` (sus ventas del día
 **Activación explícita**: solo con el perfil `demo`. Con un perfil de producción (`prod`,
 `production`, `produccion`) activo a la vez, el arranque se detiene sin sembrar.
 
+**Contraseña**: la de todas las cuentas demo que se crean es la propiedad `app.demo.password`
+(`application.yml`: `${DEMO_PASSWORD:}`), **sin valor por defecto** y nunca escrita en el
+repositorio, en la documentación ni en los logs. Si falta, está en blanco, tiene menos de 8
+caracteres o más de 72 bytes, la seed falla **antes de escribir nada** y el perfil `demo` no
+arranca. Se guarda cifrada con el `PasswordEncoder` BCrypt configurado. Una cuenta demo que ya
+existe conserva su contraseña (si ya sembraste antes con otra, esas cuentas siguen con la anterior).
+
+Opción recomendada, en bash, con la variable exportada solo en la terminal que arranca el backend:
+
 ```bash
 cd backend-spring
-SPRING_PROFILES_ACTIVE=demo ./mvnw spring-boot:run      # siembra al arrancar y sigue sirviendo
+read -rsp 'DEMO_PASSWORD: ' DEMO_PASSWORD; echo   # se escribe sin eco y no queda en el historial
+export DEMO_PASSWORD
+SPRING_PROFILES_ACTIVE=demo ./mvnw spring-boot:run  # siembra al arrancar y sigue sirviendo
+unset DEMO_PASSWORD                                 # al terminar, en esa misma terminal
 ```
 
-Crea cinco empresas ficticias (`DEMO01`…`DEMO05`, marcadas `empresas.demo = true`) con su
-administrador comercial, 2–3 trabajadores, proveedores, productos con código de barras EAN-13
-ficticio (prefijo 20, reservado a uso interno), precios e IVA **de demostración** (no son una
-clasificación tributaria validada), inventario inicial con costo, una orden recibida por completo,
-otra en parte y otra pendiente, ventas (sin descuento, con descuento, con descuento general, bajo
-el costo, pagos mixtos), productos agotados y una devolución parcial. Todo pasa por los servicios
-reales (mismas reglas, kárdex y costos).
+Alternativa: el backend importa también `optional:file:.env[.properties]`, es decir, el archivo
+`.env` **del directorio desde el que se arranca**. Con los comandos de arriba es
+`backend-spring/.env` (el de «Desarrollo local» en el README), **no** el `.env` de la raíz que usa
+Docker Compose. Ese archivo no se versiona (`.gitignore`) y se lee con el formato `.properties`
+de Java, no como un `.env` de shell:
+
+- una línea `DEMO_PASSWORD=<tu contraseña>`, sin `export`;
+- las comillas forman parte del valor (no se quitan);
+- `\` es un carácter de escape: una contraseña con `\` cambia al leerla (evítalo o escribe `\\`);
+- los espacios al final de la línea forman parte del valor; los del principio se ignoran;
+- las líneas que empiezan por `#` o `!` son comentarios.
+
+Si la variable está exportada y también en `backend-spring/.env`, gana la exportada (en Spring
+Boot las variables de entorno tienen prioridad sobre los archivos importados). Los tests generan una
+contraseña aleatoria en cada ejecución.
+
+Crea seis empresas ficticias (`DEMO01`…`DEMO06`, marcadas `empresas.demo = true`). Las cinco
+primeras tienen su administrador comercial, 2–3 trabajadores, proveedores, productos con código de
+barras EAN-13 ficticio (prefijo 20, reservado a uso interno), precios e IVA **de demostración** (no
+son una clasificación tributaria validada), inventario inicial con costo, una orden recibida por
+completo, otra en parte y otra pendiente, ventas (sin descuento, con descuento, con descuento
+general, bajo el costo, pagos mixtos), productos agotados y una devolución parcial. `DEMO06` se crea
+**desactivada**, con un administrador y un trabajador y sin datos de negocio. Todo pasa por los
+servicios reales (mismas reglas, kárdex y costos).
+
+### Escenarios completos (DEMO01 y DEMO02)
+
+`EscenariosDemo` añade, con los servicios reales y autenticado como las personas de cada empresa:
+
+| Área | Escenarios |
+| --- | --- |
+| Usuarios | `demoN.pendiente` (se registra con el código de la empresa: PENDIENTE), `demoN.rechazado` (se registra y el administrador lo rechaza), `demoN.inactivo` (activo y luego desactivado), `demoN.invitado` (se registra con una invitación) |
+| Invitaciones | vigente (720 h), de 1 h, revocada y usada por `demoN.invitado` |
+| Catálogo | proveedor «Suministros Compartidos S.A.S. (demo)» y productos `ESC-COM-01`, `ESC-COM-02`, `ESC-MIN-IG` (stock **igual** al mínimo: 6/6), `ESC-MIN-BA` (**bajo** el mínimo: 2/10); un proveedor y un producto (`ESC-BAJA-01`) dados de baja. NIT, SKU y código de barras son **los mismos en DEMO01 y DEMO02** para probar el aislamiento |
+| Solicitudes | 2 pendientes (de dos trabajadores), 1 rechazada con comentario, 1 aprobada **sin orden**, 1 aprobada con su orden en borrador y 1 aprobada con su orden emitida, programada y recibida en parte |
+| Órdenes | 8 por empresa: las 3 base, 2 generadas desde solicitudes y 3 manuales: borrador, cancelada (tras emitirla, con motivo) y recibida por completo |
+| Recepciones | completa con incidencia `EXCEDENTE`; parcial (5 de 10) con `DANADO` (1) y `FALTANTE` (2); la orden base pendiente sigue sin recepción. Entrega programada a 7 días (situación `PROGRAMADA`) |
 
 **Idempotente**: empresas por código + marca demo; usuarios por username (nunca se cambia una
-contraseña existente); proveedores por NIT; productos por SKU; inventario, recepciones, ventas y
-devoluciones con claves estables; órdenes solo si la empresa demo no tiene ninguna. Una empresa
-real con el mismo código o NIT, o un username ocupado en otra empresa, hace que esa empresa demo
-se omita sin tocar nada. No crea ninguna cuenta `SUPER_ADMIN`.
+contraseña existente); proveedores por NIT (también los dados de baja); productos por SKU;
+inventario, recepciones, ventas y devoluciones con claves estables; cada solicitud por su
+justificación + solicitante; las invitaciones, solo si el usuario invitado aún no existe. Las
+órdenes base, la cancelada y la recibida con excedente, por sus observaciones (ya no admiten
+cambios: solo se edita un borrador); el borrador manual se crea solo junto con la cancelada, así
+que editarlo (o emitirlo o cancelarlo) no lo duplica; las órdenes de solicitudes, por su solicitud.
+Un escenario que ya existe **no se modifica** (aunque alguien lo haya cambiado: p. ej. reactivado
+un usuario o aprobado una solicitud); solo se crean los que faltan, también sobre una base que ya
+tenía los datos demo. El precio y el inventario inicial se aplican **solo al crear** un producto:
+un SKU que ya existe (de una ejecución anterior o creado a mano) conserva su precio y su stock. No
+crea ninguna cuenta `SUPER_ADMIN` (para eso está `AdminBootstrap` con `ADMIN_*`).
+
+**Datos ajenos y cuentas sin acceso**: la seed nunca modifica, reactiva ni cambia la contraseña de
+una cuenta existente, y nunca actúa en nombre de una cuenta que no esté ACTIVA. Lo que dependa de
+ellas se omite con un aviso `Seed demo: …` en el log y se crea en una ejecución posterior si la
+causa desaparece:
+
+| Situación | Qué se omite |
+| --- | --- |
+| Una empresa real con el mismo código o NIT, o un username del administrador o de un trabajador base ocupado en otra empresa | Toda esa empresa demo (resultado `OMITIDA`) |
+| La empresa demo está desactivada, o su administrador no está ACTIVO | Todos sus datos de negocio y escenarios; solo se completan sus cuentas (resultado `INCOMPLETA`) |
+| Un trabajador no está ACTIVO | Sus solicitudes (y la recepción que registra), sus ventas y la orden recibida con excedente si es su receptor |
+| El username o el correo de `demoN.pendiente`, `demoN.rechazado` o `demoN.inactivo` los usa otra cuenta | Ese usuario |
+| El username o el correo de `demoN.invitado` los usa otra cuenta | Las cuatro invitaciones (dependen de él) |
+
+**Limitaciones** (dependen del reloj real; la seed no fuerza estados ni escribe directamente en la BD):
+
+- **Invitación caducada**: el servicio exige al menos 1 hora de validez; la de 1 hora aparece
+  `CADUCADA` una hora después de sembrar.
+- **Entrega retrasada**: el servicio no admite fechas pasadas; una entrega se ve `RETRASADA` solo
+  cuando su fecha queda atrás (la de la seed, a los 7 días si sigue pendiente).
+- Todas las fechas (solicitudes, órdenes, recepciones, ventas) son las del momento de sembrar.
 
 ### Cuentas de demostración
 
-Contraseña común, **solo para desarrollo y pruebas**: `abcde123!` (se guarda cifrada con el
-`PasswordEncoder` BCrypt configurado; nunca en texto plano ni en los logs).
+Todas usan la contraseña de `DEMO_PASSWORD`.
 
-| Empresa | Administrador comercial | Trabajadores |
-| --- | --- | --- |
-| DEMO01 · Ferretería El Tornillo Feliz (demo) | `demo1.admin` | `demo1.ana`, `demo1.luis`, `demo1.marta` |
-| DEMO02 · Minimercado La Canasta (demo) | `demo2.admin` | `demo2.sara`, `demo2.pablo`, `demo2.nora` |
-| DEMO03 · Papelería Punto y Coma (demo) | `demo3.admin` | `demo3.diego`, `demo3.laura` |
-| DEMO04 · Droguería Bienestar Total (demo) | `demo4.admin` | `demo4.julia`, `demo4.mateo`, `demo4.elena` |
-| DEMO05 · Deportes Gol de Oro (demo) | `demo5.admin` | `demo5.tomas`, `demo5.isabel` |
+| Empresa | Administrador comercial | Trabajadores activos | Sin acceso (para probarlo) |
+| --- | --- | --- | --- |
+| DEMO01 · Ferretería El Tornillo Feliz (demo) | `demo1.admin` | `demo1.ana`, `demo1.luis`, `demo1.marta`, `demo1.invitado` | `demo1.pendiente`, `demo1.rechazado`, `demo1.inactivo` |
+| DEMO02 · Minimercado La Canasta (demo) | `demo2.admin` | `demo2.sara`, `demo2.pablo`, `demo2.nora`, `demo2.invitado` | `demo2.pendiente`, `demo2.rechazado`, `demo2.inactivo` |
+| DEMO03 · Papelería Punto y Coma (demo) | `demo3.admin` | `demo3.diego`, `demo3.laura` | — |
+| DEMO04 · Droguería Bienestar Total (demo) | `demo4.admin` | `demo4.julia`, `demo4.mateo`, `demo4.elena` | — |
+| DEMO05 · Deportes Gol de Oro (demo) | `demo5.admin` | `demo5.tomas`, `demo5.isabel` | — |
+| DEMO06 · Distribuidora Cerrada (demo) — desactivada | — | — | `demo6.admin`, `demo6.carlos` (empresa inactiva) |
 
 ## 11. Endpoints nuevos
 

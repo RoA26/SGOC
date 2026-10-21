@@ -382,14 +382,25 @@ revocar una vigente, con confirmación.
 
 ## Datos de demostración
 
-Cinco empresas ficticias con administrador comercial, trabajadores, proveedores, productos,
-compras, inventario y ventas, **solo en desarrollo** (perfil `demo`; con un perfil de producción
-activo el arranque se detiene). Idempotente: ejecutarla otra vez no duplica nada ni cambia
-contraseñas. Contraseña común de las cuentas demo: `abcde123!` (p. ej. `demo1.admin`,
-`demo1.ana`); lista completa en [docs/modulo-comercial.md](docs/modulo-comercial.md#cuentas-de-demostración).
+Seis empresas ficticias con administrador comercial, trabajadores, proveedores, productos,
+compras, inventario y ventas; DEMO01 y DEMO02 añaden escenarios completos (usuarios pendientes,
+rechazados e inactivos, invitaciones, solicitudes en todos sus estados, órdenes y recepciones con
+incidencias) y DEMO06 está desactivada. **Solo en desarrollo** (perfil `demo`; con un perfil de
+producción activo el arranque se detiene). Idempotente: ejecutarla otra vez no duplica nada ni
+cambia contraseñas ni datos existentes.
+
+La contraseña de las cuentas demo **no está en el repositorio**: la eliges tú en la variable
+`DEMO_PASSWORD` (de 8 caracteres a 72 bytes), sin valor por defecto; si falta, la seed no escribe
+nada y el perfil `demo` no arranca. También puede ir en `backend-spring/.env` (no en el `.env` de
+la raíz); formato, prioridad, cuentas y escenarios en
+[docs/modulo-comercial.md](docs/modulo-comercial.md#10-datos-de-demostración-seed).
 
 ```bash
-cd backend-spring && SPRING_PROFILES_ACTIVE=demo ./mvnw spring-boot:run
+cd backend-spring
+read -rsp 'DEMO_PASSWORD: ' DEMO_PASSWORD; echo   # bash: sin eco y sin quedar en el historial
+export DEMO_PASSWORD
+SPRING_PROFILES_ACTIVE=demo ./mvnw spring-boot:run
+unset DEMO_PASSWORD                                 # al terminar
 ```
 
 ## Calidad

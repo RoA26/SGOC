@@ -13,6 +13,7 @@ import com.unisen.sgp.model.dto.RecepcionRequestDTO;
 import com.unisen.sgp.model.dto.VentaDTO;
 import com.unisen.sgp.model.entity.Empresa;
 import com.unisen.sgp.model.entity.MedioPago;
+import com.unisen.sgp.model.entity.OrdenCompra;
 import com.unisen.sgp.model.entity.ProductoReferencia;
 import com.unisen.sgp.model.entity.Rol;
 import com.unisen.sgp.model.entity.TipoDescuento;
@@ -22,7 +23,7 @@ import com.unisen.sgp.model.entity.VentaBajoCosto;
 import com.unisen.sgp.repository.EmpresaRepository;
 import com.unisen.sgp.repository.OrdenCompraRepository;
 import com.unisen.sgp.repository.ProductoReferenciaRepository;
-import com.unisen.sgp.repository.ProveedorRepository;
+import com.unisen.sgp.repository.ProveedorReferenciaRepository;
 import com.unisen.sgp.repository.UsuarioRepository;
 import com.unisen.sgp.repository.VentaRepository;
 import com.unisen.sgp.security.CodigosInvitacion;
@@ -38,6 +39,7 @@ import com.unisen.sgp.service.comercial.DevolucionVentaService;
 import com.unisen.sgp.service.comercial.VentaService;
 import com.unisen.sgp.tenant.TenantContextHolder;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -46,7 +48,9 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -54,35 +58,38 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Datos de demostración reproducibles: cinco empresas ficticias con su administrador comercial,
+ * Datos de demostración reproducibles: empresas ficticias con su administrador comercial,
  * trabajadores, proveedores, productos con precios e IVA de demostración, inventario inicial,
  * órdenes de compra (recibidas por completo, en parte y pendientes), ventas (con descuentos,
- * pagos mixtos y una bajo el costo) y una devolución parcial.
+ * pagos mixtos y una bajo el costo) y una devolución parcial. DEMO01 y DEMO02 añaden los escenarios
+ * completos de {@link EscenariosDemo}; DEMO06 se crea desactivada (sin datos de negocio).
  *
  * <p>Solo existe con el perfil {@code demo}. Todo se hace con los servicios de la aplicación,
  * autenticado como las personas de cada empresa: las reglas, el kárdex y los costos son los
  * mismos que en el uso normal.
  *
- * <p><b>Idempotente</b>: cada empresa se identifica por su código (DEMO01…DEMO05) y la marca
+ * <p><b>Idempotente</b>: cada empresa se identifica por su código (DEMO01…DEMO06) y la marca
  * {@code empresas.demo}; usuarios por username, proveedores por NIT, productos por SKU, inventario
- * inicial, recepciones, ventas y devoluciones por claves de idempotencia estables, y las órdenes
- * solo se crean si la empresa demo aún no tiene ninguna. Volver a ejecutarla no duplica nada, no
- * cambia contraseñas ni toca empresas que no sean de demostración (una empresa real con el mismo
- * código o NIT se respeta y esa empresa demo se omite). Cada empresa va en su propia transacción.
+ * inicial, recepciones, ventas y devoluciones por claves de idempotencia estables, y cada orden por
+ * sus observaciones (las órdenes que ya tenga la empresa no impiden crear las que falten). Volver a
+ * ejecutarla no duplica nada, no cambia contraseñas ni toca empresas que no sean de demostración
+ * (una empresa real con el mismo código o NIT se respeta y esa empresa demo se omite). Cada empresa
+ * va en su propia transacción.
+ *
+ * <p><b>Contraseña</b>: la de todas las cuentas demo nuevas se lee de {@code app.demo.password}
+ * ({@code DEMO_PASSWORD}), sin valor por defecto: si falta o no cumple la política, no se siembra
+ * nada. Nunca se escribe en el código, en la documentación ni en los logs.
  */
 @Service
 @Profile("demo")
 public class DemoSeedService {
-
-    /** Contraseña común de TODAS las cuentas de demostración (solo desarrollo y pruebas). */
-    static final String PASSWORD_DEMO = "abcde123!";
 
     private static final Logger log = LoggerFactory.getLogger(DemoSeedService.class);
 
     private final EmpresaRepository empresaRepository;
     private final UsuarioRepository usuarioRepository;
     private final UsuarioService usuarioService;
-    private final ProveedorRepository proveedorRepository;
+    private final ProveedorReferenciaRepository proveedorRepository;
     private final ProveedorService proveedorService;
     private final ProductoReferenciaRepository productoRepository;
     private final ProductoService productoService;
@@ -94,16 +101,19 @@ public class DemoSeedService {
     private final VentaRepository ventaRepository;
     private final VentaService ventaService;
     private final DevolucionVentaService devolucionService;
+    private final EscenariosDemo escenarios;
     private final TransactionTemplate transaccion;
+    private final String password;
 
     public DemoSeedService(EmpresaRepository empresaRepository, UsuarioRepository usuarioRepository,
-                           UsuarioService usuarioService, ProveedorRepository proveedorRepository,
+                           UsuarioService usuarioService, ProveedorReferenciaRepository proveedorRepository,
                            ProveedorService proveedorService, ProductoReferenciaRepository productoRepository,
                            ProductoService productoService, ComercialService comercialService,
                            InventarioService inventarioService, OrdenCompraRepository ordenRepository,
                            OrdenCompraService ordenService, RecepcionService recepcionService,
                            VentaRepository ventaRepository, VentaService ventaService,
-                           DevolucionVentaService devolucionService, TransactionTemplate transaccion) {
+                           DevolucionVentaService devolucionService, EscenariosDemo escenarios,
+                           TransactionTemplate transaccion, @Value("${app.demo.password:}") String password) {
         this.empresaRepository = empresaRepository;
         this.usuarioRepository = usuarioRepository;
         this.usuarioService = usuarioService;
@@ -119,15 +129,26 @@ public class DemoSeedService {
         this.ventaRepository = ventaRepository;
         this.ventaService = ventaService;
         this.devolucionService = devolucionService;
+        this.escenarios = escenarios;
         this.transaccion = transaccion;
+        this.password = password;
     }
 
-    /** Resultado por empresa: creada, completada (ya existía) u omitida (conflicto con datos reales). */
+    /**
+     * Resultado por empresa: creada, completada (ya existía), omitida (conflicto con datos reales) o
+     * incompleta (sus cuentas existen, pero la empresa o su administrador no están activos y sus
+     * datos de negocio y escenarios no se tocan).
+     */
     public enum Resultado {
-        CREADA, ACTUALIZADA, OMITIDA
+        CREADA, ACTUALIZADA, OMITIDA, INCOMPLETA
     }
 
+    /**
+     * @throws IllegalStateException si {@code DEMO_PASSWORD} falta o no cumple la política de
+     *                               contraseñas (antes de crear nada)
+     */
     public Map<String, Resultado> sembrar() {
+        comprobarPassword(password);
         Map<String, Resultado> resultados = new LinkedHashMap<>();
         for (int i = 0; i < DatosDemo.EMPRESAS.size(); i++) {
             DatosDemo.Empresa datos = DatosDemo.EMPRESAS.get(i);
@@ -138,21 +159,40 @@ public class DemoSeedService {
                 resultados.put(datos.codigo(), Resultado.OMITIDA);
                 continue;
             }
+            if (!datos.activa()) {
+                // Empresa desactivada: solo cuentas, sin datos de negocio.
+                resultados.put(datos.codigo(), alta.nueva() ? Resultado.CREADA : Resultado.ACTUALIZADA);
+                continue;
+            }
             // 2) Datos de negocio: la transacción se abre YA dentro de la empresa (Hibernate fija el
             //    tenant de la sesión al abrirla), autenticada como sus personas.
-            TenantContextHolder.conEmpresa(alta.empresaId(), () -> transaccion.execute(estado -> {
+            Boolean completa = TenantContextHolder.conEmpresa(alta.empresaId(), () -> transaccion.execute(estado -> {
                 Empresa empresa = empresaRepository.findById(alta.empresaId()).orElseThrow();
                 Usuario admin = usuarioRepository.findById(alta.adminId()).orElseThrow();
-                List<Usuario> trabajadores = usuarioRepository.findAllById(alta.trabajadorIds());
+                if (!empresa.isActiva() || !activa(admin)) {
+                    // Nunca se actúa en nombre de una cuenta sin acceso ni se reactiva nada.
+                    log.warn("Seed demo: {} {}; se omiten sus datos de negocio y escenarios.", datos.codigo(),
+                            empresa.isActiva() ? "tiene a su administrador " + admin.getUsername() + " sin acceso"
+                                    : "está desactivada");
+                    return false;
+                }
+                // En el orden de DatosDemo: los escenarios identifican sus solicitudes por solicitante.
+                List<Usuario> trabajadores = alta.trabajadorIds().stream()
+                        .map(id -> usuarioRepository.findById(id).orElseThrow())
+                        .toList();
                 como(admin, empresa, () -> {
                     catalogo(numero, datos);
                     compras(datos);
                     return null;
                 });
                 ventas(datos, admin, trabajadores, empresa);
-                return null;
+                if (datos.escenarios() != null && trabajadores.size() >= 2) {
+                    escenarios.sembrar(datos, empresa, admin, trabajadores, password);
+                }
+                return true;
             }));
-            resultados.put(datos.codigo(), alta.nueva() ? Resultado.CREADA : Resultado.ACTUALIZADA);
+            resultados.put(datos.codigo(), !Boolean.TRUE.equals(completa) ? Resultado.INCOMPLETA
+                    : alta.nueva() ? Resultado.CREADA : Resultado.ACTUALIZADA);
         }
         log.info("Seed de demostración terminada: {}", resultados);
         return resultados;
@@ -192,6 +232,11 @@ public class DemoSeedService {
             log.warn("Seed demo: algún usuario de {} ya existe en otra empresa; se omite.", datos.codigo());
             return null;
         }
+        if (existente.isEmpty() && !datos.activa()) {
+            // Solo al crearla: mismo cambio que hace EmpresaService.cambiarEstado (la seed no tiene SUPER_ADMIN).
+            empresa.setActiva(false);
+            empresaRepository.saveAndFlush(empresa);
+        }
         return new Alta(empresa.getId(), admin.getId(), trabajadores, existente.isEmpty());
     }
 
@@ -202,38 +247,68 @@ public class DemoSeedService {
             Usuario u = existente.get();
             return u.getEmpresa() != null && empresa.getId().equals(u.getEmpresa().getId()) ? u : null;
         }
-        String correo = p.usuario().replace('.', '-') + "@" + codigo.toLowerCase() + ".sgp-demo.test";
-        return usuarioService.crearUsuario(p.usuario(), correo, p.nombres(), p.apellidos(), PASSWORD_DEMO, rol, empresa);
+        return usuarioService.crearUsuario(p.usuario(), correo(p, codigo), p.nombres(), p.apellidos(), password, rol,
+                empresa);
+    }
+
+    /** La cuenta puede usar la aplicación (ACTIVA): la seed solo actúa en nombre de cuentas así. */
+    static boolean activa(Usuario usuario) {
+        return usuario.getEstado().permiteAcceso();
+    }
+
+    /** Órdenes con exactamente esas observaciones (en la empresa del contexto). */
+    static Specification<OrdenCompra> conObservaciones(String observaciones) {
+        return (root, query, cb) -> cb.equal(root.get("observaciones"), observaciones);
+    }
+
+    static String correo(DatosDemo.Persona p, String codigo) {
+        return p.usuario().replace('.', '-') + "@" + codigo.toLowerCase() + ".sgp-demo.test";
+    }
+
+    /** Falla antes de crear nada: sin contraseña no hay cuentas demo. */
+    static void comprobarPassword(String password) {
+        if (password == null || password.isBlank()) {
+            throw new IllegalStateException("La seed de demostración necesita la contraseña de las cuentas demo: "
+                    + "define la variable de entorno DEMO_PASSWORD (no tiene valor por defecto).");
+        }
+        if (password.length() < UsuarioService.PASSWORD_MIN_LENGTH
+                || password.getBytes(StandardCharsets.UTF_8).length > UsuarioService.PASSWORD_MAX_BYTES) {
+            throw new IllegalStateException("DEMO_PASSWORD debe tener al menos " + UsuarioService.PASSWORD_MIN_LENGTH
+                    + " caracteres y no superar " + UsuarioService.PASSWORD_MAX_BYTES + " bytes.");
+        }
     }
 
     private void catalogo(int numero, DatosDemo.Empresa datos) {
+        // Las búsquedas por NIT y SKU solo son correctas dentro de una empresa (ver ProveedorReferenciaRepository).
+        TenantContextHolder.requerirEmpresa();
         if (comercialService.consultarPolitica().porDefecto()) {
             // Valores SOLO de demostración (no son una política recomendada): trabajador 10 %, administrador 30 %.
             comercialService.actualizarPolitica(new PoliticaRequest(new BigDecimal("10"), new BigDecimal("30"),
                     VentaBajoCosto.PERMITIR, new BigDecimal("30")));
         }
+        // Un proveedor demo dado de baja después se respeta (no se recrea: su NIT sigue ocupado);
+        // sus productos que falten no se crean (null).
         List<Long> proveedores = new ArrayList<>();
         for (DatosDemo.Proveedor p : datos.proveedores()) {
-            proveedores.add(proveedorRepository.findByNit(p.nit()).map(prov -> prov.getId())
+            proveedores.add(proveedorRepository.findByNit(p.nit())
+                    .map(prov -> prov.isActivo() ? prov.getId() : null)
                     .orElseGet(() -> proveedorService.crear(new ProveedorRequestDTO(p.nit(), p.razonSocial(), p.email(),
                             p.telefono(), p.direccion())).id()));
         }
         for (int i = 0; i < datos.productos().size(); i++) {
             DatosDemo.Producto p = datos.productos().get(i);
-            long proveedor = proveedores.get(i % proveedores.size());
+            Long proveedor = proveedores.get(i % proveedores.size());
             String codigoBarras = DatosDemo.ean13(numero, i + 1);
-            Optional<ProductoReferencia> existente = productoRepository.findBySku(p.sku());
-            if (existente.isPresent() && !existente.get().isActivo()) {
+            // Un producto que ya existe (de una ejecución anterior o creado a mano) conserva su precio y su
+            // stock: el precio y el inventario inicial se aplican solo al crearlo, en la misma transacción.
+            if (productoRepository.findBySku(p.sku()).isPresent() || proveedor == null) {
                 continue;
             }
-            long id = existente.map(ProductoReferencia::getId).orElseGet(() -> productoService.crear(new ProductoRequestDTO(
-                    p.sku(), codigoBarras, p.nombre(), "Producto ficticio de demostración.",
-                    new BigDecimal(p.precioCompra()), p.stockMinimo(), proveedor)).id());
-            if (existente.isEmpty() || existente.get().getPrecioVenta() == null) {
-                comercialService.cambiarCondiciones(id, new CondicionesVentaRequest(new BigDecimal(p.precioVenta()),
-                        TratamientoIva.valueOf(p.tratamiento()), new BigDecimal(p.tarifa()),
-                        "Precio inicial de demostración (IVA ficticio)"));
-            }
+            long id = productoService.crear(new ProductoRequestDTO(p.sku(), codigoBarras, p.nombre(),
+                    "Producto ficticio de demostración.", new BigDecimal(p.precioCompra()), p.stockMinimo(), proveedor)).id();
+            comercialService.cambiarCondiciones(id, new CondicionesVentaRequest(new BigDecimal(p.precioVenta()),
+                    TratamientoIva.valueOf(p.tratamiento()), new BigDecimal(p.tarifa()),
+                    "Precio inicial de demostración (IVA ficticio)"));
             if (p.stock() > 0) {
                 inventarioService.ajustar(new AjusteInventarioDTO(id, p.stock(), "Inventario inicial de demostración",
                         p.costo() == null ? null : new BigDecimal(p.costo()), "demo-" + datos.codigo() + "-ini-" + (i + 1)));
@@ -241,9 +316,17 @@ public class DemoSeedService {
         }
     }
 
-    /** Tres órdenes: recibida por completo, recibida en parte y emitida pendiente (solo la primera vez). */
+    static final String ORDEN_COMPLETA = "Reposición mensual (demo)";
+    static final String ORDEN_PARCIAL = "Pedido con entrega parcial (demo)";
+    static final String ORDEN_PENDIENTE = "Pedido pendiente de entrega (demo)";
+
+    /**
+     * Tres órdenes: recibida por completo, recibida en parte y emitida pendiente. Cada una se
+     * identifica por sus observaciones y solo se crea (con su recepción) si no existe: otras
+     * órdenes de la empresa, demo o creadas a mano, no lo impiden.
+     */
     private void compras(DatosDemo.Empresa datos) {
-        if (ordenRepository.count() > 0) {
+        if (existeOrden(ORDEN_COMPLETA) && existeOrden(ORDEN_PARCIAL) && existeOrden(ORDEN_PENDIENTE)) {
             return;
         }
         // Los agotados de la demo no se reponen: se quedan agotados para mostrarlo.
@@ -257,13 +340,23 @@ public class DemoSeedService {
         List<ProductoReferencia> g1 = grupos.get(0);
         List<ProductoReferencia> g2 = grupos.size() > 1 ? grupos.get(1) : g1;
 
-        OrdenCompraResponseDTO completa = emitir(g1.get(0).getProveedorId(), List.of(g1.get(0), g1.get(1)), 10,
-                "Reposición mensual (demo)");
-        recibir(datos, 1, completa, false);
-        OrdenCompraResponseDTO parcial = emitir(g2.get(0).getProveedorId(), List.of(g2.get(0), g2.get(g2.size() - 1)), 12,
-                "Pedido con entrega parcial (demo)");
-        recibir(datos, 2, parcial, true);
-        emitir(g1.get(0).getProveedorId(), List.of(g1.get(g1.size() - 1)), 6, "Pedido pendiente de entrega (demo)");
+        if (!existeOrden(ORDEN_COMPLETA)) {
+            OrdenCompraResponseDTO completa = emitir(g1.get(0).getProveedorId(), List.of(g1.get(0), g1.get(1)), 10,
+                    ORDEN_COMPLETA);
+            recibir(datos, 1, completa, false);
+        }
+        if (!existeOrden(ORDEN_PARCIAL)) {
+            OrdenCompraResponseDTO parcial = emitir(g2.get(0).getProveedorId(),
+                    List.of(g2.get(0), g2.get(g2.size() - 1)), 12, ORDEN_PARCIAL);
+            recibir(datos, 2, parcial, true);
+        }
+        if (!existeOrden(ORDEN_PENDIENTE)) {
+            emitir(g1.get(0).getProveedorId(), List.of(g1.get(g1.size() - 1)), 6, ORDEN_PENDIENTE);
+        }
+    }
+
+    private boolean existeOrden(String observaciones) {
+        return !ordenRepository.findAll(conObservaciones(observaciones)).isEmpty();
     }
 
     private OrdenCompraResponseDTO emitir(Long proveedorId, List<ProductoReferencia> productos, int cantidad,
@@ -344,6 +437,10 @@ public class DemoSeedService {
             if (existente.isPresent()) {
                 return existente.get();
             }
+            if (!activa(vendedor)) {
+                log.warn("Seed demo: {} no está activo; se omite la venta {}.", vendedor.getUsername(), clave);
+                return null;
+            }
             VentaDTO.Cotizacion cotizacion = ventaService.cotizar(new VentaDTO.CotizacionRequest(lineas, general, null));
             if (!cotizacion.existenciasSuficientes() || cotizacion.requiereAutorizacion()) {
                 log.info("Seed demo: venta {} omitida (sin existencias o requiere autorización).", clave);
@@ -376,7 +473,7 @@ public class DemoSeedService {
     }
 
     /** Ejecuta {@code accion} autenticado como {@code usuario} dentro de su empresa, y restaura el contexto. */
-    private <T> T como(Usuario usuario, Empresa empresa, Supplier<T> accion) {
+    static <T> T como(Usuario usuario, Empresa empresa, Supplier<T> accion) {
         SecurityContext anterior = SecurityContextHolder.getContext();
         SecurityContext contexto = SecurityContextHolder.createEmptyContext();
         UsuarioPrincipal principal = UsuarioPrincipal.from(usuario);

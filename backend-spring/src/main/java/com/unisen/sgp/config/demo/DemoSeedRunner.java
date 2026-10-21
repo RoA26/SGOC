@@ -40,7 +40,7 @@ public class DemoSeedRunner implements ApplicationRunner {
             log.info("Perfil demo activo sin ejecución automática de la seed.");
             return;
         }
-        log.warn("Perfil demo activo: sembrando las empresas de demostración (contraseña común documentada en el README; "
+        log.warn("Perfil demo activo: sembrando las empresas de demostración (contraseña de DEMO_PASSWORD; "
                 + "solo para desarrollo y pruebas).");
         seed.sembrar();
     }

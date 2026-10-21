@@ -121,3 +121,10 @@ app:
       password: ${ADMIN_PASSWORD:}
       nombre: ${ADMIN_NOMBRE:Administrador}
       apellidos: ${ADMIN_APELLIDOS:}
+
+  # Seed de demostración (solo con el perfil demo). Contraseña de TODAS las cuentas demo que se
+  # creen; sin valor por defecto: si falta, la seed no escribe nada y el perfil demo no arranca.
+  # Defínela solo en tu entorno local (variable exportada o el .env del directorio desde el que se
+  # arranca, p. ej. backend-spring/.env), nunca en el repositorio.
+  demo:
+    password: ${DEMO_PASSWORD:}
