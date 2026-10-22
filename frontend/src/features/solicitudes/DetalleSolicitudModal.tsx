@@ -136,7 +136,7 @@ export function DetalleSolicitudModal({ solicitud, onClose, onRevisada }: Detall
           <div className="mt-2 overflow-x-auto rounded-lg border border-border">
             <table className="w-full text-left text-sm">
               <caption className="sr-only">Líneas de la solicitud {solicitud.id}</caption>
-              <thead className="border-b border-border bg-surface-muted/60 text-xs text-foreground-muted">
+              <thead className="border-b border-border text-xs text-foreground-muted">
                 <tr>
                   <th scope="col" className="px-3 py-2 font-medium">Producto</th>
                   <th scope="col" className="px-3 py-2 text-right font-medium">Cantidad</th>

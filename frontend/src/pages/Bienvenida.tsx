@@ -29,7 +29,7 @@ const ENLACES = [
  */
 export default function Bienvenida() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-svh bg-background text-foreground">
       <a
         href="#contenido"
         className="sr-only z-50 rounded-md bg-surface px-4 py-2 focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
@@ -87,7 +87,7 @@ function Encabezado() {
             </summary>
             <nav
               aria-label="Secciones (móvil)"
-              className="u-dialogo absolute right-0 mt-2 w-56 rounded-lg border border-border bg-surface p-2 shadow-card"
+              className="u-dialogo absolute right-0 mt-2 w-56 rounded-lg border border-border bg-surface p-2 group-open:shadow-card"
             >
               <ul>
                 {ENLACES.map((enlace) => (
@@ -157,7 +157,7 @@ function Portada() {
             <h1 id="titulo-portada" className="max-w-[17ch] font-serif text-[clamp(2.75rem,4.6vw,4.5rem)] leading-[0.98] tracking-[-0.01em] text-balance">
               Las compras de tu empresa, en orden.
             </h1>
-            <p className="mt-8 max-w-[46ch] text-[1.0625rem] leading-relaxed text-foreground">
+            <p className="mt-8 max-w-[46ch] text-lg leading-relaxed text-foreground">
               Nexora reúne solicitudes, aprobaciones, órdenes de compra, recepción de mercancía e inventario en un solo
               sistema. Cada empresa trabaja únicamente con sus propios datos.
             </p>
@@ -277,7 +277,7 @@ function Modulos() {
               <div>
                 <h3 className="text-lg font-semibold tracking-tight">{modulo.titulo}</h3>
                 {modulo.texto.map((parrafo) => (
-                  <p key={parrafo} className="mt-2 text-[0.9375rem] leading-relaxed text-foreground-muted">
+                  <p key={parrafo} className="mt-2 text-base leading-relaxed text-foreground-muted">
                     {parrafo}
                   </p>
                 ))}
@@ -323,7 +323,7 @@ function Roles() {
           {DATOS.map((dato) => (
             <div key={dato.etiqueta}>
               <dt className="text-sm text-foreground-muted">{dato.etiqueta}</dt>
-              <dd className="mt-0.5 text-[0.9375rem]">{dato.valor}</dd>
+              <dd className="mt-0.5 text-base">{dato.valor}</dd>
             </div>
           ))}
         </dl>
@@ -337,7 +337,7 @@ function Roles() {
         {ROLES.map((rol) => (
           <div key={rol.nombre}>
             <h3 className="text-lg font-semibold tracking-tight">{rol.nombre}</h3>
-            <p className="mt-2 text-[0.9375rem] leading-relaxed text-foreground-muted">{rol.texto}</p>
+            <p className="mt-2 text-base leading-relaxed text-foreground-muted">{rol.texto}</p>
           </div>
         ))}
       </div>
@@ -417,7 +417,7 @@ function Cierre() {
           <h2 id={titulo} className="font-serif text-[clamp(3rem,7vw,6.5rem)] leading-[0.92] text-balance">
             Empieza con tu código.
           </h2>
-          <p className="mt-6 max-w-md text-[1.0625rem] leading-relaxed">
+          <p className="mt-6 max-w-md text-lg leading-relaxed">
             Escríbelo aquí y completa tus datos en el siguiente paso. Si aún no lo tienes, pídelo al administrador de tu
             empresa.
           </p>

@@ -60,8 +60,8 @@ export function FlujoInteractivo() {
       {/* Campo de la frase (oscuro, de marca) */}
       <div className="order-2 flex flex-col justify-between gap-10 bg-brand-panel p-6 text-brand-panel-foreground sm:p-10 lg:order-1 lg:min-h-[30rem]">
         <div key={`frase-${indice}`} className="u-cambio" aria-live="polite">
-          <p className="font-serif text-[clamp(2.25rem,4vw,3.75rem)] leading-[1.02] text-balance">{etapa.frase}</p>
-          <p className="mt-5 max-w-md text-base leading-relaxed text-brand-panel-muted">{etapa.detalle}</p>
+          <p className="font-serif text-[clamp(2rem,3.6vw,3.25rem)] leading-[1.05] text-balance">{etapa.frase}</p>
+          <p className="mt-5 max-w-md text-lg leading-relaxed text-brand-panel-muted">{etapa.detalle}</p>
         </div>
         <div>
           <label htmlFor={idRango} className="sr-only">

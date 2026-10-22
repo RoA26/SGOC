@@ -35,7 +35,7 @@ export function Documentos({ tituloId }: { tituloId: string }) {
                   i === elegido ? 'text-foreground' : 'text-foreground-muted hover:text-foreground',
                 )}
               >
-                <span className="block font-serif text-[clamp(1.75rem,3vw,2.75rem)] leading-[1.1]">{item.nombre}</span>
+                <span className="block font-serif text-[clamp(2rem,3.6vw,3.25rem)] leading-[1.05]">{item.nombre}</span>
                 <span className={cn('mt-1 hidden text-sm lg:block', i === elegido ? 'text-foreground-muted' : 'invisible')}>
                   {item.formato}
                 </span>

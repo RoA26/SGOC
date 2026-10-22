@@ -63,7 +63,7 @@ export function DashboardPersonal() {
               <Link
                 key={estado}
                 to={`/solicitudes?estado=${estado}`}
-                className="u-card group block p-5 transition-colors hover:border-border-strong"
+                className="u-card u-card-interactiva group block p-5"
               >
                 <EstadoBadge estado={estado} />
                 <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">

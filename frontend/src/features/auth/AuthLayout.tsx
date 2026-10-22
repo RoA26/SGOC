@@ -23,7 +23,7 @@ interface AuthLayoutProps {
 /** Pantallas de invitado (login y registro): panel de marca a la izquierda y formulario a la derecha. */
 export function AuthLayout({ title, description, children }: AuthLayoutProps) {
   return (
-    <div className="grid min-h-screen grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+    <div className="grid min-h-svh grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
       {/* Panel de marca (escritorio) */}
       <aside className="sticky top-0 hidden h-screen flex-col justify-between bg-brand-panel p-12 text-brand-panel-foreground lg:flex">
         <Link to="/" aria-label="Nexora, página de inicio" className="self-start rounded-md">
