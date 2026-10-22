@@ -892,7 +892,7 @@ de un trabajador de A: 404, ni ve su solicitud: 404); permisos (trabajador 403 e
 | Recurso | Pantallas internas y login | Página pública (B.7, pendiente) | Estado |
 | --- | --- | --- | --- |
 | `nexora-logo-claro.svg` / `nexora-logo-oscuro.svg` | Cabecera, panel lateral, login | Encabezado y pie | En uso en las internas y el login |
-| `nexora-favicon.svg` | Pestaña del navegador (toda la aplicación) | Ídem | En uso (`public/favicon.svg`) |
+| `nexora-favicon.svg` | Pestaña del navegador (toda la aplicación) | Ídem | En uso (`public/nexora-favicon.svg`) |
 | `nexora-isotipo.svg` / `nexora-isotipo-oscuro.svg` | Indicadores de carga o un menú contraído, si se diseñan | Elemento gráfico del *hero* | Sin usar |
 | `nexora-isotipo-monocromo.svg` | Documentos impresos en blanco y negro (comprobante, PDF/Word de la orden) | No aplica | Sin usar; integrarlo en los documentos es un cambio aparte |
 | `nexora-masterbrand.svg` | No | No | Solo referencia de diseño; no se sirve |

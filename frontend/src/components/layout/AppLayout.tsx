@@ -1,6 +1,7 @@
 import { LogOut, Menu, X } from 'lucide-react'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { AlternadorTema } from '@/components/AlternadorTema'
 import { BrandLogo } from '@/components/BrandLogo'
 import { ETIQUETA_ROL, useContextoEmpresa, usePermisos } from '@/features/auth/permisos'
 import { useRefrescoPerfil } from '@/features/auth/useRefrescoPerfil'
@@ -30,23 +31,26 @@ export function AppLayout() {
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
       <aside className="sticky top-0 hidden h-screen flex-col border-r border-border bg-surface lg:flex">
-        <PanelLateral />
+        <PanelLateral conAlternadorTema />
       </aside>
 
       <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-3 border-b border-border bg-surface px-4 sm:px-5 lg:hidden">
         <Link to="/" aria-label="Nexora, ir al inicio" className="rounded-md">
           <BrandLogo className="h-7 w-auto shrink-0" />
         </Link>
-        <button
-          type="button"
-          className="u-btn u-btn--ghost h-9 px-3"
-          onClick={() => setMenuAbiertoEn(pathname)}
-          aria-expanded={menuAbierto}
-          aria-controls="menu-movil"
-        >
-          <Menu className="size-4" aria-hidden="true" />
-          Menú
-        </button>
+        <div className="flex items-center gap-2">
+          <AlternadorTema className="size-9" />
+          <button
+            type="button"
+            className="u-btn u-btn--ghost h-9 px-3"
+            onClick={() => setMenuAbiertoEn(pathname)}
+            aria-expanded={menuAbierto}
+            aria-controls="menu-movil"
+          >
+            <Menu className="size-4" aria-hidden="true" />
+            Menú
+          </button>
+        </div>
       </header>
       {menuAbierto && <MenuMovil onClose={() => setMenuAbiertoEn(null)} />}
 
@@ -64,17 +68,19 @@ export function AppLayout() {
   )
 }
 
-function PanelLateral() {
+/** En el menú móvil, el alternador de tema queda en la cabecera (aquí estaría bajo el botón de cerrar). */
+function PanelLateral({ conAlternadorTema = false }: { conAlternadorTema?: boolean }) {
   const nombre = useAuthStore((state) => state.nombre)
   const rol = useAuthStore((state) => state.rol)
   const clearSession = useAuthStore((state) => state.clearSession)
 
   return (
     <div className="flex h-full flex-col">
-      <div className="px-5 pt-5 pb-4">
+      <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
         <Link to="/" aria-label="Nexora, ir al inicio" className="inline-block rounded-md">
           <BrandLogo className="h-8 w-auto" />
         </Link>
+        {conAlternadorTema && <AlternadorTema className="size-9" />}
       </div>
       <div className="px-4">
         <ContextoEmpresaPanel />

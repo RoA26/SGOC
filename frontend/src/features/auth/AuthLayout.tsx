@@ -1,6 +1,7 @@
 import { ArrowLeft } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { AlternadorTema } from '@/components/AlternadorTema'
 import { BrandLogo } from '@/components/BrandLogo'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -46,10 +47,13 @@ export function AuthLayout({ title, description, children }: AuthLayoutProps) {
 
       {/* Formulario */}
       <main className="flex flex-col px-5 py-8 sm:px-10">
-        <Link to="/" className="u-link self-start text-sm font-normal text-foreground-muted hover:text-foreground">
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          Volver a la página de inicio
-        </Link>
+        <div className="flex items-center justify-between gap-3">
+          <Link to="/" className="u-link text-sm font-normal text-foreground-muted hover:text-foreground">
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            Volver a la página de inicio
+          </Link>
+          <AlternadorTema />
+        </div>
         <div className="u-vista mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
           <Link to="/" aria-label="Nexora, página de inicio" className="mb-10 self-start rounded-md lg:hidden">
             <BrandLogo className="h-9 w-auto" />

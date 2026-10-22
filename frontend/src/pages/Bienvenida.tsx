@@ -1,6 +1,7 @@
 import { ArrowRight, Menu } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { AlternadorTema } from '@/components/AlternadorTema'
 import { BrandLogo } from '@/components/BrandLogo'
 import { AccesoConCodigo } from '@/features/bienvenida/AccesoConCodigo'
 import { CODIGO_BARRAS_DEMO } from '@/features/bienvenida/datosDemo'
@@ -72,6 +73,8 @@ function Encabezado() {
           </ul>
         </nav>
         <div className="ml-auto flex items-center gap-2 sm:gap-4">
+          {/* En móvil no cabe junto a «Iniciar sesión»: va en el menú de secciones. */}
+          <AlternadorTema className="hidden sm:inline-flex" />
           <Link to="/registro" className="u-link hidden text-[0.9375rem] sm:inline-flex">
             Crear cuenta
           </Link>
@@ -105,6 +108,10 @@ function Encabezado() {
                   <Link to="/registro" className="block rounded-md px-3 py-2.5 text-[0.9375rem] font-medium hover:bg-surface-muted">
                     Crear cuenta
                   </Link>
+                </li>
+                <li className="flex items-center justify-between gap-3 px-3 py-1.5 text-[0.9375rem] sm:hidden">
+                  <span aria-hidden="true">Modo oscuro</span>
+                  <AlternadorTema />
                 </li>
               </ul>
             </nav>

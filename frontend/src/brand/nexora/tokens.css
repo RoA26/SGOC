@@ -117,3 +117,34 @@
     --nexora-color-on-selection: #1e181a;
   }
 }
+
+/* Tema oscuro forzado con el alternador (data-theme="dark"): mismos valores que el bloque anterior;
+ * si se cambia uno, hay que cambiar el otro. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --nexora-color-bg: #141012;
+  --nexora-color-surface: #1e181a;
+  --nexora-color-surface-muted: #2a2225;
+  --nexora-color-border: #3a2e31;
+  --nexora-color-border-strong: #54464a;
+  --nexora-color-text: #f5efe6;
+  --nexora-color-text-muted: #b3a69f;
+  --nexora-color-primary: #e09aa8;
+  --nexora-color-primary-hover: #ebb3be;
+  --nexora-color-on-primary: #1e181a;
+  --nexora-color-accent: #d4b47a;
+  --nexora-color-danger: #f97066;
+  --nexora-color-danger-surface: #3a1714;
+  --nexora-color-danger-border: #6a2a24;
+  --nexora-color-success: #75e0a7;
+  --nexora-color-success-surface: #0f2a1d;
+  --nexora-color-success-border: #1f5a3c;
+  --nexora-color-focus: #d4b47a;
+  --nexora-viz-series-1: #e09aa8;
+  --nexora-color-warning: #f5c26b;
+  --nexora-color-warning-surface: #33260d;
+  --nexora-color-warning-border: #6b4f16;
+  --nexora-shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 16px 40px -16px rgb(0 0 0 / 0.6);
+  --nexora-color-selection: #e09aa8;
+  --nexora-color-on-selection: #1e181a;
+}

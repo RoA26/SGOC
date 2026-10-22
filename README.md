@@ -173,7 +173,7 @@ npm run dev                          # http://localhost:5173 (proxy /api → :80
 ## Marca Nexora
 
 Todos los recursos de marca viven en `frontend/src/brand/nexora/` (tomados del paquete
-`nexora-brand-assets`; el favicon está en `frontend/public/favicon.svg`):
+`nexora-brand-assets`; el favicon está en `frontend/public/nexora-favicon.svg`):
 
 | Archivo | Uso |
 | --- | --- |
