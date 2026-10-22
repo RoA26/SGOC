@@ -11,6 +11,18 @@ interface ProblemDetail {
 
 const GENERIC_MESSAGE = 'Ha ocurrido un error inesperado. Inténtalo de nuevo.'
 
+/**
+ * 429 sin Problem Details legible (p. ej. de un proxy): se arma el mensaje con `Retry-After`
+ * (segundos), si viene.
+ */
+function mensajeDemasiadosIntentos(retryAfter: unknown): string {
+  const segundos = Number(retryAfter)
+  if (!Number.isFinite(segundos) || segundos <= 0) return 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.'
+  const [n, unidad] = segundos < 60 ? [Math.ceil(segundos), 'segundo'] : [Math.ceil(segundos / 60), 'minuto']
+  const espera = `${n} ${unidad}${n === 1 ? '' : 's'}`
+  return `Demasiados intentos. Espera ${espera} e inténtalo de nuevo.`
+}
+
 /** Convierte cualquier error de la API en un mensaje legible para el usuario. */
 export function getApiErrorMessage(error: unknown): string {
   if (!axios.isAxiosError<ProblemDetail>(error)) return GENERIC_MESSAGE
@@ -22,6 +34,11 @@ export function getApiErrorMessage(error: unknown): string {
   }
 
   const data = error.response.data
+  // 429: límite de intentos de login o registro. El backend ya explica cuánto esperar.
+  if (error.response.status === 429) {
+    const detalle = typeof data === 'object' && data !== null ? data.detail : undefined
+    return detalle ?? mensajeDemasiadosIntentos(error.response.headers?.['retry-after'])
+  }
   if (typeof data !== 'object' || data === null) return GENERIC_MESSAGE
 
   const firstFieldError = data.errors ? Object.values(data.errors)[0] : undefined

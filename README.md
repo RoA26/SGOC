@@ -208,8 +208,8 @@ Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, si
 
 | Método | Ruta | Descripción |
 | --- | --- | --- |
-| POST | `/api/auth/login` | `{username, password}` → `{accessToken, tokenType, expiresIn, usuario}` (`usuario.empresaId`, salvo SUPER_ADMIN) |
-| POST | `/api/auth/registro` | `{nombres, apellidos, username, email, password, codigoInvitacion \| codigoEmpresa}` → `201` usuario TRABAJADOR de la empresa del código: ACTIVO con invitación, PENDIENTE con código de empresa |
+| POST | `/api/auth/login` | `{username, password}` → `{accessToken, tokenType, expiresIn, usuario}` (`usuario.empresaId`, salvo SUPER_ADMIN). `429` con `Retry-After` tras demasiados fallos con ese usuario |
+| POST | `/api/auth/registro` | `{nombres, apellidos, username, email, password, codigoInvitacion \| codigoEmpresa}` → `201` usuario TRABAJADOR de la empresa del código: ACTIVO con invitación, PENDIENTE con código de empresa. `429` con `Retry-After` tras demasiados intentos con ese código o en total |
 | POST | `/api/v1/empresas` | SUPER_ADMIN: empresa + código empresarial (`codigo`, indicado o propuesto) + `administrador` inicial (`ADMINISTRADOR_COMERCIAL`, con `nombres` y `apellidos`), todo o nada |
 | GET | `/api/v1/empresas[/{id}]` | SUPER_ADMIN: listado paginado y ficha, con `codigo` y el administrador principal en `administrador` |
 | GET | `/api/v1/empresas/codigo-sugerido?nombre=` · `/codigo-disponible?codigo=` | SUPER_ADMIN: propone (`NASCAR` → `NASC01`) y comprueba un código empresarial |

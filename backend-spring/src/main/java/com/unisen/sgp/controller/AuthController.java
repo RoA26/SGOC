@@ -5,6 +5,7 @@ import com.unisen.sgp.model.dto.LoginRequest;
 import com.unisen.sgp.model.dto.LoginResponse;
 import com.unisen.sgp.model.dto.RegistroRequestDTO;
 import com.unisen.sgp.model.dto.UsuarioResponse;
+import com.unisen.sgp.security.LimitadorAcceso;
 import com.unisen.sgp.security.UsuarioPrincipal;
 import com.unisen.sgp.service.AuthService;
 import com.unisen.sgp.service.UsuarioService;
@@ -30,10 +31,12 @@ public class AuthController {
 
     private final AuthService authService;
     private final UsuarioService usuarioService;
+    private final LimitadorAcceso limitador;
 
-    public AuthController(AuthService authService, UsuarioService usuarioService) {
+    public AuthController(AuthService authService, UsuarioService usuarioService, LimitadorAcceso limitador) {
         this.authService = authService;
         this.usuarioService = usuarioService;
+        this.limitador = limitador;
     }
 
     @PostMapping("/login")
@@ -44,8 +47,10 @@ public class AuthController {
     @ApiResponse(responseCode = "401", description = "Usuario o contraseña incorrectos")
     @ApiResponse(responseCode = "403",
             description = "Contraseña correcta pero la cuenta no está autorizada (motivo: PENDIENTE, RECHAZADO, INACTIVO o EMPRESA_INACTIVA)")
+    @ApiResponse(responseCode = "429", description = "Demasiados intentos fallidos con ese usuario (Retry-After); "
+            + "igual exista o no la cuenta")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
-        return authService.login(request);
+        return limitador.login(request.username(), () -> authService.login(request));
     }
 
     @PostMapping("/registro")
@@ -59,8 +64,10 @@ public class AuthController {
     @ApiResponse(responseCode = "400", description = "Datos inválidos; código de invitación inexistente, usado o caducado "
             + "(errors.codigoInvitacion) o código de empresa inexistente o de una empresa desactivada (errors.codigoEmpresa)")
     @ApiResponse(responseCode = "409", description = "El username o el correo ya están en uso (errors.username / errors.email)")
+    @ApiResponse(responseCode = "429", description = "Demasiados intentos con ese código de empresa o demasiados "
+            + "registros en total (Retry-After)")
     public UsuarioResponse registro(@Valid @RequestBody RegistroRequestDTO request) {
-        return authService.registrar(request);
+        return limitador.registro(request.codigoEmpresa(), () -> authService.registrar(request));
     }
 
     @GetMapping("/me")

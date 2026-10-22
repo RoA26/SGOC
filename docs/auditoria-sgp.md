@@ -1021,3 +1021,70 @@ configuración del VPS (`.env`, proxy del host), fuera de esta autorización mie
    confía en las del cliente).
 4. Unas líneas del log de acceso de Nginx (`docker compose logs frontend --tail 20`) para ver qué
    `$remote_addr` llega: si todas las peticiones muestran la misma IP, es la del proxy o la pasarela.
+
+## Límite de intentos en login y registro: implementación de la capa A (Fases 2–4)
+
+Fecha: 22/10/2026. Autorizado: solo la capa A del diagnóstico anterior (en el backend, sin usar la
+IP). **No implementado**: la capa B por IP (requiere confirmar la topología del VPS), la rotación del
+código de empresa ni ningún cambio en Nginx, Docker o producción. No desplegado.
+
+### Diseño implementado
+
+| Pieza | Comportamiento |
+| --- | --- |
+| `security/LimiteDeIntentos` | Ventana deslizante por clave, en memoria. Cada intento contado caduca por separado al cumplirse su ventana (recuperación gradual, sin bloqueo permanente). Reserva atómica por clave (`ConcurrentHashMap.compute`): las peticiones en curso ocupan cupo, así que la concurrencia no permite superar el umbral |
+| `security/LimitadorAcceso` | Aplica los límites alrededor de `POST /api/auth/login` y `POST /api/auth/registro` (desde `AuthController`, antes de BCrypt y de abrir la transacción) |
+| Login | Clave: el username ya normalizado por `LoginRequest` (`strip` + minúsculas), el mismo con el que se busca la cuenta. Solo cuenta `BadCredentialsException`, que es la misma exista o no el usuario; **un login correcto no suma**, ni un 403 por estado de la cuenta (contraseña correcta). Al alcanzar el umbral, también la contraseña correcta recibe 429 (sin oráculo) |
+| Registro | Clave por código: `CodigosInvitacion.normalizar(codigoEmpresa)` (el mismo criterio que la búsqueda), cuenta cada intento con cualquier resultado. Además, un total global de intentos de alta (código de empresa e invitación). Un 429 no consume la invitación |
+| Respuesta | `429` en Problem Details: `title` «Demasiados intentos», `detail` con la espera en minutos o segundos, `reintentarEnSegundos` y cabecera `Retry-After` (segundos, redondeados hacia arriba). Idéntica exista o no la cuenta o el código |
+| Registro de eventos | Un `WARN` al alcanzar cada límite, con una huella (8 caracteres del SHA-256) en lugar del usuario o el código; nunca contraseñas, tokens ni códigos |
+| Frontend | `lib/errors.ts` muestra el `detail` del 429 (o lo arma con `Retry-After` si un proxy respondiera sin cuerpo). Login y registro lo presentan en su alerta, sin iniciar sesión ni crear la cuenta; el formulario sigue usable |
+| Excluido | La seed `demo` llama al servicio directamente (no es una petición HTTP) y no pasa por el límite |
+
+### Configuración (`app.security.limites.*`)
+
+| Variable | Por defecto | Uso |
+| --- | --- | --- |
+| `LIMITE_LOGIN_MAX_FALLOS` / `LIMITE_LOGIN_VENTANA` | `10` / `15m` | Fallos de credenciales por usuario |
+| `LIMITE_REGISTRO_MAX_POR_CODIGO` / `LIMITE_REGISTRO_VENTANA_POR_CODIGO` | `20` / `1h` | Intentos de alta con un mismo código de empresa |
+| `LIMITE_REGISTRO_MAX_GLOBAL` / `LIMITE_REGISTRO_VENTANA_GLOBAL` | `200` / `1h` | Intentos de alta en total |
+| `LIMITE_MAX_CLAVES` | `50000` | Cota de claves vigiladas por límite |
+
+`docker-compose.yml` no se ha modificado (cambio de Docker reservado al propietario) y solo pasa al
+backend las variables que enumera: **en producción regirían los valores por defecto** hasta que se
+añadan allí las `LIMITE_*`. Las pruebas automatizadas fijan los mismos valores en
+`application-test.yml` y la clase de pruebas del límite usa umbrales propios más bajos.
+
+### Revisión de riesgos
+
+| Aspecto | Resultado |
+| --- | --- |
+| Falsificación de IP | El límite no usa la IP: cambiar `X-Forwarded-For` o `X-Real-IP` no lo esquiva ni permite bloquear a otro «desde» otra IP (probado) |
+| Identificadores equivalentes | Mayúsculas y espacios en el usuario, o minúsculas, espacios y guiones en el código, comparten límite: se usa la misma normalización que la búsqueda (probado) |
+| Revelar si una cuenta existe | La respuesta 429 y el número de intentos hasta ella son iguales para un usuario existente y uno inexistente (probado) |
+| Concurrencia | 12 logins fallidos simultáneos con umbral 3 → exactamente 3 se evalúan (3 rondas); 8 registros simultáneos con umbral 3 → 3 cuentas creadas; 64 hilos sobre el limitador → exactamente el umbral |
+| Memoria | Solo las claves con intentos vigentes; se purgan al caducar (cada 1024 reservas y al llenarse). Por cada clave, como mucho `max` instantes. El total global de registro limita también cuántas claves de código pueden crearse por ventana |
+| Bloqueo de terceros | **Riesgo aceptado y acotado**: quien conozca un username puede provocar 429 a ese usuario durante la ventana con `max` intentos fallidos. Es temporal (15 min), no bloquea la cuenta y no afecta a otros usuarios. Mitigarlo del todo exige la capa B (por IP) u otro factor |
+| Límite lleno | Si se alcanzara `LIMITE_MAX_CLAVES` con intentos vigentes, una clave nueva no se vigila (se prioriza la disponibilidad frente a bloquear a todos). En el login es poco alcanzable: cada clave nueva exige un intento real con BCrypt (coste 12) |
+
+### Limitaciones (no se presenta como protección completa)
+
+1. **En memoria**: los contadores se pierden al reiniciar el backend.
+2. **Una sola instancia**: con varias réplicas cada una contaría por su cuenta (no es distribuido).
+3. **No protege frente a ataques volumétricos** ni frente a probar muchas cuentas distintas
+   (*password spraying*) con pocas contraseñas cada una: eso requiere la capa B por IP en Nginx, con
+   la topología del VPS confirmada.
+4. El límite global de registro puede retrasar altas legítimas durante un abuso (por diseño: 1 h).
+5. No se ha verificado contra producción ni contra Nginx (el recorrido usa el proxy de Vite).
+
+### Pruebas ejecutadas (resultados reales, 22/10/2026)
+
+| Verificación | Resultado |
+| --- | --- |
+| `LimiteDeIntentosTest` (unitarias, reloj controlado) | 6/6: umbral, cuenta solo lo marcado, recuperación deslizante y `Retry-After` exacto, reservas en curso, 64 hilos (5 rondas), memoria acotada y purga |
+| `LimiteIntentosTest` (HTTP, umbrales bajos, reloj controlado) | 13/13: login correcto no suma, fallos suman, 429 + `Retry-After` + Problem Details también con la contraseña correcta, misma respuesta exista o no el usuario, recuperación al terminar la ventana, normalización, `X-Forwarded-For`/`X-Real-IP` falsificados, concurrencia, cuenta pendiente no suma, límite por código (normalizado, también con códigos inválidos), límite global (también invitaciones, que no se consumen), registros simultáneos y flujos sin regresiones |
+| Suite completa del backend, H2 | 336 pruebas, 0 fallos (317 anteriores + 19) |
+| Suite completa del backend, PostgreSQL 16.15 local | 336 pruebas, 0 fallos |
+| Frontend: `npm run lint` · `tsc -b` · `npm test` · `npm run build` | Sin avisos ni errores · 76 pruebas, 0 fallos (70 + 6: `errors.test.ts`, `Login.test.tsx`, caso 429 de `Registro.test.tsx`) · build correcto |
+| Recorrido real (`scripts/validacion-local/integracion.mjs`, navegador → Vite → Spring Boot → PostgreSQL, umbrales por defecto) | 48/48, sin errores de consola ni `ERROR` en el log: 10 fallos con IPs distintas y luego 429 con `Retry-After`, bloqueado también con la contraseña correcta, otro usuario entra, mismo 429 para un usuario inexistente, mensaje en el login, 20 intentos con un código y luego 429 (en distintas formas del código), mensaje en `/registro` sin crear la cuenta |
+| Log del backend | Avisos con huella; ni el código, ni la contraseña, ni el usuario en claro (comprobado) |

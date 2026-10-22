@@ -105,6 +105,23 @@ app:
     cors:
       # Orígenes permitidos separados por comas: producción (DuckDNS) y Vite en desarrollo.
       allowed-origins: ${CORS_ALLOWED_ORIGINS:https://rrtf.duckdns.org,http://localhost:5173}
+    # Límites de intentos (en memoria, por usuario y por código de empresa; nunca por IP). Al
+    # superarlos se responde 429 con Retry-After. Cada intento contado caduca al cumplirse su
+    # ventana (nunca hay bloqueos permanentes). Duraciones: 30s, 15m, 1h...
+    limites:
+      login:
+        # Credenciales incorrectas por usuario (username normalizado), exista o no la cuenta.
+        max-fallos: ${LIMITE_LOGIN_MAX_FALLOS:10}
+        ventana: ${LIMITE_LOGIN_VENTANA:15m}
+      registro:
+        # Intentos de alta con un mismo código de empresa (normalizado).
+        max-por-codigo: ${LIMITE_REGISTRO_MAX_POR_CODIGO:20}
+        ventana-por-codigo: ${LIMITE_REGISTRO_VENTANA_POR_CODIGO:1h}
+        # Intentos de alta de cualquier tipo, en total.
+        max-global: ${LIMITE_REGISTRO_MAX_GLOBAL:200}
+        ventana-global: ${LIMITE_REGISTRO_VENTANA_GLOBAL:1h}
+      # Claves vigiladas a la vez por cada límite (cota de memoria).
+      max-claves: ${LIMITE_MAX_CLAVES:50000}
 
   negocio:
     # Zona en la que se cuentan los días de la analítica (los instantes se guardan en UTC).

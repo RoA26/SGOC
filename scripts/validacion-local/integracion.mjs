@@ -289,6 +289,66 @@ const conCodigoInactivo = await api('POST', '/auth/registro', { body: {
 comprobar('Con la empresa B desactivada, su código → 400 sin crear cuenta',
   desact.status === 200 && conCodigoInactivo.status === 400 && (await login('trab.b2', CLAVE)).status === 401, conCodigoInactivo.json?.errors?.codigoEmpresa)
 
+// ---------------------------------------------------------------- 12. Límite de intentos (umbrales configurados)
+// Al final: deja a trab.a1 y al código ZZZZ… sin cupo durante su ventana.
+async function hasta429(intento, maximo = 60) {
+  const estados = []
+  for (let i = 0; i < maximo; i++) {
+    const r = await intento(i)
+    estados.push(r.status)
+    if (r.status === 429) return { r, estados }
+  }
+  return { r: null, estados }
+}
+async function loginConIp(username, password, ip) {
+  const r = await fetch(`${BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip, 'X-Real-IP': ip },
+    body: JSON.stringify({ username, password }),
+  })
+  return { status: r.status, retryAfter: r.headers.get('retry-after'), tipo: r.headers.get('content-type'), json: await r.json().catch(() => null) }
+}
+{
+  // Cada intento fallido llega con una IP distinta: no debe servir para esquivar el límite.
+  const { r, estados } = await hasta429((i) => loginConIp('trab.a1', 'contraseña-incorrecta', `203.0.113.${i}`))
+  const fallos = estados.filter((s) => s === 401).length
+  comprobar('Login: tras N fallos (cambiando X-Forwarded-For en cada uno) → 429', r !== null && estados.slice(0, -1).every((s) => s === 401), `${fallos} fallos 401 y luego 429`)
+  comprobar('429 del login: Problem Details con Retry-After', r?.tipo?.startsWith('application/problem+json') && r.json?.status === 429 &&
+    r.json?.title === 'Demasiados intentos' && Number(r.retryAfter) > 0 && r.json?.reintentarEnSegundos === Number(r.retryAfter), `Retry-After ${r?.retryAfter}`)
+  const correcta = await loginConIp('trab.a1', CLAVE, '198.51.100.9')
+  comprobar('Bloqueado también con la contraseña correcta (sin oráculo)', correcta.status === 429)
+  comprobar('Otro usuario sigue entrando con normalidad', (await login('admin.a', CLAVE)).status === 200)
+  const inexistente = await hasta429((i) => loginConIp('no.existe', 'x', `203.0.113.${i}`))
+  comprobar('Un usuario inexistente recibe el mismo 429 (no revela si la cuenta existe)',
+    inexistente.r?.json?.detail === r?.json?.detail && inexistente.estados.length === estados.length)
+}
+{
+  const { ctx, page } = await nuevaPagina('login-429')
+  await entrarPorFormulario(page, 'trab.a1', CLAVE)
+  const alerta = page.getByRole('alert')
+  await alerta.waitFor({ timeout: 10000 })
+  const texto = await alerta.innerText()
+  comprobar('UI login: muestra «Demasiados intentos… Espera N minutos» y no entra',
+    /Demasiados intentos fallidos con este usuario\. Espera \d+ minutos? e inténtalo de nuevo\./.test(texto) && new URL(page.url()).pathname === '/login', texto)
+  await captura(page, 'limite-01-login-429')
+  await ctx.close()
+}
+{
+  const { r, estados } = await hasta429((i) => api('POST', '/auth/registro', { body: {
+    nombres: 'Intento', apellidos: String(i), username: `intento.${i}`, email: `intento.${i}@ejemplo.test`, password: CLAVE,
+    codigoEmpresa: i % 2 ? 'zzzz zzzz zzzz zzzz' : 'ZZZZ-ZZZZ-ZZZZ-ZZZZ' } }))
+  comprobar('Registro: el mismo código (en distintas formas) → 400 hasta el límite y luego 429',
+    r !== null && estados.slice(0, -1).every((s) => s === 400), `${estados.length - 1} intentos 400 y luego 429`)
+  const { ctx, page } = await nuevaPagina('registro-429')
+  await registrarPorFormulario(page, { via: 'empresa', codigo: 'ZZZZ-ZZZZ-ZZZZ-ZZZZ', username: 'intento.ui', apellidos: 'Ui' })
+  const alerta = page.getByRole('alert')
+  await alerta.waitFor({ timeout: 10000 })
+  comprobar('UI /registro: muestra el mensaje del límite y no crea la cuenta',
+    (await alerta.innerText()).includes('Demasiados intentos de registro con este código') && (await login('intento.ui', CLAVE)).status === 401)
+  await captura(page, 'limite-02-registro-429')
+  await ctx.close()
+}
+
 await browser.close()
 comprobar('Sin errores de JavaScript ni de consola inesperados en el navegador', errores.length === 0, errores.slice(0, 3).join(' | '))
 const fallos = resultados.filter((r) => !r.ok)

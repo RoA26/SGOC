@@ -30,6 +30,18 @@ app:
       # Mismos valores que los de producción en application.yml (fijados aquí para que un
       # .env local no altere el resultado de los tests).
       allowed-origins: https://rrtf.duckdns.org,http://localhost:5173
+    # Mismos valores que los predeterminados de application.yml (fijados aquí para que un entorno
+    # local no altere los tests). Las pruebas del límite usan umbrales propios más bajos.
+    limites:
+      login:
+        max-fallos: 10
+        ventana: 15m
+      registro:
+        max-por-codigo: 20
+        ventana-por-codigo: 1h
+        max-global: 200
+        ventana-global: 1h
+      max-claves: 50000
   bootstrap:
     admin:
       username: ""

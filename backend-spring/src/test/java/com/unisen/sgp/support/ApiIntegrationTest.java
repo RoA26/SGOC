@@ -12,6 +12,7 @@ import com.unisen.sgp.model.entity.Empresa;
 import com.unisen.sgp.model.entity.Rol;
 import com.unisen.sgp.repository.EmpresaRepository;
 import com.unisen.sgp.security.CodigosInvitacion;
+import com.unisen.sgp.security.LimitadorAcceso;
 import com.unisen.sgp.service.CodigosEmpresariales;
 import com.unisen.sgp.service.UsuarioService;
 import com.unisen.sgp.tenant.TenantFilter;
@@ -49,6 +50,9 @@ public abstract class ApiIntegrationTest {
     protected UsuarioService usuarioService;
     @Autowired
     protected EmpresaRepository empresaRepository;
+    /** Límites de login y registro: se vacían antes de cada test (son en memoria y compartidos). */
+    @Autowired
+    protected LimitadorAcceso limitador;
 
     /** Empresa en la que trabajan {@link #adminToken} y {@link #usuarioToken}. */
     protected Empresa empresa;
@@ -60,6 +64,7 @@ public abstract class ApiIntegrationTest {
     @BeforeEach
     void prepararBaseDeDatos() throws Exception {
         BaseDeDatosDePrueba.vaciar(jdbcTemplate);
+        limitador.reiniciar();
 
         empresa = crearEmpresa("Nexora", "900000001-1");
         usuarioService.crearUsuario("admin", "admin@nexora.com", "Admin", "Nexora", PASSWORD, Rol.ADMINISTRADOR_COMERCIAL, empresa);

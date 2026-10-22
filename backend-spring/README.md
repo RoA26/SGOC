@@ -103,13 +103,23 @@ e indica qué variable falta.
 | `APP_ZONA_HORARIA` | `America/Bogota` | Zona en la que la analítica cuenta los días (desfases de horas completas; se comprueba al arrancar) |
 | `SWAGGER_ENABLED` | `true` | Pon `false` en producción si no quieres exponer la documentación |
 | `SERVER_PORT` | `8081` | Puerto HTTP (Nginx reenvía `/api/` a `backend:8081`) |
+| `LIMITE_LOGIN_MAX_FALLOS` / `LIMITE_LOGIN_VENTANA` | `10` / `15m` | Credenciales incorrectas admitidas por usuario (username normalizado, exista o no) en la ventana; después, 429 con `Retry-After` |
+| `LIMITE_REGISTRO_MAX_POR_CODIGO` / `LIMITE_REGISTRO_VENTANA_POR_CODIGO` | `20` / `1h` | Intentos de registro con un mismo código de empresa (normalizado), con cualquier resultado |
+| `LIMITE_REGISTRO_MAX_GLOBAL` / `LIMITE_REGISTRO_VENTANA_GLOBAL` | `200` / `1h` | Intentos de registro de cualquier tipo, en total |
+| `LIMITE_MAX_CLAVES` | `50000` | Claves vigiladas a la vez por cada límite (cota de memoria) |
+
+Los límites de intentos viven **en memoria**: se vacían al reiniciar el backend y no se coordinan
+entre varias instancias (hoy hay una). No usan la IP del cliente. Con Docker Compose, el servicio
+`backend` solo recibe las variables listadas en `docker-compose.yml`, que no incluye las `LIMITE_*`:
+en producción rigen los valores por defecto, y cambiarlos exige añadirlas allí (cambio de Docker,
+con autorización). Detalle, pruebas y limitaciones en `docs/auditoria-sgp.md`.
 
 ## API
 
 | Método | Ruta | Auth | Respuesta |
 | --- | --- | --- | --- |
-| POST | `/api/auth/login` | Pública | `{username, password}` → `200` `{accessToken, tokenType, expiresIn, usuario}` |
-| POST | `/api/auth/registro` | Pública (requiere `codigoEmpresa` o `codigoInvitacion`) | `201` `{id, username, email, nombre, rol, empresaId, estado}`: PENDIENTE con código de empresa, ACTIVO con invitación · `400` · `409` username/correo en uso |
+| POST | `/api/auth/login` | Pública | `{username, password}` → `200` `{accessToken, tokenType, expiresIn, usuario}` · `429` + `Retry-After` tras `LIMITE_LOGIN_MAX_FALLOS` fallos con ese usuario |
+| POST | `/api/auth/registro` | Pública (requiere `codigoEmpresa` o `codigoInvitacion`) | `201` `{id, username, email, nombre, rol, empresaId, estado}`: PENDIENTE con código de empresa, ACTIVO con invitación · `400` · `409` username/correo en uso · `429` + `Retry-After` (límite por código o global) |
 | POST | `/api/auth/invitaciones` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN** | `201` `{codigo, fechaExpiracion}` para la empresa actual · `400` · `403` |
 | GET · DELETE | `/api/auth/invitaciones` · `/{id}` | Bearer **ADMINISTRADOR_COMERCIAL / SUPER_ADMIN con `X-Tenant-ID: <id>`** | `200` página de invitaciones de la empresa con su `estado` (sin el código completo) · revocar una vigente → `200` · `404` de otra empresa · `409` usada, revocada o caducada |
 | GET | `/api/auth/me` | Bearer | `200` `{id, username, email, nombre, nombres, apellidos, datosPersonalesCompletos, rol, empresaId, empresaNombre, empresaCodigo, estado}`, leído de la BD |

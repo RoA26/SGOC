@@ -93,6 +93,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             new Restriccion("uq_usuarios_email", "email",
                     "Ya existe un usuario con este correo."));
 
+    /**
+     * Límite de intentos de login o registro superado: 429 con {@code Retry-After} (segundos) y la
+     * misma espera en {@code reintentarEnSegundos}. Igual exista o no la cuenta o el código.
+     */
+    @ExceptionHandler(DemasiadosIntentosException.class)
+    public ResponseEntity<ProblemDetail> handleDemasiadosIntentos(DemasiadosIntentosException ex) {
+        ProblemDetail problem = problem(HttpStatus.TOO_MANY_REQUESTS, "Demasiados intentos", ex.getMessage());
+        problem.setProperty("reintentarEnSegundos", ex.getSegundos());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, Long.toString(ex.getSegundos()))
+                .body(problem);
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ProblemDetail> handleBadCredentials(BadCredentialsException ex) {
         ProblemDetail problem = problem(HttpStatus.UNAUTHORIZED, "Credenciales inválidas",

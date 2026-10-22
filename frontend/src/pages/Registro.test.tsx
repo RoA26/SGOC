@@ -97,6 +97,28 @@ describe('Registro: invitación o código de empresa', () => {
     expect(loginMock).not.toHaveBeenCalled()
   })
 
+  it('muestra el 429 del límite de registros sin crear la cuenta', async () => {
+    const detalle = 'Demasiados intentos de registro con este código. Espera 60 minutos e inténtalo de nuevo.'
+    registrarMock.mockRejectedValue(
+      new AxiosError('error', 'ERR_BAD_REQUEST', undefined, undefined, {
+        status: 429,
+        data: { title: 'Demasiados intentos', status: 429, detail: detalle, reintentarEnSegundos: 3600 },
+        statusText: '',
+        headers: { 'retry-after': '3600' },
+        config: {},
+      } as unknown as AxiosResponse),
+    )
+    renderizar()
+    await userEvent.click(screen.getByRole('radio', { name: /Tengo el código de mi empresa/ }))
+    await userEvent.type(screen.getByLabelText(/^Código de tu empresa/), '4HPR-T3VW-7KQ2-M9XA')
+    await completarDatos()
+    await userEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(detalle)
+    expect(screen.queryByText('Cuenta pendiente de aprobación')).not.toBeInTheDocument()
+    expect(loginMock).not.toHaveBeenCalled()
+  })
+
   it('exige el código de la vía elegida antes de llamar al backend', async () => {
     renderizar()
     await userEvent.click(screen.getByRole('radio', { name: /Tengo el código de mi empresa/ }))
