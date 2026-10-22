@@ -15,7 +15,8 @@ La migración a `n3xora.duckdns.org` queda en pausa (`deploy/n3xora/`, sin aplic
 - `main` está en `63df7d6`. El commit probado (`083ee00` + este documento) añade la capa A
   (límites de intentos), la vista de personal, el registro con código de empresa y la capa C
   (página pública, sistema visual). **Sin migraciones nuevas**: la base de datos no cambia y la
-  vuelta atrás es solo de imágenes. **`docker-compose.yml` no cambia** en ese commit.
+  vuelta atrás es solo de imágenes. En `docker-compose.yml` solo cambia el comentario de la
+  cabecera («Unisen SGP» → «Nexora»): la fase 1 avisará de que cambia, pero no hay cambio funcional.
 - No verificado desde esta sesión (sin acceso SSH a Aatenea y con `rrtf.duckdns.org` bloqueado por
   la red del entorno): la configuración real del proxy TLS, el `.env` del VPS y el estado vivo.
 
