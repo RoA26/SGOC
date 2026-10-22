@@ -1088,3 +1088,96 @@ añadan allí las `LIMITE_*`. Las pruebas automatizadas fijan los mismos valores
 | Frontend: `npm run lint` · `tsc -b` · `npm test` · `npm run build` | Sin avisos ni errores · 76 pruebas, 0 fallos (70 + 6: `errors.test.ts`, `Login.test.tsx`, caso 429 de `Registro.test.tsx`) · build correcto |
 | Recorrido real (`scripts/validacion-local/integracion.mjs`, navegador → Vite → Spring Boot → PostgreSQL, umbrales por defecto) | 48/48, sin errores de consola ni `ERROR` en el log: 10 fallos con IPs distintas y luego 429 con `Retry-After`, bloqueado también con la contraseña correcta, otro usuario entra, mismo 429 para un usuario inexistente, mensaje en el login, 20 intentos con un código y luego 429 (en distintas formas del código), mensaje en `/registro` sin crear la cuenta |
 | Log del backend | Avisos con huella; ni el código, ni la contraseña, ni el usuario en claro (comprobado) |
+
+## Capa B (límites por IP en Nginx): desarrollo y validación local
+
+Fecha: 22/10/2026. Autorizado: diagnóstico estático, propuesta y pruebas locales en archivos
+aislados. **No activado**: `frontend/nginx.conf`, `frontend/Dockerfile`, `docker-compose.yml` y
+`.env.example` no se han modificado; no hubo despliegue ni contacto con producción. Detalle operativo
+en `deploy/propuesta-capa-b/README.md`.
+
+### B1. Ruta de una petición (solo con evidencia del repositorio)
+
+| Tramo | Hecho confirmado en el repositorio | Hipótesis sobre Aatenea (sin verificar) |
+| --- | --- | --- |
+| Internet → host | La URL de producción es `https://rrtf.duckdns.org` y Nginx solo escucha HTTP: algo termina TLS antes | Un proxy en el host (el README cita Caddy solo como ejemplo); su software, cabeceras y dirección de salida son desconocidos |
+| Host → Nginx | El contenedor `frontend` publica `${HTTP_PORT:-80}:80`; por defecto en todas las interfaces | Valor real de `HTTP_PORT`; si Docker reescribe el origen (*userland proxy*) |
+| Nginx | `nginx:1.30-alpine`; `frontend/nginx.conf` en `conf.d/default.conf`; healthcheck `wget http://127.0.0.1/healthz` dentro del contenedor | — |
+| Nginx → backend | `proxy_pass` a `backend:8081` (DNS de Docker); red `web`; el backend solo hace `expose` (sin `ports`) y el frontend espera a que esté sano | — |
+| Backend → PostgreSQL | Red `datos`; PostgreSQL publica solo en `127.0.0.1` | — |
+| Despliegue | `sgp-aatenea.sh` llega a Nginx por `127.0.0.1:<puerto publicado>` y hace 14 logins seguidos (10 cuentas demo + 4 cabeceras) y uno inválido con un usuario único | Con qué IP ve Nginx esas peticiones |
+
+### B2–B3. Propuesta (archivos nuevos, aislados)
+
+`deploy/propuesta-capa-b/`: `default.conf.template` (configuración propuesta), `activacion.diff` (no
+aplicado), `pruebas/ejecutar.sh`, `pruebas/interaccion-capa-a.sh` y `README.md`. Diseño:
+
+- `realip` solo desde `NGINX_PROXY_CONFIANZA` (obligatoria, sin valor por defecto: sin ella Nginx no
+  arranca; `127.0.0.1` cuando Nginx recibe directamente a los clientes), con
+  `real_ip_header X-Forwarded-For` y `real_ip_recursive on`.
+- `limit_req` por IP real solo en login y registro (clave vacía en el resto, mediante `map $uri` por
+  prefijo), `nodelay`, `limit_req_status 429` y modo de prueba (`limit_req_dry_run`).
+- 429 en Problem Details con `Retry-After` y las cabeceras de seguridad.
+- `X-Forwarded-For` hacia el backend reducido a la IP resuelta (cierra el hallazgo de la Fase 1:
+  `ForwardedHeaderFilter` tomaba la primera IP, que controla el cliente).
+- Acceso directo eludiendo el proxy: quien llegue sin pasar por él no es de confianza, así que se le
+  limita por su propia IP y no puede hacerse pasar por otro. Impedirlo del todo es de red:
+  `HTTP_PORT=127.0.0.1:…` (cambio del `.env` del VPS, no del repositorio).
+
+### B4. Pruebas locales ejecutadas (22/10/2026)
+
+Entorno: Nginx 1.24 del sistema (producción usa 1.30), clientes como conexiones reales desde
+127.0.0.3, .4…, un «proxy TLS» simulado que reenvía desde 127.0.0.2, backend simulado (devuelve las
+cabeceras que recibe) o backend real local sobre PostgreSQL 16 desechable. Sin Docker.
+
+| Prueba | Resultado |
+| --- | --- |
+| `pruebas/ejecutar.sh` | **36/36**: sintaxis (y negativa a arrancar sin `NGINX_PROXY_CONFIANZA`); `/`, ruta de la SPA, `/healthz` y `/assets` normales; login 1 + ráfaga y luego 429 con Problem Details, `Retry-After: 60` y cabeceras de seguridad; otra IP no afectada; `X-Forwarded-For`/`X-Real-IP` falsos no esquivan; resto de la API sin límite; zona propia del registro; 5 variantes de ruta limitadas; el backend recibe solo la IP real; recuperación al reponerse el cupo; modo de prueba (no rechaza y registra); con los umbrales propuestos, los 14 logins del despliegue pasan y el 22.º seguido se rechaza; con proxy: dos clientes tras el mismo proxy no comparten límite, falsificar la cabecera a través del proxy no sirve, quien se salta el proxy se limita por su propia IP sin gastar el cupo de otro; aproximación de publicar solo en loopback (inaccesible por la interfaz de red) |
+| `pruebas/interaccion-capa-a.sh` (backend real) | **5/5** (tabla siguiente) |
+| Navegador → Nginx propuesto → backend real | El formulario de login muestra el 429 de Nginx («Demasiadas peticiones desde tu conexión…») tras 1 + ráfaga; los 401 previos confirman que el cambio de `X-Forwarded-For` no rompe la detección de mismo origen (CORS) |
+
+Durante las pruebas se corrigieron errores de los propios scripts, no de la configuración: usernames
+de 2 caracteres que el backend rechazaba por validación (antes del limitador, que por diseño no los
+cuenta) y comprobaciones que dependían del tiempo (Nginx repone cupo mientras el backend calcula
+BCrypt). La versión final comprueba el orden de las capas, no recuentos sensibles al tiempo.
+
+**No reproducible en local** (requiere Docker o el VPS): aislamiento real del backend en la red `web`
+(hoy solo evidencia estática: sin `ports`), semántica de los puertos publicados de Docker, el proxy
+TLS real y sus cabeceras, Nginx 1.30 y el tráfico real (NAT, CGNAT).
+
+### B5. Interacción con la capa A (backend real, umbrales propuestos)
+
+Nginx evalúa antes de reenviar: su 429 no llega al backend (no cuesta BCrypt ni toca la base). Los
+429 de la capa A sí atraviesan Nginx y cuentan en su cupo.
+
+| Escenario | Secuencia observada | Quién corta |
+| --- | --- | --- |
+| Una IP, un usuario, contraseña incorrecta | `401×10 429-A×12 429-B×2` | Primero la capa A (10 fallos del usuario), después Nginx (ritmo de la IP) |
+| Una IP, muchos usuarios | `401×24 429-B×16` | Solo Nginx: la capa A no lo ve (1 intento por cuenta) |
+| Muchas IP, un usuario | `401×10 429-A×2` | Solo la capa A: Nginx no lo ve (1 intento por IP) |
+| Registro: una IP, un código | `400×11 429-B×3` | Nginx (ráfaga 10) antes que la capa A por código (20) |
+| Registro: muchas IP, el mismo código | `400×9 429-A×3` | La capa A por código (11 previos + 9 = 20) |
+
+Las dos capas se complementan y no se duplican: la A protege cada cuenta y cada código aunque el
+atacante cambie de IP; la B frena el volumen de una IP aunque reparta los intentos entre cuentas.
+Ambos 429 son Problem Details con `Retry-After`: el de la A con la espera exacta y un mensaje sobre el
+usuario o el código; el de la B con una espera fija (60 s, conservadora) y un mensaje sobre «tu
+conexión». El frontend muestra el `detail` de cualquiera de los dos.
+
+Riesgos de bloqueo legítimo: varios usuarios tras una misma IP (oficina con NAT, CGNAT móvil)
+comparten el cupo de la B; de ahí la ráfaga de 21 logins y 11 altas, y empezar en modo de prueba
+para medirlo. Si `NGINX_PROXY_CONFIANZA` fuera incorrecta, todos los clientes compartirían la IP del
+proxy (bloqueo masivo) o se aceptarían cabeceras falsas: por eso no tiene valor por defecto.
+Limitaciones comunes: contadores en memoria (Nginx y backend), que se vacían al reiniciar y no se
+comparten entre instancias (hoy hay una de cada).
+
+### B6. Pendiente de autorización y de verificación
+
+1. Verificar en Aatenea los datos de `deploy/propuesta-capa-b/README.md` («Antes de activar»): qué
+   escucha en 80/443, `HTTP_PORT`, cabeceras del proxy TLS, dirección con la que llega a Nginx,
+   *userland proxy* y la IP de la verificación del despliegue.
+2. Decidir `NGINX_PROXY_CONFIANZA` y, si hay proxy, `HTTP_PORT=127.0.0.1:…` (`.env` del VPS).
+3. Autorizar `activacion.diff` (Nginx, Dockerfile y `docker-compose.yml`) y el despliegue en modo de
+   prueba; pasar a `off` tras revisar los registros.
+4. Por separado (capa A): añadir las `LIMITE_*` a `docker-compose.yml` si se quieren cambiar sus
+   valores por defecto en producción.
