@@ -948,3 +948,76 @@ supervisada al supervisar).
 2. **Límite de intentos** en `POST /api/auth/registro` (y en el login, pendiente desde la Fase 0).
    El código tiene 80 bits de entropía, así que adivinarlo no es viable, pero sin límite se pueden
    crear cuentas pendientes de forma masiva.
+
+## Límite de intentos en login y registro: diagnóstico (Fase 1)
+
+Fecha: 22/10/2026. Autorizado: diagnóstico y, después, implementación en la rama de trabajo. **Estado:
+detenido al final del diagnóstico** porque la topología de red de producción no se puede verificar
+desde el repositorio (condición de parada fijada por el propietario). No se ha implementado nada.
+
+### Hechos verificados (repositorio y pruebas locales)
+
+| Hecho | Evidencia |
+| --- | --- |
+| No existe ningún límite de peticiones | Ni `limit_req`/`limit_conn` en `frontend/nginx.conf` ni limitador en el backend o en el `pom.xml` |
+| Ningún código usa hoy la IP del cliente | Sin `getRemoteAddr`, `X-Real-IP` ni `X-Forwarded-For` en `backend-spring/src/main` |
+| Una sola instancia del backend | `docker-compose.yml`: un servicio `backend`, sin réplicas; no publica puertos (red `web` solo con Nginx) |
+| Nginx publica `${HTTP_PORT:-80}:80` | Por defecto en **todas las interfaces**; con TLS en el host, la documentación recomienda `HTTP_PORT=127.0.0.1:8080` |
+| Nginx reenvía `X-Real-IP $remote_addr` y `X-Forwarded-For $proxy_add_x_forwarded_for` | `$remote_addr` es el par TCP (no se usa el módulo `realip`); `$proxy_add_x_forwarded_for` **añade** a lo que envía el cliente, no lo sustituye |
+| El backend **no** puede fiarse de `getRemoteAddr()` | Con `forward-headers-strategy: framework` (Spring 6.2.19), `ForwardedHeaderFilter` toma la **primera** IP de `X-Forwarded-For`, que controla el cliente. Probado: `X-Forwarded-For: 6.6.6.6, 203.0.113.7, 172.18.0.1` → `getRemoteAddr() = 6.6.6.6` |
+| TLS de producción | La URL es `https://rrtf.duckdns.org` y Nginx solo escucha HTTP, así que algo termina TLS antes de Nginx; el diagrama del README lo sitúa en el host, pero la sección «TLS» lo presenta como «siguiente paso» (contradicción documental) |
+
+### Qué IP ve cada capa
+
+| Capa | IP que recibe | ¿Fiable? |
+| --- | --- | --- |
+| Proxy TLS del host (si existe) | La del cliente (par TCP) | Sí: es el único que la conoce de primera mano |
+| Nginx (`$remote_addr`) | La del proxy del host, o la pasarela de Docker si el tráfico entra por el *userland proxy*; la del cliente solo si se llega directo al puerto publicado | Es infalsificable, pero en la topología con proxy **es la misma para todos los clientes** |
+| Backend (`getRemoteAddr()` con `framework`) | La primera de `X-Forwarded-For` | **No**: falsificable |
+| Backend (cabecera `X-Real-IP`) | Lo que Nginx pone en `$remote_addr` (Nginx la sobrescribe; el cliente no puede inyectarla) | Fiable como «quién habló con Nginx», con la misma limitación de la fila anterior |
+
+### Lo que no se puede verificar desde aquí (no se supone)
+
+1. Si hay un proxy TLS delante de Nginx, cuál es (Caddy, otro Nginx, un servicio externo) y en qué
+   dirección IP habla con el contenedor.
+2. Si ese proxy **sustituye** o **añade** `X-Forwarded-For`, y si confía en la cabecera que envía el
+   cliente.
+3. El valor real de `HTTP_PORT` en el VPS: si el puerto 80 del contenedor está abierto a internet, un
+   atacante puede saltarse el proxy y falsificar la cabecera que este pondría.
+4. Si Docker usa el *userland proxy* (entonces Nginx ve la pasarela para todo el tráfico).
+
+Sin estos datos, cualquier límite **por IP** puede ser falsificable (si se confía en la cabecera
+equivocada) o bloquear a todos los usuarios a la vez (si todo llega con la misma IP de proxy).
+
+### Arquitectura recomendada
+
+1. **Capa A — backend, independiente de la IP (implementable sin conocer la topología).**
+   - Login: límite de intentos **fallidos por usuario** (username normalizado) en una ventana
+     deslizante; el éxito no cuenta. Solo ralentiza (429 con `Retry-After`), nunca bloquea la cuenta de
+     forma permanente.
+   - Registro: límite de altas **por código de empresa** (normalizado, nunca registrado en el log) y
+     un tope global por ventana para el endpoint.
+   - En memoria (hay una sola instancia), con tamaño acotado y sin dependencias nuevas; umbrales en
+     `application.yml` con variables de entorno y valores bajos en el perfil de pruebas.
+   - Respuesta 429 en Problem Details (`GlobalExceptionHandler`) con `Retry-After`; mensaje claro en
+     el login y el registro del frontend.
+2. **Capa B — por IP, solo cuando se confirme la topología.** Opción preferida: en Nginx, con el
+   módulo `realip` (`set_real_ip_from <IP del proxy del host>`, `real_ip_header X-Forwarded-For`,
+   `real_ip_recursive on`) y `limit_req` en `/api/auth/login` y `/api/auth/registro`; requiere además
+   `HTTP_PORT=127.0.0.1:…` para que nadie pueda saltarse el proxy. El backend no debe usar
+   `getRemoteAddr()` mientras siga `forward-headers-strategy: framework`.
+
+Archivos previstos para la capa A: `security/` o `service/` (limitador y propiedades),
+`AuthService`/`AuthController`, `GlobalExceptionHandler` y una excepción nueva, `application.yml` y
+`application-test.yml`, pruebas del backend; en el frontend, `lib/errors.ts`, `Login.tsx`,
+`Registro.tsx` y sus pruebas; documentación de variables. Para la capa B: `frontend/nginx.conf` y la
+configuración del VPS (`.env`, proxy del host), fuera de esta autorización mientras no se verifique.
+
+### Datos que necesita el propietario (comprobaciones de solo lectura en el VPS)
+
+1. `grep '^HTTP_PORT=' .env` (solo esa variable) y `docker compose port frontend 80`.
+2. `ss -ltnp | grep -E ':(80|443) '`: qué proceso escucha en 80/443.
+3. La configuración del proxy para `rrtf.duckdns.org` (cabeceras `X-Forwarded-For` que pone y si
+   confía en las del cliente).
+4. Unas líneas del log de acceso de Nginx (`docker compose logs frontend --tail 20`) para ver qué
+   `$remote_addr` llega: si todas las peticiones muestran la misma IP, es la del proxy o la pasarela.
