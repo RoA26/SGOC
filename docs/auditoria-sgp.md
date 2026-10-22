@@ -1181,3 +1181,19 @@ comparten entre instancias (hoy hay una de cada).
    prueba; pasar a `off` tras revisar los registros.
 4. Por separado (capa A): añadir las `LIMITE_*` a `docker-compose.yml` si se quieren cambiar sus
    valores por defecto en producción.
+
+## Fase C (Nexora): página pública, sistema visual y animaciones
+
+Implementada solo en el frontend, sin cambios de backend, permisos, Docker ni Nginx activo. Detalle,
+verificación y pendientes en `docs/nexora-capa-c.md`. Resumen:
+
+- `/` sin sesión muestra la página pública (encaje propuesto en A.6); con sesión, el panel de
+  inicio. Las demás rutas privadas siguen llevando a `/login`. `/registro` acepta `?via=empresa`.
+- Base visual común (tokens de movimiento, estados, tarjetas planas, migas y títulos a tamaño de
+  aplicación, tablas) heredada por todas las vistas; animaciones con alternativa de movimiento
+  reducido; borgoña como tono de datos de las gráficas.
+- Verificación: lint y TypeScript sin avisos, 89/89 pruebas de frontend, build correcto y el recorrido
+  de integración 49/49 contra PostgreSQL 16 local (un paso adaptado: `/` ya no redirige a `/login`).
+- El subdominio creado por el propietario es `n3xora.duckdns.org` (no `nexora.duckdns.org`, como se
+  supuso en A.7); su checklist de migración está en `docs/nexora-capa-c.md`, sección 5. No verificado.
+

@@ -179,6 +179,7 @@ Todos los recursos de marca viven en `frontend/src/brand/nexora/` (tomados del p
 | --- | --- |
 | `tokens.css` | Colores, tipografías, radios y sombras como variables `--nexora-*` (modo claro y oscuro) |
 | `componentes.css` | Tokens de componente y clases base `u-input`, `u-btn`, `u-card`, `u-alert`… |
+| `publica.css` | Movimiento de la página pública (`/` sin sesión): entradas, fundidos y el control deslizante |
 | `nexora-logo-claro.svg` | Logo para fondos **claros** (cabecera, login en móvil) |
 | `nexora-logo-oscuro.svg` | Logo para fondos **oscuros** (panel de marca del login, tema oscuro) |
 
@@ -199,10 +200,15 @@ desde los tokens. Las opacidades funcionan igual (`bg-accent/20`).
 | `bg-primary`, `text-primary-foreground` | `--nexora-color-primary`, `--nexora-color-on-primary` |
 | `text-accent` | `--nexora-color-accent` |
 | `bg-brand-panel`, `text-brand-panel-foreground`, `text-brand-panel-accent` | `--nexora-color-brand-panel`, `--nexora-color-brand-panel-text`, `--nexora-color-brand-panel-accent` |
+| `bg-brand-field`, `text-brand-field-foreground` | `--nexora-color-brand-field`, `--nexora-color-brand-field-text` (borgoña fijo en claro y oscuro) |
 | `font-sans`, `font-serif` | `--nexora-font-sans` (Geist), `--nexora-font-serif` (Instrument Serif) |
 | `rounded-{sm,md,lg,xl}`, `shadow-card`, `h-control` | `--nexora-radius-*`, `--nexora-shadow-card`, `--nexora-control-height` |
 
 Geist e Instrument Serif se sirven desde el propio dominio con `@fontsource`, sin CDN externos.
+
+La página pública (`/` sin sesión), el sistema visual, las animaciones (todas con alternativa en
+`prefers-reduced-motion`) y las checklists de la capa B y de la migración al dominio
+`n3xora.duckdns.org` están en `docs/nexora-capa-c.md`.
 
 ## API (a través de Nginx)
 

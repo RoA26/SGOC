@@ -152,9 +152,13 @@ comprobar('API /empresas/actual (A) con X-Tenant-ID de B: devuelve A, nunca B',
     estadoTexto.includes(`Solicitud enviada a ${empresaA.nombre}`) && estadoTexto.includes('trab.a1'))
   comprobar('UI /registro con código de empresa: no inicia sesión', (await tokenGuardado(page)) === null)
   await captura(page, 'registro-02-pendiente')
+  // Sin sesión, `/` es la página pública (capa C); las rutas privadas siguen llevando al login.
   await page.goto(`${BASE}/`)
+  await page.getByRole('heading', { level: 1, name: 'Las compras de tu empresa, en orden.' }).waitFor({ timeout: 10000 })
+  comprobar('Tras registrarse, `/` muestra la página pública (no hay sesión)', (await tokenGuardado(page)) === null)
+  await page.goto(`${BASE}/solicitudes`)
   await page.waitForURL((u) => u.pathname === '/login', { timeout: 10000 })
-  comprobar('Tras registrarse, abrir la aplicación lleva al login (no hay sesión)', true)
+  comprobar('Sin sesión, una ruta privada lleva al login', true)
   await ctx.close()
 }
 const rb1 = await api('POST', '/auth/registro', { body: {
