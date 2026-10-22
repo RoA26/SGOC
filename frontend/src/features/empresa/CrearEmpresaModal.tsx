@@ -168,7 +168,7 @@ export function CrearEmpresaModal({ onClose, onCreated }: CrearEmpresaModalProps
         )}
 
         <fieldset>
-          <legend className="mb-3 text-xs font-medium tracking-widest text-foreground-muted uppercase">Empresa</legend>
+          <legend className="mb-3 text-[0.8125rem] font-medium text-foreground-muted">Empresa</legend>
           <div className="grid gap-5 sm:grid-cols-2">
             <FormField label="Nombre comercial" required error={errors.nombre?.message} className="sm:col-span-2">
               {(campo) => (
@@ -230,7 +230,7 @@ export function CrearEmpresaModal({ onClose, onCreated }: CrearEmpresaModalProps
 
         <fieldset className="border-t border-border pt-5">
           <legend className="sr-only">Administrador de la empresa</legend>
-          <p aria-hidden="true" className="mb-3 text-xs font-medium tracking-widest text-foreground-muted uppercase">
+          <p aria-hidden="true" className="mb-3 text-[0.8125rem] font-medium text-foreground-muted">
             Administrador de la empresa
           </p>
           <div className="grid gap-5 sm:grid-cols-2">

@@ -31,7 +31,7 @@ export function RecepcionDetalle({ recepcion }: { recepcion: Recepcion }) {
       </dl>
 
       <section aria-label="Unidades aceptadas">
-        <h3 className="mb-2 text-xs font-medium tracking-wide text-foreground-muted uppercase">Entró al inventario</h3>
+        <h3 className="mb-2 text-[0.8125rem] font-medium text-foreground-muted">Entró al inventario</h3>
         {recepcion.detalles.length === 0 ? (
           <p className="text-foreground-muted">Nada: la entrega solo trajo novedades.</p>
         ) : (
@@ -52,7 +52,7 @@ export function RecepcionDetalle({ recepcion }: { recepcion: Recepcion }) {
 
       {recepcion.incidencias.length > 0 && (
         <section aria-label="Incidencias">
-          <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium tracking-wide text-warning uppercase">
+          <h3 className="mb-2 flex items-center gap-1.5 text-[0.8125rem] font-medium text-warning">
             <AlertTriangle className="size-3.5" aria-hidden="true" />
             Incidencias ({recepcion.incidencias.length})
           </h3>

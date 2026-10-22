@@ -67,9 +67,9 @@ export function Modal({
         if (event.target === event.currentTarget && dismissible) onClose()
       }}
       className={cn(
-        'm-auto w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] overflow-hidden p-0',
+        'u-dialogo m-auto w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] overflow-hidden p-0',
         'rounded-xl border border-border bg-surface text-foreground shadow-card',
-        'backdrop:bg-black/50 backdrop:backdrop-blur-[2px]',
+        'backdrop:bg-[rgb(20_12_14/0.55)]',
         SIZES[size],
       )}
     >
@@ -77,7 +77,7 @@ export function Modal({
         <div className="flex max-h-[calc(100dvh-2rem)] flex-col">
           <header className="flex items-start justify-between gap-4 border-b border-border px-6 pt-5 pb-4">
             <div>
-              <h2 id={titleId} className="font-serif text-2xl leading-tight">
+              <h2 id={titleId} className="text-lg leading-snug font-semibold tracking-tight text-balance">
                 {title}
               </h2>
               {description && (
@@ -91,7 +91,7 @@ export function Modal({
               onClick={onClose}
               disabled={!dismissible}
               aria-label="Cerrar"
-              className="-mr-2 rounded-md p-1.5 text-foreground-muted hover:bg-surface-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-focus disabled:opacity-40"
+              className="-mr-2 rounded-md p-1.5 text-foreground-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-focus disabled:opacity-40"
             >
               <X className="size-5" aria-hidden="true" />
             </button>

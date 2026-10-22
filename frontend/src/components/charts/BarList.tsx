@@ -39,7 +39,7 @@ export function BarList({
               {fila.valor > 0 && (
                 <span
                   aria-hidden="true"
-                  className="h-3 shrink-0 rounded-r-[4px] bg-viz-1 transition-opacity group-hover:opacity-75"
+                  className="u-barra h-3 shrink-0 rounded-r-[4px] bg-viz-1 transition-opacity group-hover:opacity-75"
                   style={{ width: `max(4px, calc(${porcentaje}% - 3.5rem))` }}
                 />
               )}

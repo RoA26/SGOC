@@ -70,8 +70,8 @@ export default function VentaDetalle() {
       <Volver />
       <div className="mt-4 mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-medium tracking-widest text-foreground-muted uppercase">Venta</p>
-          <h1 className="mt-2 flex flex-wrap items-center gap-3 font-serif text-4xl text-foreground">
+          <h1 className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[1.75rem] leading-tight font-semibold tracking-tight text-foreground">
+            <span className="font-normal text-foreground-muted">Venta</span>
             {venta.numeroVisible}
             <EstadoVentaBadge estado={venta.estado} />
           </h1>
@@ -110,7 +110,7 @@ export default function VentaDetalle() {
         <div className="u-card overflow-x-auto">
           <table className="w-full text-sm">
             <caption className="sr-only">Líneas de la venta</caption>
-            <thead className="border-b border-border bg-surface-muted/60 text-xs tracking-wide text-foreground-muted uppercase">
+            <thead className="border-b border-border text-xs text-foreground-muted">
               <tr>
                 <th scope="col" className="px-4 py-3 text-left font-medium">Producto</th>
                 <th scope="col" className="px-4 py-3 text-right font-medium">Cant.</th>

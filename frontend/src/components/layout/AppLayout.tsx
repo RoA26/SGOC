@@ -32,8 +32,10 @@ export function AppLayout() {
         <PanelLateral />
       </aside>
 
-      <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-3 border-b border-border bg-surface/90 px-5 backdrop-blur lg:hidden">
-        <BrandLogo className="h-7 w-auto shrink-0" />
+      <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-3 border-b border-border bg-surface px-4 sm:px-5 lg:hidden">
+        <Link to="/" aria-label="Nexora, ir al inicio" className="rounded-md">
+          <BrandLogo className="h-7 w-auto shrink-0" />
+        </Link>
         <button
           type="button"
           className="u-btn u-btn--ghost h-9 px-3"
@@ -47,9 +49,12 @@ export function AppLayout() {
       </header>
       {menuAbierto && <MenuMovil onClose={() => setMenuAbiertoEn(null)} />}
 
-      <main className="mx-auto w-full max-w-6xl px-5 py-10">
+      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
         <AvisoSupervision />
-        <Outlet key={claveContexto} />
+        {/* Cada cambio de ruta entra con un ascenso corto: la vista nueva se distingue de la anterior. */}
+        <div key={pathname} className="u-vista">
+          <Outlet key={claveContexto} />
+        </div>
       </main>
     </div>
   )
@@ -63,17 +68,26 @@ function PanelLateral() {
   return (
     <div className="flex h-full flex-col">
       <div className="px-5 pt-5 pb-4">
-        <BrandLogo className="h-8 w-auto" />
-        <p className="mt-2 text-xs font-medium tracking-widest text-foreground-muted uppercase">Gestión de compras</p>
+        <Link to="/" aria-label="Nexora, ir al inicio" className="inline-block rounded-md">
+          <BrandLogo className="h-8 w-auto" />
+        </Link>
       </div>
       <div className="px-4">
         <ContextoEmpresaPanel />
       </div>
       <Navegacion />
       <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-4">
-        <Link to="/perfil" className="group min-w-0 rounded-md leading-tight" title="Mi perfil">
+        <Link to="/perfil" className="group flex min-w-0 items-center gap-2.5 rounded-md leading-tight" title="Mi perfil">
+          <span
+            aria-hidden="true"
+            className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
+          >
+            {iniciales(nombre)}
+          </span>
+          <span className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground group-hover:underline">{nombre}</p>
           <p className="text-xs text-foreground-muted">{rol && ETIQUETA_ROL[rol]}</p>
+          </span>
         </Link>
         <button type="button" className="u-btn u-btn--ghost h-9 shrink-0 px-3" onClick={clearSession}>
           <LogOut className="size-4" aria-hidden="true" />
@@ -94,7 +108,7 @@ function Navegacion() {
       {grupos.map(({ titulo, items }) => (
         <div key={titulo ?? 'inicio'}>
           {titulo && (
-            <p className="px-2 pb-1.5 text-xs font-medium tracking-widest text-foreground-muted uppercase">{titulo}</p>
+            <p className="px-2 pb-1 text-xs font-medium text-foreground-muted">{titulo}</p>
           )}
           <ul className="space-y-0.5">
             {items.map(({ to, label, icon: Icon, end }) => (
@@ -105,22 +119,26 @@ function Navegacion() {
                     end={end}
                     className={({ isActive }) =>
                       cn(
-                        'flex items-center gap-2.5 rounded-md px-2 py-2 text-sm font-medium transition-colors',
+                        'group flex items-center gap-2.5 rounded-md px-2 py-[0.4375rem] text-sm font-medium transition-colors duration-150',
                         isActive
                           ? 'bg-surface-muted text-foreground'
                           : 'text-foreground-muted hover:bg-surface-muted/60 hover:text-foreground',
                       )
                     }
                   >
-                    <Icon className="size-4 shrink-0" aria-hidden="true" />
-                    {label}
+                    {({ isActive }) => (
+                      <>
+                        <Icon className={cn('size-4 shrink-0', isActive && 'text-primary')} aria-hidden="true" />
+                        {label}
+                      </>
+                    )}
                   </NavLink>
                 ) : (
                   // Sin endpoints en el backend todavía: se muestra para entender el flujo, sin enlace.
                   <span className="flex items-center gap-2.5 px-2 py-2 text-sm text-foreground-muted/70">
                     <Icon className="size-4 shrink-0" aria-hidden="true" />
                     {label}
-                    <span className="ml-auto rounded-full border border-border px-1.5 py-px text-[0.65rem] font-medium tracking-wide uppercase">
+                    <span className="ml-auto rounded-full border border-border px-1.5 py-px text-[0.6875rem] font-medium">
                       Próximamente
                     </span>
                   </span>
@@ -132,6 +150,12 @@ function Navegacion() {
       ))}
     </nav>
   )
+}
+
+/** Dos iniciales para el avatar del usuario («Carlos Mendoza» → «CM»). */
+function iniciales(nombre: string | null): string {
+  const partes = (nombre ?? '').trim().split(/\s+/).filter(Boolean)
+  return ((partes[0]?.[0] ?? '') + (partes.length > 1 ? (partes.at(-1)?.[0] ?? '') : '')).toUpperCase() || '·'
 }
 
 /** Menú en pantallas pequeñas: <dialog> modal nativo (foco atrapado, Escape cierra). */
@@ -156,7 +180,7 @@ function MenuMovil({ onClose }: { onClose: () => void }) {
         // Clic fuera del panel, o en un enlace (también el de la página actual).
         if (event.target === event.currentTarget || (event.target as HTMLElement).closest('a')) onClose()
       }}
-      className="m-0 h-full max-h-none w-72 max-w-[85vw] border-r border-border bg-surface p-0 text-foreground backdrop:bg-black/50 lg:hidden"
+      className="u-panel-lateral m-0 h-full max-h-none w-72 max-w-[85vw] border-r border-border bg-surface p-0 text-foreground backdrop:bg-[rgb(20_12_14/0.55)] lg:hidden"
     >
       <div className="relative h-full">
         <button

@@ -118,6 +118,7 @@ export function ColumnChart({ puntos, granularidad, unidad, descripcion }: Colum
               {punto.valor > 0 && (
                 <path
                   d={`M${x},${base} V${base - alto + r} Q${x},${base - alto} ${x + r},${base - alto} H${x + grosor - r} Q${x + grosor},${base - alto} ${x + grosor},${base - alto + r} V${base} Z`}
+                  className="u-columna"
                   fill="var(--nexora-viz-series-1)"
                   fillOpacity={activo === indice ? 0.75 : 1}
                 />

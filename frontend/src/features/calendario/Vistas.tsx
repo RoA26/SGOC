@@ -197,7 +197,7 @@ export function VistaDia({ fecha, porDia, onAbrir }: Omit<VistaProps, 'onIrADia'
     <div className="space-y-6">
       {todoElDia.length > 0 && (
         <section aria-labelledby="todo-el-dia">
-          <h2 id="todo-el-dia" className="mb-2 text-xs font-medium tracking-wide text-foreground-muted uppercase">
+          <h2 id="todo-el-dia" className="mb-2 text-[0.8125rem] font-medium text-foreground-muted">
             Todo el día
           </h2>
           <ul className="grid gap-2 sm:grid-cols-2">
@@ -211,7 +211,7 @@ export function VistaDia({ fecha, porDia, onAbrir }: Omit<VistaProps, 'onIrADia'
       )}
       {conHora.length > 0 && (
         <section aria-labelledby="con-hora">
-          <h2 id="con-hora" className="mb-2 text-xs font-medium tracking-wide text-foreground-muted uppercase">
+          <h2 id="con-hora" className="mb-2 text-[0.8125rem] font-medium text-foreground-muted">
             Con hora
           </h2>
           <ol className="space-y-2 border-l border-border pl-4">

@@ -383,7 +383,7 @@ function Indicadores({ empresaId }: { empresaId: number }) {
 function Indicador({ titulo, valor }: { titulo: string; valor: number | null }) {
   return (
     <div className="u-card p-4" aria-busy={valor === null}>
-      <p className="font-serif text-3xl text-foreground tabular-nums">{valor ?? '—'}</p>
+      <p className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">{valor ?? '—'}</p>
       <p className="mt-1 text-xs text-foreground-muted">{titulo}</p>
     </div>
   )

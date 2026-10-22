@@ -47,13 +47,13 @@ export function DataTable<T>({
       <div className="relative overflow-x-auto">
         <table className="w-full border-collapse text-left text-sm" aria-busy={loading}>
           <caption className="sr-only">{caption}</caption>
-          <thead className="border-b border-border bg-surface-muted/60 text-xs tracking-wide text-foreground-muted uppercase">
+          <thead className="border-b border-border text-xs text-foreground-muted">
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.id}
                   scope="col"
-                  className={cn('px-4 py-3 font-medium whitespace-nowrap', column.align === 'right' && 'text-right', column.className)}
+                  className={cn('h-10 px-4 font-medium whitespace-nowrap', column.align === 'right' && 'text-right', column.className)}
                 >
                   {column.header}
                 </th>
@@ -67,7 +67,7 @@ export function DataTable<T>({
                 <tr key={`skeleton-${index}`}>
                   {columns.map((column) => (
                     <td key={column.id} className={cn('px-4 py-3.5', column.className)}>
-                      <div className="h-4 w-full max-w-40 animate-pulse rounded bg-surface-muted" />
+                      <div className={cn('u-skeleton h-4 w-full max-w-40', column.align === 'right' && 'ml-auto max-w-20')} />
                     </td>
                   ))}
                 </tr>
@@ -75,11 +75,11 @@ export function DataTable<T>({
 
             {!firstLoad &&
               rows.map((row) => (
-                <tr key={rowKey(row)} className="hover:bg-surface-muted/50">
+                <tr key={rowKey(row)} className="transition-colors duration-150 hover:bg-surface-muted/50">
                   {columns.map((column) => (
                     <td
                       key={column.id}
-                      className={cn('px-4 py-3 align-middle', column.align === 'right' && 'text-right', column.className)}
+                      className={cn('px-4 py-3 align-middle', column.align === 'right' && 'text-right tabular-nums', column.className)}
                     >
                       {column.cell(row)}
                     </td>
@@ -102,7 +102,7 @@ export function DataTable<T>({
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2 text-sm text-foreground-muted">
-                      <Inbox className="size-8 opacity-50" aria-hidden="true" />
+                      <Inbox className="size-6 opacity-60" aria-hidden="true" />
                       {emptyMessage}
                     </div>
                   )}

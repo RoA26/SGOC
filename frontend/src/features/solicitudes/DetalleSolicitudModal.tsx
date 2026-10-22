@@ -121,18 +121,18 @@ export function DetalleSolicitudModal({ solicitud, onClose, onRevisada }: Detall
 
         {solicitud.comentarioRevision && (
           <blockquote className="border-l-2 border-border-strong pl-3 text-foreground">
-            <p className="text-xs font-medium tracking-wide text-foreground-muted uppercase">Comentario de la revisión</p>
+            <p className="text-[0.8125rem] font-medium text-foreground-muted">Comentario de la revisión</p>
             <p className="mt-1 whitespace-pre-line">{solicitud.comentarioRevision}</p>
           </blockquote>
         )}
 
         <section>
-          <h3 className="text-xs font-medium tracking-wide text-foreground-muted uppercase">Justificación</h3>
+          <h3 className="text-[0.8125rem] font-medium text-foreground-muted">Justificación</h3>
           <p className="mt-1 whitespace-pre-line text-foreground">{solicitud.justificacion}</p>
         </section>
 
         <section>
-          <h3 className="text-xs font-medium tracking-wide text-foreground-muted uppercase">Productos solicitados</h3>
+          <h3 className="text-[0.8125rem] font-medium text-foreground-muted">Productos solicitados</h3>
           <div className="mt-2 overflow-x-auto rounded-lg border border-border">
             <table className="w-full text-left text-sm">
               <caption className="sr-only">Líneas de la solicitud {solicitud.id}</caption>

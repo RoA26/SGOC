@@ -92,7 +92,7 @@ export function FlujoCompra({ estado, compacto = false }: { estado?: EstadoSolic
               {estadoPaso === 'proximamente' && (
                 <p
                   className={cn(
-                    'text-[0.65rem] font-medium tracking-wide text-foreground-muted uppercase',
+                    'text-xs font-medium text-foreground-muted',
                     compacto && 'hidden sm:block',
                   )}
                 >

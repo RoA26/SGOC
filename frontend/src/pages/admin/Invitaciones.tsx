@@ -93,7 +93,7 @@ export default function Invitaciones() {
         >
           <div aria-hidden="true" className="absolute inset-y-0 left-0 w-1.5 bg-accent" />
 
-          <h2 id="codigo-actual" className="text-xs font-medium tracking-widest text-foreground-muted uppercase">
+          <h2 id="codigo-actual" className="text-[0.8125rem] font-medium text-foreground-muted">
             Código de invitación
           </h2>
           <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3">

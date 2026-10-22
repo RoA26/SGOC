@@ -56,8 +56,8 @@ export default function RecepcionOrden() {
     <>
       <Volver />
       <div className="mt-4 mb-6">
-        <p className="text-xs font-medium tracking-widest text-foreground-muted uppercase">Recepción de mercancía</p>
-        <h1 className="mt-2 flex flex-wrap items-center gap-3 font-serif text-4xl text-foreground">
+        <h1 className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[1.75rem] leading-tight font-semibold tracking-tight text-foreground">
+            <span className="font-normal text-foreground-muted">Recepción de mercancía</span>
           {numeroOrden(entrega.numero)}
           <SituacionEntregaBadge situacion={entrega.situacion} diasRetraso={entrega.diasRetraso} />
           <EstadoOrdenBadge estado={entrega.estadoOrden} />

@@ -39,7 +39,7 @@ export default function Inicio() {
 
   return (
     <>
-      <p className="text-xs font-medium tracking-widest text-foreground-muted uppercase">Panel de compras</p>
+      <p className="text-[0.8125rem] font-medium text-foreground-muted">Panel de compras</p>
       <h1 className="mt-3 font-serif text-5xl text-foreground">
         Hola, <em className="text-accent">{saludo}</em>
       </h1>

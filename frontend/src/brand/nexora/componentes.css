@@ -4,6 +4,9 @@
  *   Define tokens de componente (derivados de tokens.css) y clases base `u-*`.
  *   Se importa en la capa `components` de Tailwind: las utilidades pueden
  *   sobrescribir estas clases cuando haga falta.
+ *
+ *   Movimiento: solo transform y opacity (más color en los estados). Todo lo que
+ *   se desplaza tiene su alternativa en `prefers-reduced-motion` al final.
  * ============================================================================= */
 
 :root {
@@ -11,7 +14,23 @@
   --nexora-control-radius: var(--nexora-radius-md);
   --nexora-control-border: var(--nexora-color-border-strong);
   --nexora-control-bg: var(--nexora-color-surface);
-  --nexora-card-radius: var(--nexora-radius-xl);
+  --nexora-card-radius: var(--nexora-radius-lg);
+}
+
+/* --- Superficies del navegador: también llevan la marca --- */
+::selection {
+  background: var(--nexora-color-selection);
+  color: var(--nexora-color-on-selection);
+}
+
+:where(html) {
+  scrollbar-color: var(--nexora-color-border-strong) transparent;
+  accent-color: var(--nexora-color-primary);
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--nexora-color-focus);
+  outline-offset: 2px;
 }
 
 /* --- Campos de formulario --- */
@@ -33,12 +52,20 @@
   color: var(--nexora-color-text);
   font: inherit;
   font-size: 0.9375rem;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+  caret-color: var(--nexora-color-primary);
+  transition:
+    border-color var(--nexora-dur-fast) ease,
+    box-shadow var(--nexora-dur-base) var(--nexora-ease-out),
+    background-color var(--nexora-dur-fast) ease;
 }
 
 .u-input::placeholder {
+  /* Contraste suficiente también para el texto de ejemplo (≥ 4,5:1). */
   color: var(--nexora-color-text-muted);
-  opacity: 0.7;
+}
+
+.u-input:hover:not(:disabled):not(:focus) {
+  border-color: var(--nexora-color-text-muted);
 }
 
 .u-input:focus {
@@ -51,14 +78,21 @@
   border-color: var(--nexora-color-danger);
 }
 
-.u-input:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
+.u-input[aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--nexora-color-danger) 22%, transparent);
 }
 
+.u-input:disabled {
+  cursor: not-allowed;
+  background: var(--nexora-color-surface-muted);
+  color: var(--nexora-color-text-muted);
+}
+
+/* El mensaje de error aparece con un leve descenso: se asocia al campo que lo provoca. */
 .u-field-error {
   font-size: 0.8125rem;
   color: var(--nexora-color-danger);
+  animation: nexora-entrada-corta var(--nexora-dur-base) var(--nexora-ease-out) both;
 }
 
 /* --- Botones --- */
@@ -74,8 +108,21 @@
   font: inherit;
   font-size: 0.9375rem;
   font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
-  transition: background-color 120ms ease, border-color 120ms ease, opacity 120ms ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--nexora-dur-fast) ease,
+    border-color var(--nexora-dur-fast) ease,
+    color var(--nexora-dur-fast) ease,
+    opacity var(--nexora-dur-fast) ease,
+    transform var(--nexora-dur-fast) var(--nexora-ease-out);
+}
+
+/* Al pulsar, el botón cede un poco: confirma el clic antes de que llegue la respuesta. */
+.u-btn:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .u-btn:focus-visible {
@@ -83,9 +130,16 @@
   outline-offset: 2px;
 }
 
-.u-btn:disabled {
+.u-btn:disabled,
+.u-btn[aria-disabled='true'] {
   cursor: not-allowed;
-  opacity: 0.6;
+  opacity: 0.55;
+}
+
+/* Operación en curso: legible (no se atenúa como un botón deshabilitado) y sin nuevos clics. */
+.u-btn[aria-busy='true'] {
+  cursor: progress;
+  opacity: 0.85;
 }
 
 .u-btn--primary {
@@ -98,34 +152,83 @@
 }
 
 .u-btn--ghost {
-  background: transparent;
+  background: var(--nexora-color-surface);
   border-color: var(--nexora-color-border-strong);
   color: var(--nexora-color-text);
 }
 
 .u-btn--ghost:hover:not(:disabled) {
   background: var(--nexora-color-surface-muted);
+  border-color: var(--nexora-color-text-muted);
 }
 
-/* --- Tarjetas y avisos --- */
+/* Acción de texto (secundaria, sin caja): enlaces de "Ver todas", "Volver"… */
+.u-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: var(--nexora-radius-sm);
+  font-weight: 500;
+  color: var(--nexora-color-text);
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 4px;
+  transition: text-decoration-color var(--nexora-dur-fast) ease;
+}
+
+.u-link:hover {
+  text-decoration-color: currentColor;
+}
+
+.u-link > svg:last-child {
+  transition: transform var(--nexora-dur-base) var(--nexora-ease-out);
+}
+
+.u-link:hover > svg:last-child {
+  transform: translateX(2px);
+}
+
+/* --- Tarjetas y avisos ---
+ * Planas: un borde y un paso de tono sobre el fondo. La sombra queda para lo que flota. */
 .u-card {
   border: 1px solid var(--nexora-color-border);
   border-radius: var(--nexora-card-radius);
   background: var(--nexora-color-surface);
-  box-shadow: var(--nexora-shadow-card);
 }
 
+/* Tarjeta que es un enlace o un botón: el borde se refuerza al pasar y cede al pulsar. */
+.u-card-interactiva {
+  transition:
+    border-color var(--nexora-dur-fast) ease,
+    background-color var(--nexora-dur-fast) ease,
+    transform var(--nexora-dur-fast) var(--nexora-ease-out);
+}
+
+.u-card-interactiva:hover {
+  border-color: var(--nexora-color-border-strong);
+}
+
+.u-card-interactiva:active {
+  transform: scale(0.995);
+}
+
+/* Los avisos entran al aparecer: confirmaciones y errores no pasan desapercibidos. */
 .u-alert {
   border: 1px solid transparent;
   border-radius: var(--nexora-radius-md);
   padding: 0.75rem 0.875rem;
   font-size: 0.875rem;
+  animation: nexora-entrada-corta var(--nexora-dur-slow) var(--nexora-ease-out) both;
 }
 
 .u-alert--error {
   border-color: var(--nexora-color-danger-border);
   background: var(--nexora-color-danger-surface);
   color: var(--nexora-color-danger);
+  /* Un error recién mostrado se sacude una vez, sin repetirse. */
+  animation:
+    nexora-entrada-corta var(--nexora-dur-slow) var(--nexora-ease-out) both,
+    nexora-aviso-error 360ms var(--nexora-ease-in-out) 80ms;
 }
 
 .u-alert--success {
@@ -138,4 +241,165 @@
   border-color: var(--nexora-color-warning-border);
   background: var(--nexora-color-warning-surface);
   color: var(--nexora-color-warning);
+}
+
+/* El icono de una confirmación se dibuja con un pequeño impulso. */
+.u-alert--success > svg:first-child {
+  animation: nexora-confirmacion 420ms var(--nexora-ease-out) 60ms both;
+}
+
+/* --- Carga --- */
+/* Hueco del tamaño final, con un pulso de opacidad (sin brillo ni gradiente). */
+.u-skeleton {
+  border-radius: var(--nexora-radius-sm);
+  background: var(--nexora-color-surface-muted);
+  animation: nexora-pulso 1.4s ease-in-out infinite;
+}
+
+/* --- Entrada de una vista ---
+ * Se aplica al contenedor de la página al cambiar de ruta: un ascenso corto desde un estado ya
+ * visible en gran parte (nunca contenido oculto si la animación no corre). */
+.u-vista {
+  animation: nexora-entrada-vista var(--nexora-dur-slow) var(--nexora-ease-out) both;
+}
+
+/* --- Gráficas: las barras crecen desde su base al cargar los datos (una vez) --- */
+.u-barra {
+  transform-origin: left center;
+  animation: nexora-barra-h 520ms var(--nexora-ease-out) both;
+}
+
+.u-columna {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: nexora-barra-v 520ms var(--nexora-ease-out) both;
+}
+
+@keyframes nexora-barra-h {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes nexora-barra-v {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+/* --- Diálogos (elemento <dialog> nativo) --- */
+dialog.u-dialogo[open] {
+  animation: nexora-dialogo var(--nexora-dur-base) var(--nexora-ease-out) both;
+}
+
+dialog.u-dialogo[open]::backdrop {
+  animation: nexora-fundido var(--nexora-dur-base) ease both;
+}
+
+/* Panel lateral del menú móvil: entra desde su borde. */
+dialog.u-panel-lateral[open] {
+  animation: nexora-panel var(--nexora-dur-slow) var(--nexora-ease-out) both;
+}
+
+dialog.u-panel-lateral[open]::backdrop {
+  animation: nexora-fundido var(--nexora-dur-base) ease both;
+}
+
+@keyframes nexora-entrada-corta {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes nexora-entrada-vista {
+  from {
+    opacity: 0.4;
+    transform: translateY(var(--nexora-rise));
+  }
+}
+
+@keyframes nexora-dialogo {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+@keyframes nexora-panel {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes nexora-fundido {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes nexora-aviso-error {
+  25% {
+    transform: translateX(-3px);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+  75% {
+    transform: translateX(-1px);
+  }
+}
+
+@keyframes nexora-confirmacion {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.12);
+  }
+}
+
+@keyframes nexora-pulso {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* Movimiento reducido: sin desplazamientos ni sacudidas. Se conservan los cambios de color y de
+ * opacidad que confirman una acción, más breves. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+
+  .u-btn:active:not(:disabled),
+  .u-card-interactiva:active {
+    transform: none;
+  }
+
+  .u-link:hover > svg:last-child {
+    transform: none;
+  }
+
+  .u-vista,
+  .u-alert,
+  .u-alert--error,
+  .u-field-error,
+  dialog.u-dialogo[open],
+  dialog.u-panel-lateral[open] {
+    animation: nexora-fundido var(--nexora-dur-fast) ease both;
+  }
+
+  .u-alert--success > svg:first-child {
+    animation: none;
+  }
+
+  .u-skeleton,
+  .u-barra,
+  .u-columna {
+    animation: none;
+  }
 }

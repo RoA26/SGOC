@@ -52,7 +52,7 @@
   /* --- Gráficas ---
    * Serie única (categórica, ranura 1). Validada con el validador de paletas de la guía de
    * visualización contra la superficie de cada modo: banda de luminosidad, croma y contraste ≥ 3:1. */
-  --nexora-viz-series-1: #2a78d6;
+  --nexora-viz-series-1: #7d2638; /* borgoña de datos: 8,9:1 sobre la superficie (mín. 3:1 para marcas) */
   /* Estado de existencias (siempre con icono y texto, nunca solo color). */
   --nexora-color-warning: #8a5a00;
   --nexora-color-warning-surface: #fff7e6;
@@ -64,7 +64,23 @@
   --nexora-radius-lg: 14px;
   --nexora-radius-xl: 22px;
   --nexora-shadow-sm: 0 1px 2px rgb(28 20 22 / 0.06);
+  /* Solo para lo que flota sobre la página (diálogos, menús, tooltips): las tarjetas en reposo
+   * se separan del fondo con un borde y un paso de tono, nunca con sombra. */
   --nexora-shadow-card: 0 1px 2px rgb(28 20 22 / 0.04), 0 12px 32px -12px rgb(28 20 22 / 0.18);
+
+  /* --- Movimiento ---
+   * Duraciones cortas para el trabajo diario; las salidas, más rápidas que las entradas.
+   * Con prefers-reduced-motion se anulan los desplazamientos (ver componentes.css). */
+  --nexora-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --nexora-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --nexora-dur-fast: 120ms;
+  --nexora-dur-base: 200ms;
+  --nexora-dur-slow: 320ms;
+  --nexora-rise: 8px;
+
+  /* Selección de texto con el borgoña de la marca. */
+  --nexora-color-selection: #6b1e2e;
+  --nexora-color-on-selection: #ffffff;
 }
 
 /* Tema oscuro: sigue la preferencia del sistema salvo que se fuerce data-theme="light". */
@@ -89,10 +105,12 @@
     --nexora-color-success-surface: #0f2a1d;
     --nexora-color-success-border: #1f5a3c;
     --nexora-color-focus: #d4b47a;
-    --nexora-viz-series-1: #3987e5;
+    --nexora-viz-series-1: #e09aa8; /* 7,8:1 sobre la superficie oscura */
     --nexora-color-warning: #f5c26b;
     --nexora-color-warning-surface: #33260d;
     --nexora-color-warning-border: #6b4f16;
     --nexora-shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 16px 40px -16px rgb(0 0 0 / 0.6);
+    --nexora-color-selection: #e09aa8;
+    --nexora-color-on-selection: #1e181a;
   }
 }

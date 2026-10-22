@@ -15,8 +15,8 @@ interface StatTileProps {
 }
 
 /**
- * Indicador numérico: la cifra es la gráfica. Cifras proporcionales (no tabulares) en la misma
- * tipografía sans de la interfaz.
+ * Indicador numérico: la cifra es la gráfica, en cifras tabulares de la tipografía de la interfaz.
+ * Mientras carga, un hueco del tamaño de la cifra (la tarjeta no cambia de alto al llegar el dato).
  */
 export function StatTile({ etiqueta, valor, detalle, icono: Icono, claseIcono, to }: StatTileProps) {
   const contenido = (
@@ -25,12 +25,16 @@ export function StatTile({ etiqueta, valor, detalle, icono: Icono, claseIcono, t
         {Icono && <Icono className={cn('size-4 shrink-0', claseIcono ?? 'text-foreground-muted')} aria-hidden="true" />}
         {etiqueta}
       </p>
-      <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{valor ?? '—'}</p>
+      {valor === null ? (
+        <span className="u-skeleton mt-2.5 block h-7 w-24" aria-hidden="true" />
+      ) : (
+        <p className="mt-2 text-[1.75rem] leading-tight font-semibold tracking-tight text-foreground tabular-nums">{valor}</p>
+      )}
       {detalle && <p className="mt-1 text-xs text-foreground-muted">{detalle}</p>}
     </>
   )
   return to ? (
-    <Link to={to} className="u-card group block p-5 transition-colors hover:border-border-strong" aria-busy={valor === null}>
+    <Link to={to} className="u-card u-card-interactiva group block p-5" aria-busy={valor === null}>
       {contenido}
     </Link>
   ) : (

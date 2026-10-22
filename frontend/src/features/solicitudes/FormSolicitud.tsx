@@ -151,7 +151,7 @@ export function FormSolicitud({ onClose, onSaved }: FormSolicitudProps) {
           {/* Encabezado visual de la tabla de líneas (en móvil cada campo muestra su etiqueta). */}
           <div
             aria-hidden="true"
-            className="hidden grid-cols-[minmax(0,1fr)_7rem_8rem_2.5rem] gap-3 px-1 text-xs font-medium tracking-wide text-foreground-muted uppercase sm:grid"
+            className="hidden grid-cols-[minmax(0,1fr)_7rem_8rem_2.5rem] gap-3 px-1 text-[0.8125rem] font-medium text-foreground-muted sm:grid"
           >
             <span>Producto</span>
             <span>Cantidad</span>
