@@ -1,5 +1,5 @@
 import { LogOut, Menu, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { BrandLogo } from '@/components/BrandLogo'
 import { ETIQUETA_ROL, useContextoEmpresa, usePermisos } from '@/features/auth/permisos'
@@ -8,6 +8,7 @@ import { AvisoSupervision } from '@/features/empresa/AvisoSupervision'
 import { ContextoEmpresaPanel } from '@/features/empresa/ContextoEmpresaPanel'
 import { cn } from '@/lib/cn'
 import { useAuthStore } from '@/store/authStore'
+import { CargandoVista } from './CargandoVista'
 import { construirNavegacion } from './navegacion'
 
 /**
@@ -53,7 +54,10 @@ export function AppLayout() {
         <AvisoSupervision />
         {/* Cada cambio de ruta entra con un ascenso corto: la vista nueva se distingue de la anterior. */}
         <div key={pathname} className="u-vista">
-          <Outlet key={claveContexto} />
+          {/* Al descargar un módulo, solo el contenido espera: el menú lateral no parpadea. */}
+          <Suspense fallback={<CargandoVista />}>
+            <Outlet key={claveContexto} />
+          </Suspense>
         </div>
       </main>
     </div>

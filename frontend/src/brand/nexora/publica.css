@@ -1,0 +1,152 @@
+/* =============================================================================
+ * Nexora · Página pública
+ *
+ *   Movimiento de la página de bienvenida: entrada escalonada de las secciones,
+ *   cambio de vista (fundido corto), fundido lento del escenario y el control
+ *   deslizante del recorrido. Solo transform y opacity; ver la alternativa de
+ *   movimiento reducido al final.
+ * ============================================================================= */
+
+/* Entrada de una sección: sus hijos directos suben 24 px con 70 ms de escalón. Solo se ocultan
+ * cuando el script lo pide (data-revelar="pendiente"); sin script, todo se ve desde el inicio. */
+.u-revelar > * {
+  transition:
+    opacity 600ms var(--nexora-ease-out),
+    transform 600ms var(--nexora-ease-out);
+}
+
+.u-revelar[data-revelar='pendiente'] > * {
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+.u-revelar[data-revelar='visible'] > :nth-child(2) {
+  transition-delay: 70ms;
+}
+
+.u-revelar[data-revelar='visible'] > :nth-child(3) {
+  transition-delay: 140ms;
+}
+
+.u-revelar[data-revelar='visible'] > :nth-child(n + 4) {
+  transition-delay: 210ms;
+}
+
+/* Cambio de contenido elegido por la persona (etapa, documento): fundido corto con un leve ascenso. */
+.u-cambio {
+  animation: nexora-cambio var(--nexora-dur-base) var(--nexora-ease-out) both;
+}
+
+@keyframes nexora-cambio {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* Fundido lento del escenario: como la luz que cambia en una habitación. */
+.u-fundido {
+  transition: opacity 1.6s var(--nexora-ease-in-out);
+}
+
+/* Control deslizante del recorrido: pista sólida de 8 px, el tramo recorrido en crema y un
+ * mando cuadrado en el dorado de la marca (sobre el panel oscuro). */
+.u-rango {
+  appearance: none;
+  height: 2.5rem;
+  background: transparent;
+  cursor: pointer;
+}
+
+.u-rango::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 0;
+  background: linear-gradient(
+    to right,
+    var(--nexora-color-brand-panel-text) var(--avance, 0%),
+    color-mix(in oklab, var(--nexora-color-brand-panel-text) 22%, transparent) var(--avance, 0%)
+  );
+}
+
+.u-rango::-moz-range-track {
+  height: 8px;
+  background: color-mix(in oklab, var(--nexora-color-brand-panel-text) 22%, transparent);
+}
+
+.u-rango::-moz-range-progress {
+  height: 8px;
+  background: var(--nexora-color-brand-panel-text);
+}
+
+.u-rango::-webkit-slider-thumb {
+  appearance: none;
+  width: 32px;
+  height: 32px;
+  margin-top: -12px;
+  border: 0;
+  border-radius: 0;
+  background: var(--nexora-color-brand-panel-accent);
+  transition: transform var(--nexora-dur-fast) var(--nexora-ease-out);
+}
+
+.u-rango::-moz-range-thumb {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 0;
+  background: var(--nexora-color-brand-panel-accent);
+  transition: transform var(--nexora-dur-fast) var(--nexora-ease-out);
+}
+
+.u-rango:active::-webkit-slider-thumb {
+  transform: scale(0.92);
+}
+
+.u-rango:active::-moz-range-thumb {
+  transform: scale(0.92);
+}
+
+.u-rango:focus-visible {
+  outline: 2px solid var(--nexora-color-brand-panel-accent);
+  outline-offset: 4px;
+}
+
+@media (pointer: coarse) {
+  .u-rango::-webkit-slider-thumb {
+    width: 40px;
+    height: 40px;
+    margin-top: -16px;
+  }
+
+  .u-rango::-moz-range-thumb {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .u-revelar > * {
+    transition: opacity var(--nexora-dur-fast) ease;
+  }
+
+  .u-revelar[data-revelar='pendiente'] > * {
+    transform: none;
+  }
+
+  .u-revelar[data-revelar='visible'] > * {
+    transition-delay: 0ms !important;
+  }
+
+  .u-cambio {
+    animation: nexora-fundido var(--nexora-dur-fast) ease both;
+  }
+
+  .u-fundido {
+    transition-duration: var(--nexora-dur-fast);
+  }
+
+  .u-rango::-webkit-slider-thumb,
+  .u-rango::-moz-range-thumb {
+    transition: none;
+  }
+}

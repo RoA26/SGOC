@@ -3,6 +3,7 @@
 /* Marca Nexora: tokens globales y componentes base (capa "components"). */
 @import './brand/nexora/tokens.css';
 @import './brand/nexora/componentes.css' layer(components);
+@import './brand/nexora/publica.css' layer(components);
 
 /* Tailwind v4 lee el tema desde el archivo de configuración en TypeScript. */
 @config '../tailwind.config.ts';
@@ -15,6 +16,13 @@
 
   body {
     @apply bg-background font-sans text-foreground;
+  }
+
+  /* Los enlaces a secciones (#flujo) se desplazan suave, salvo con movimiento reducido. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
   }
 
   /* Con un modal abierto, la página de fondo no se desplaza. */

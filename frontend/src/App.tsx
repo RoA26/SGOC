@@ -1,10 +1,12 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { CargandoVista } from '@/components/layout/CargandoVista'
 import { ROLES_EMPRESA, ROLES_GESTION, ROLES_INVITACION, ROLES_PLATAFORMA } from '@/features/auth/permisos'
 import { RutaConRol } from '@/features/auth/RutaConRol'
 import { RutaInvitado } from '@/features/auth/RutaInvitado'
 import { RutaProtegida } from '@/features/auth/RutaProtegida'
+import Bienvenida from '@/pages/Bienvenida'
 import Inicio from '@/pages/Inicio'
 import Login from '@/pages/Login'
 import Perfil from '@/pages/Perfil'
@@ -35,14 +37,21 @@ const Reportes = lazy(() => import('@/pages/Reportes'))
 export default function App() {
   return (
     <BrowserRouter>
-      <Suspense fallback={<p className="p-10 text-sm text-foreground-muted">Cargando…</p>}>
+      <Suspense
+        fallback={
+          <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+            <CargandoVista />
+          </div>
+        }
+      >
         <Routes>
           <Route element={<RutaInvitado />}>
             <Route path="/login" element={<Login />} />
             <Route path="/registro" element={<Registro />} />
           </Route>
 
-          <Route element={<RutaProtegida />}>
+          {/* En `/`, sin sesión: la página pública; con sesión: el panel de inicio. */}
+          <Route element={<RutaProtegida publicaEnRaiz={<Bienvenida />} />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<Inicio />} />
               <Route path="/solicitudes" element={<Solicitudes />} />

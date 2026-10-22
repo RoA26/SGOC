@@ -31,6 +31,7 @@ interface CuentaPendiente {
  * Alta de un trabajador con una de las dos vías que ofrece el backend:
  * - Código de invitación de un solo uso: la cuenta queda ACTIVA y se inicia sesión. El código
  *   puede llegar en el enlace que comparte el administrador: /registro?codigo=7KQ2-M9XA-4HPR-T3VW.
+ *   Con `?via=empresa`, el código del enlace se toma como código de la empresa.
  * - Código de la empresa: la cuenta queda PENDIENTE hasta que su administrador la apruebe en
  *   «Personal»; no se intenta iniciar sesión.
  * Rol, estado y empresa los decide el servidor a partir del código.
@@ -40,6 +41,8 @@ export default function Registro() {
   const [searchParams] = useSearchParams()
   const setSession = useAuthStore((state) => state.setSession)
   const codigoEnlace = searchParams.get('codigo') ?? ''
+  // La página pública puede abrir directamente la vía del código de la empresa (?via=empresa).
+  const viaEnlace: ViaRegistro = searchParams.get('via') === 'empresa' ? 'empresa' : 'invitacion'
   const [pendiente, setPendiente] = useState<CuentaPendiente | null>(null)
   const {
     control,
@@ -54,9 +57,9 @@ export default function Registro() {
     // El campo del código cambia con la vía: el foco se lleva a mano según el orden visual.
     shouldFocusError: false,
     defaultValues: {
-      via: 'invitacion',
-      codigoInvitacion: codigoEnlace,
-      codigoEmpresa: '',
+      via: viaEnlace,
+      codigoInvitacion: viaEnlace === 'invitacion' ? codigoEnlace : '',
+      codigoEmpresa: viaEnlace === 'empresa' ? codigoEnlace : '',
       nombres: '',
       apellidos: '',
       username: '',

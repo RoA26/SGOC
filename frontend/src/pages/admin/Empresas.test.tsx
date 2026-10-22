@@ -38,6 +38,8 @@ describe('Empresas (SUPER_ADMIN): empresas demo', () => {
   it('marca como «Demo» solo las empresas de demostración', async () => {
     renderizar()
     const tabla = await screen.findByRole('table', { name: 'Empresas registradas' })
+    // La primera carga muestra filas de esqueleto: se espera a los datos antes de contar filas.
+    await within(tabla).findByText('Mercado Verde S.A.S.')
     const filas = within(tabla).getAllByRole('row').slice(1)
     expect(filas).toHaveLength(2)
     const [filaReal, filaDemo] = filas as [HTMLElement, HTMLElement]

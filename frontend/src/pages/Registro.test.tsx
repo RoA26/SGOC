@@ -142,4 +142,11 @@ describe('Registro: invitación o código de empresa', () => {
     expect(registrarMock.mock.calls[0]?.[0]).not.toHaveProperty('codigoEmpresa')
     expect(loginMock).toHaveBeenCalledWith({ username: 'ana.ruiz', password: 'ClaveSegura2026' })
   })
+
+  it('con ?via=empresa abre la vía del código de la empresa con el código del enlace', () => {
+    renderizar('/registro?via=empresa&codigo=ABCD-EFGH-JKLM-NPQR')
+    expect(screen.getByLabelText(/Tengo el código de mi empresa/)).toBeChecked()
+    expect(screen.getByLabelText(/^Código de tu empresa/)).toHaveValue('ABCD-EFGH-JKLM-NPQR')
+    expect(screen.queryByLabelText(/^Código de invitación/)).not.toBeInTheDocument()
+  })
 })
