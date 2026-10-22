@@ -41,6 +41,8 @@ export default {
           'panel-foreground': token('color-brand-panel-text'),
           'panel-muted': token('color-brand-panel-muted'),
           'panel-accent': token('color-brand-panel-accent'),
+          field: token('color-brand-field'),
+          'field-foreground': token('color-brand-field-text'),
         },
         danger: {
           DEFAULT: token('color-danger'),

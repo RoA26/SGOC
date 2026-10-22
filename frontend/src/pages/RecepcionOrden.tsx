@@ -169,7 +169,7 @@ export default function RecepcionOrden() {
         )}
         {!registrando && (
           <div className="overflow-x-auto">
-            <table className={`w-full text-left text-sm ${cargando ? 'opacity-60' : ''}`}>
+            <table className={`w-full min-w-[32rem] text-left text-sm ${cargando ? 'opacity-60' : ''}`}>
               <caption className="sr-only">Líneas de la orden</caption>
               <thead className="text-xs text-foreground-muted">
                 <tr>

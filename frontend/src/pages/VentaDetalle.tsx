@@ -108,7 +108,7 @@ export default function VentaDetalle() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="u-card overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[36rem] text-sm">
             <caption className="sr-only">Líneas de la venta</caption>
             <thead className="border-b border-border text-xs text-foreground-muted">
               <tr>

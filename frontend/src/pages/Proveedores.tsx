@@ -149,7 +149,7 @@ export default function Proveedores() {
 
       <p role="status" aria-live="polite" className="min-h-0">
         {aviso && (
-          <span className="mb-4 flex items-center gap-2 rounded-md border border-success/30 bg-success/10 px-4 py-2.5 text-sm text-success">
+          <span className="u-alert u-alert--success mb-4 flex items-center gap-2">
             <CheckCircle2 className="size-4" aria-hidden="true" />
             {aviso}
           </span>

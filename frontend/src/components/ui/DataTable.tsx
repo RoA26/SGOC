@@ -45,7 +45,7 @@ export function DataTable<T>({
   return (
     <div className="u-card overflow-hidden">
       <div className="relative overflow-x-auto">
-        <table className="w-full border-collapse text-left text-sm" aria-busy={loading}>
+        <table className="w-full min-w-[40rem] border-collapse text-left text-sm" aria-busy={loading}>
           <caption className="sr-only">{caption}</caption>
           <thead className="border-b border-border text-xs text-foreground-muted">
             <tr>

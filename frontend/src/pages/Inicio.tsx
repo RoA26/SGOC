@@ -39,11 +39,8 @@ export default function Inicio() {
 
   return (
     <>
-      <p className="text-[0.8125rem] font-medium text-foreground-muted">Panel de compras</p>
-      <h1 className="mt-3 font-serif text-5xl text-foreground">
-        Hola, <em className="text-accent">{saludo}</em>
-      </h1>
-      <p className="mt-2 text-sm text-foreground-muted">{contexto}</p>
+      <h1 className="font-serif text-[2.75rem] leading-tight text-foreground">Hola, {saludo}</h1>
+      <p className="mt-1 text-sm text-foreground-muted">{contexto}</p>
 
       {!datosCompletos && (
         <p role="note" className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border bg-surface-muted/60 px-4 py-3 text-sm text-foreground-muted">
@@ -97,7 +94,7 @@ export default function Inicio() {
           <h2 id="recientes" className="font-medium text-foreground">
             {propias ? 'Mis solicitudes recientes' : 'Actividad reciente'}
           </h2>
-          <Link to="/solicitudes" className="inline-flex items-center gap-1 text-sm font-medium text-foreground hover:underline">
+          <Link to="/solicitudes" className="u-link text-sm">
             Ver todas
             <ArrowRight className="size-4" aria-hidden="true" />
           </Link>
@@ -129,7 +126,17 @@ function ActividadReciente({
   mostrarSolicitante: boolean
 }) {
   if (resumen.estado === 'cargando') {
-    return <p className="mt-3 text-sm text-foreground-muted">Cargando…</p>
+    return (
+      <div className="u-card mt-3 divide-y divide-border" role="status" aria-label="Cargando solicitudes recientes">
+        {[0, 1, 2].map((fila) => (
+          <div key={fila} className="flex items-center gap-4 px-5 py-3.5">
+            <span className="u-skeleton h-3 w-8" />
+            <span className="u-skeleton h-4 flex-1" />
+            <span className="u-skeleton h-4 w-20" />
+          </div>
+        ))}
+      </div>
+    )
   }
   if (resumen.estado === 'error') {
     return (
@@ -163,7 +170,7 @@ function ActividadReciente({
           <li key={solicitud.id}>
             <Link
               to={`/solicitudes?ver=${solicitud.id}`}
-              className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 hover:bg-surface-muted/50"
+              className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 transition-colors duration-150 hover:bg-surface-muted/50"
             >
               <span className="font-mono text-xs text-foreground-muted">#{solicitud.id}</span>
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">

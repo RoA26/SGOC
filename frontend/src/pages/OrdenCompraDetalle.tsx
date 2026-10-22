@@ -268,7 +268,7 @@ export default function OrdenCompraDetalle() {
           Líneas de la orden
         </h2>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[36rem] text-left text-sm">
             <thead className="border-b border-border text-xs text-foreground-muted">
               <tr>
                 <th scope="col" className="px-4 py-3 font-medium">

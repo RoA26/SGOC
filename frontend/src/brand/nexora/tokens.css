@@ -39,6 +39,9 @@
   --nexora-color-brand-panel-text: #f5efe6; /* 15,3:1 */
   --nexora-color-brand-panel-muted: #b9aca5; /* 7,9:1 */
   --nexora-color-brand-panel-accent: #c9a86a; /* --gold: 7,7:1 sobre el panel */
+  /* Campo borgoña de la marca (siempre el mismo, en claro y en oscuro): cierre de la página pública. */
+  --nexora-color-brand-field: #6b1e2e;
+  --nexora-color-brand-field-text: #ffffff; /* 11,4:1 */
 
   /* --- Estados --- */
   --nexora-color-danger: #b42318;

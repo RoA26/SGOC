@@ -412,7 +412,7 @@ function Cierre() {
   const titulo = useId()
   return (
     <section aria-labelledby={titulo} className="mx-auto mt-28 max-w-[88rem] px-4 sm:px-6 lg:mt-40">
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-10 rounded-xl bg-primary px-6 py-12 text-primary-foreground sm:px-10 lg:min-h-[80svh] lg:grid-cols-12 lg:items-center lg:px-14">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-10 rounded-xl bg-brand-field px-6 py-12 text-brand-field-foreground sm:px-10 lg:min-h-[80svh] lg:grid-cols-12 lg:items-center lg:px-14">
         <div className="lg:col-span-6 lg:self-end">
           <h2 id={titulo} className="font-serif text-[clamp(3rem,7vw,6.5rem)] leading-[0.92] text-balance">
             Empieza con tu código.
