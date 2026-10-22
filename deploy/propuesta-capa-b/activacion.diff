@@ -1,6 +1,41 @@
+diff --git a/.env.example b/.env.example
+index edf4be7..82e5ddf 100644
+--- a/.env.example
++++ b/.env.example
+@@ -10,6 +10,11 @@ APP_DOMAIN=rrtf.duckdns.org
+ #CORS_ORIGENES_ADICIONALES=
+ # Puerto publicado por Nginx. Con TLS en el host: HTTP_PORT=127.0.0.1:8080
+ HTTP_PORT=80
++# Capa B (límites por IP en Nginx). Con proxy TLS en el host: su dirección tal como la ve Nginx,
++# verificada en el VPS, y HTTP_PORT=127.0.0.1:8080. Sin proxy: 127.0.0.1. Sin valor, no arranca.
++NGINX_PROXY_CONFIANZA=
++# on = solo registra lo que rechazaría (empezar así); off = aplica los límites.
++NGINX_LIMITE_MODO_PRUEBA=on
+ 
+ # --- PostgreSQL ---
+ POSTGRES_DB=sgp
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 752cfcf..1c1a982 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -72,6 +72,12 @@ services:
+     depends_on:
+       backend:
+         condition: service_healthy
++    environment:
++      # Capa B. Dirección desde la que el proxy TLS del host conecta con Nginx (verificada en el
++      # VPS), o 127.0.0.1 si Nginx recibe directamente a los clientes. Sin valor, no arranca.
++      NGINX_PROXY_CONFIANZA: ${NGINX_PROXY_CONFIANZA:?Define NGINX_PROXY_CONFIANZA en .env (deploy/propuesta-capa-b/README.md)}
++      # "on": solo registra lo que rechazaría (puesta en marcha); "off": aplica los límites.
++      NGINX_LIMITE_MODO_PRUEBA: ${NGINX_LIMITE_MODO_PRUEBA:-on}
+     ports:
+       # 80 por defecto. Cuando el TLS se termine en el host, usa p. ej. HTTP_PORT=127.0.0.1:8080.
+       - "${HTTP_PORT:-80}:80"
+diff --git a/frontend/Dockerfile b/frontend/Dockerfile
+index fcdd92a..cd8bb98 100644
 --- a/frontend/Dockerfile
 +++ b/frontend/Dockerfile
-@@ -21,7 +21,18 @@
+@@ -21,7 +21,18 @@ RUN npm run build
  # ---------- Etapa 2: Nginx sirve los estáticos y hace de proxy de /api ----------
  FROM nginx:1.30-alpine
  
@@ -20,35 +55,9 @@
  COPY --from=build /app/dist /usr/share/nginx/html
  
  EXPOSE 80
---- a/docker-compose.yml
-+++ b/docker-compose.yml
-@@ -69,6 +69,12 @@
-     depends_on:
-       backend:
-         condition: service_healthy
-+    environment:
-+      # Capa B. Dirección desde la que el proxy TLS del host conecta con Nginx (verificada en el
-+      # VPS), o 127.0.0.1 si Nginx recibe directamente a los clientes. Sin valor, no arranca.
-+      NGINX_PROXY_CONFIANZA: ${NGINX_PROXY_CONFIANZA:?Define NGINX_PROXY_CONFIANZA en .env (deploy/propuesta-capa-b/README.md)}
-+      # "on": solo registra lo que rechazaría (puesta en marcha); "off": aplica los límites.
-+      NGINX_LIMITE_MODO_PRUEBA: ${NGINX_LIMITE_MODO_PRUEBA:-on}
-     ports:
-       # 80 por defecto. Cuando el TLS se termine en el host, usa p. ej. HTTP_PORT=127.0.0.1:8080.
-       - "${HTTP_PORT:-80}:80"
---- a/.env.example
-+++ b/.env.example
-@@ -6,6 +6,11 @@
- APP_DOMAIN=rrtf.duckdns.org
- # Puerto publicado por Nginx. Con TLS en el host: HTTP_PORT=127.0.0.1:8080
- HTTP_PORT=80
-+# Capa B (límites por IP en Nginx). Con proxy TLS en el host: su dirección tal como la ve Nginx,
-+# verificada en el VPS, y HTTP_PORT=127.0.0.1:8080. Sin proxy: 127.0.0.1. Sin valor, no arranca.
-+NGINX_PROXY_CONFIANZA=
-+# on = solo registra lo que rechazaría (empezar así); off = aplica los límites.
-+NGINX_LIMITE_MODO_PRUEBA=on
- 
- # --- PostgreSQL ---
- POSTGRES_DB=sgp
+diff --git a/frontend/nginx.conf b/frontend/nginx.conf
+deleted file mode 100644
+index 2e5ff10..0000000
 --- a/frontend/nginx.conf
 +++ /dev/null
 @@ -1,88 +0,0 @@
@@ -140,6 +149,9 @@
 -        try_files $uri $uri/ /index.html;
 -    }
 -}
+diff --git a/frontend/nginx.conf.template b/frontend/nginx.conf.template
+new file mode 100644
+index 0000000..7883fe8
 --- /dev/null
 +++ b/frontend/nginx.conf.template
 @@ -0,0 +1,137 @@

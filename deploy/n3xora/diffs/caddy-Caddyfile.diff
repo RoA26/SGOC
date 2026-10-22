@@ -1,0 +1,28 @@
+# Diff CANDIDATO del Caddyfile del host. La base es el bloque que documenta README.md ("TLS en el host"),
+# NO el archivo real de Aatenea (no verificado). Compáralo con /etc/caddy/Caddyfile antes de aplicar.
+--- a/etc/caddy/Caddyfile (supuesto: README.md)
++++ b/etc/caddy/Caddyfile
+@@ -1,3 +1,23 @@
+ rrtf.duckdns.org {
+     reverse_proxy 127.0.0.1:8080
+ }
++
++# =============================================================================
++# Nexora en n3xora.duckdns.org · bloque para el Caddyfile del host (CANDIDATO, no aplicado)
++#
++# Se AÑADE al Caddyfile existente; el bloque de rrtf.duckdns.org no se toca. Requisitos: el DNS de
++# n3xora.duckdns.org apunta al VPS y 80/443 llegan a Caddy (certificado automático de Let's
++# Encrypt por HTTP-01 o TLS-ALPN-01). Caddy redirige http → https por sí mismo.
++# 127.0.0.1:8080 es el ejemplo del README: sustitúyelo por el HTTP_PORT verificado en Aatenea
++# (el mismo destino que ya usa rrtf.duckdns.org: los dos nombres sirven el mismo despliegue).
++# =============================================================================
++n3xora.duckdns.org {
++	header {
++		# HSTS prudente al principio (1 día); subir a 31536000 tras unos días sin incidencias.
++		Strict-Transport-Security "max-age=86400"
++		-Server
++	}
++	# Caddy conserva Host y fija X-Forwarded-Proto/Host. X-Forwarded-For lleva la IP real del
++	# cliente: sin trusted_proxies, Caddy ignora la que envíe el propio cliente.
++	reverse_proxy 127.0.0.1:8080
++}

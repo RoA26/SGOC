@@ -1,5 +1,5 @@
 # =============================================================================
-# Nexora - Orquestación completa (rrtf.duckdns.org)
+# Nexora - Orquestación completa (rrtf.duckdns.org; n3xora.duckdns.org en preparación)
 #
 #   cp .env.example .env    # rellena las variables obligatorias
 #   docker compose up -d --build
@@ -44,7 +44,10 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en .env (openssl rand -base64 64)}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-1h}
-      CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN:-rrtf.duckdns.org},http://localhost:5173
+      # Origen principal (APP_DOMAIN) más los adicionales, separados por comas. Sin
+      # CORS_ORIGENES_ADICIONALES el resultado es el de siempre (APP_DOMAIN y Vite en local).
+      # Transición a n3xora: APP_DOMAIN=n3xora.duckdns.org y CORS_ORIGENES_ADICIONALES=https://rrtf.duckdns.org
+      CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN:-rrtf.duckdns.org},${CORS_ORIGENES_ADICIONALES:-http://localhost:5173}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
