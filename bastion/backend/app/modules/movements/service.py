@@ -1,8 +1,9 @@
 """Registro de movimientos de inventario.
 
-Toda modificación de `stock` pasa por aquí, dentro de una transacción que bloquea la fila
-de saldo (SELECT ... FOR UPDATE). Así dos peticiones simultáneas sobre el mismo producto y
-bodega se serializan y no pueden dejar el saldo negativo ni perder actualizaciones.
+Toda modificación de `stock` y de `products.avg_cost` pasa por aquí, en una transacción que
+bloquea primero la fila del producto y después la del saldo (SELECT ... FOR UPDATE), en ese
+orden fijo, como `registrar_movimiento()` de Poliway. Así las peticiones simultáneas sobre un
+mismo producto se serializan: no dejan saldos negativos ni pierden actualizaciones del costo.
 Ver docs/inventario.md para la fórmula del costo promedio ponderado.
 """
 
@@ -40,12 +41,35 @@ def _lock_stock(db: Session, org_id: int, product_id: int, warehouse_id: int) ->
     return stock
 
 
+def _lock_product(db: Session, org_id: int, product_id: int) -> Product:
+    product = db.scalar(
+        select(Product)
+        .where(Product.organization_id == org_id, Product.id == product_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if product is None:
+        raise not_found("El producto")
+    return product
+
+
+def _total_qty(db: Session, org_id: int, product_id: int) -> Decimal:
+    """Existencia del producto en todas las bodegas de la organización."""
+    total = db.scalar(
+        select(func.sum(Stock.quantity)).where(Stock.organization_id == org_id, Stock.product_id == product_id)
+    )
+    return total if total is not None else Decimal(0)
+
+
 def weighted_avg(qty: Decimal, avg: Decimal, in_qty: Decimal, in_cost: Decimal) -> Decimal:
-    """Costo promedio ponderado tras una entrada: (Q·C + q·c) / (Q + q)."""
-    total = qty + in_qty
-    if total <= 0:
-        return avg
-    return ((qty * avg + in_qty * in_cost) / total).quantize(COST_Q, ROUND_HALF_UP)
+    """Costo promedio ponderado tras una entrada: (Q·C + q·c) / (Q + q).
+
+    Q es la existencia total del producto antes de la entrada. Si Q <= 0 el costo pasa a ser c,
+    igual que en Poliway.
+    """
+    if qty <= 0:
+        return in_cost.quantize(COST_Q, ROUND_HALF_UP)
+    return ((qty * avg + in_qty * in_cost) / (qty + in_qty)).quantize(COST_Q, ROUND_HALF_UP)
 
 
 def _by_key(db: Session, org_id: int, key: str) -> Movement | None:
@@ -71,23 +95,27 @@ def _apply(
     key: str | None,
 ) -> Movement:
     org = actor.org_id
+    product = _lock_product(db, org, product_id)
     stock = _lock_stock(db, org, product_id, warehouse_id)
     new_qty = stock.quantity + signed
     if new_qty < 0:
         raise conflict("stock_insuficiente", f"Existencias insuficientes: disponible {stock.quantity.normalize():f}")
 
-    new_avg = stock.avg_cost
+    new_avg = product.avg_cost
     if kind == "ENTRADA" and unit_cost is not None:
-        new_avg = weighted_avg(stock.quantity, stock.avg_cost, signed, unit_cost)
-    elif reverses is not None and reverses.kind == "ENTRADA" and reverses.unit_cost is not None and new_qty > 0:
+        new_avg = weighted_avg(_total_qty(db, org, product_id), product.avg_cost, signed, unit_cost)
+    elif reverses is not None and reverses.kind == "ENTRADA" and reverses.unit_cost is not None:
         # Deshace el aporte de la entrada revertida si el resultado es coherente.
-        undone = (stock.quantity * stock.avg_cost - reverses.quantity * reverses.unit_cost) / new_qty
-        if undone >= 0:
-            new_avg = undone.quantize(COST_Q, ROUND_HALF_UP)
+        total = _total_qty(db, org, product_id)
+        remaining = total + signed
+        if remaining > 0:
+            undone = (total * product.avg_cost - reverses.quantity * reverses.unit_cost) / remaining
+            if undone >= 0:
+                new_avg = undone.quantize(COST_Q, ROUND_HALF_UP)
 
     stock.quantity = new_qty
-    stock.avg_cost = new_avg
     stock.updated_at = func.now()
+    product.avg_cost = new_avg
     mov = Movement(
         organization_id=org,
         product_id=product_id,

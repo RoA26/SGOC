@@ -48,6 +48,7 @@ class Product(Base):
         # La categoría debe ser de la misma organización (FK compuesta).
         ForeignKeyConstraint(["organization_id", "category_id"], ["categories.organization_id", "categories.id"]),
         CheckConstraint("min_stock >= 0", name="min_stock_no_negativo"),
+        CheckConstraint("avg_cost >= 0", name="costo_no_negativo"),
         CheckConstraint(f"unit IN {UNIDADES}", name="unidad_valida"),
     )
 
@@ -59,5 +60,8 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(200))
     unit: Mapped[str] = mapped_column(String(8), default="UND", server_default="UND")
     min_stock: Mapped[Decimal] = mapped_column(Numeric(14, 3), default=0, server_default="0")
+    # Costo promedio ponderado del producto en toda la organización (todas las bodegas),
+    # como en Poliway. Solo lo modifica el servicio de movimientos.
+    avg_cost: Mapped[Decimal] = mapped_column(Numeric(18, 4), default=Decimal(0), server_default="0")
     active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

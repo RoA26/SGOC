@@ -69,7 +69,10 @@ Decisiones tomadas y que conviene confirmar:
 ## Inventario
 
 Ver [`docs/inventario.md`](docs/inventario.md): concurrencia, idempotencia, costo promedio
-ponderado, ajustes y reversiones.
+ponderado (por producto, alineado con Poliway), ajustes y reversiones.
+
+La auditoría del borrador original está en [`docs/hallazgos-poliway.md`](docs/hallazgos-poliway.md)
+y el inventario de hashes en [`docs/poliway-sha256.txt`](docs/poliway-sha256.txt).
 
 ## Desarrollo local
 
@@ -128,5 +131,6 @@ Pendiente (fases siguientes): proveedores, conteos físicos (`ABIERTO/APROBADO/A
 escáner de códigos, informes PDF/Excel, importación, firmas y archivos privados, notificaciones,
 despiece; edición de productos y bodegas desde la interfaz (la API ya permite editar productos);
 traslados entre bodegas; limitación de intentos de inicio de sesión; cambio de contraseña;
-paginación en la interfaz; despliegue real. Ver también
-[`docs/hallazgos-poliway.md`](docs/hallazgos-poliway.md).
+paginación en la interfaz; despliegue real; destino de las salidas (funcionario, área, cliente,
+equipo) como en Poliway. Las decisiones abiertas están en
+[`docs/hallazgos-poliway.md`](docs/hallazgos-poliway.md) §9.

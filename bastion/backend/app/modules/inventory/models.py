@@ -34,7 +34,7 @@ class Warehouse(Base):
 
 
 class Stock(Base):
-    """Saldo y costo promedio por producto y bodega. Solo lo modifica el servicio de movimientos."""
+    """Saldo por producto y bodega. Solo lo modifica el servicio de movimientos."""
 
     __tablename__ = "stock"
     __table_args__ = (
@@ -42,7 +42,6 @@ class Stock(Base):
         ForeignKeyConstraint(["organization_id", "product_id"], ["products.organization_id", "products.id"]),
         ForeignKeyConstraint(["organization_id", "warehouse_id"], ["warehouses.organization_id", "warehouses.id"]),
         CheckConstraint("quantity >= 0", name="saldo_no_negativo"),
-        CheckConstraint("avg_cost >= 0", name="costo_no_negativo"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -50,5 +49,4 @@ class Stock(Base):
     product_id: Mapped[int] = mapped_column()
     warehouse_id: Mapped[int] = mapped_column()
     quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3), default=Decimal(0), server_default="0")
-    avg_cost: Mapped[Decimal] = mapped_column(Numeric(18, 4), default=Decimal(0), server_default="0")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

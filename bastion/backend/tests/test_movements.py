@@ -9,6 +9,7 @@ from sqlalchemy.exc import DBAPIError
 from app.core.db import get_sessionmaker
 from app.core.deps import Actor
 from app.core.errors import DomainError
+from app.modules.catalog.models import Product
 from app.modules.inventory.models import Stock
 from app.modules.movements import service
 from app.modules.movements.models import Movement
@@ -25,10 +26,19 @@ def mov(client: TestClient, h: dict[str, str], org: Org, kind: str, qty: str, **
     return client.post("/api/movements", headers=headers, json=body)
 
 
-def stock(org: Org) -> tuple[Decimal, Decimal]:
+def stock(org: Org, warehouse: int | None = None) -> tuple[Decimal, Decimal]:
+    """(existencia en la bodega, costo promedio del producto)."""
     with get_sessionmaker()() as db:
-        s = db.scalar(select(Stock).where(Stock.product_id == org.product, Stock.warehouse_id == org.warehouse))
-        return (s.quantity, s.avg_cost) if s else (Decimal(0), Decimal(0))
+        wh = warehouse or org.warehouse
+        s = db.scalar(select(Stock).where(Stock.product_id == org.product, Stock.warehouse_id == wh))
+        avg = db.scalar(select(Product.avg_cost).where(Product.id == org.product))
+        return (s.quantity if s else Decimal(0), avg if avg is not None else Decimal(0))
+
+
+def second_warehouse(client: TestClient, org: Org) -> int:
+    r = client.post("/api/warehouses", headers=org.admin, json={"code": "SECUNDARIA", "name": "Bodega 2"})
+    assert r.status_code == 201, r.text
+    return int(r.json()["id"])
 
 
 def count_movements() -> int:
@@ -55,6 +65,40 @@ def test_costo_promedio_ponderado(client: TestClient, org_a: Org) -> None:
     assert stock(org_a)[1] == Decimal("175.0000")  # las salidas no cambian el costo
     mov(client, org_a.admin, org_a, "ENTRADA", "5")  # entrada sin costo: conserva el promedio
     assert stock(org_a) == (Decimal(30), Decimal("175.0000"))
+
+
+def test_costo_promedio_es_por_producto_en_todas_las_bodegas(client: TestClient, org_a: Org) -> None:
+    """Como registrar_movimiento() de Poliway: Q es la existencia total del producto."""
+    w2 = second_warehouse(client, org_a)
+    mov(client, org_a.admin, org_a, "ENTRADA", "10", unit_cost="100")
+    r = client.post(
+        "/api/movements",
+        headers=org_a.admin,
+        json={"kind": "ENTRADA", "product_id": org_a.product, "warehouse_id": w2, "quantity": "30", "unit_cost": "200"},
+    )
+    assert r.status_code == 201 and Decimal(r.json()["avg_cost_after"]) == Decimal("175.0000")
+    assert stock(org_a) == (Decimal(10), Decimal("175.0000"))
+    assert stock(org_a, w2) == (Decimal(30), Decimal("175.0000"))
+    rows = client.get("/api/inventory", headers=org_a.admin).json()
+    assert {Decimal(x["avg_cost"]) for x in rows} == {Decimal("175.0000")}
+    assert sum(Decimal(x["total_value"]) for x in rows) == Decimal("7000.00")
+
+
+def test_sin_existencias_la_entrada_fija_el_costo(client: TestClient, org_a: Org) -> None:
+    mov(client, org_a.admin, org_a, "ENTRADA", "4", unit_cost="100")
+    mov(client, org_a.admin, org_a, "SALIDA", "4")
+    assert stock(org_a) == (Decimal(0), Decimal("100.0000"))  # sin existencias conserva el último costo
+    mov(client, org_a.admin, org_a, "ENTRADA", "2", unit_cost="300")
+    assert stock(org_a) == (Decimal(2), Decimal("300.0000"))
+
+
+def test_bajo_minimo_solo_con_minimo_definido(client: TestClient, org_a: Org) -> None:
+    """Regla del script 07 de Poliway: un producto con mínimo 0 no genera alerta."""
+    mov(client, org_a.admin, org_a, "ENTRADA", "1")
+    mov(client, org_a.admin, org_a, "SALIDA", "1")
+    assert client.get("/api/inventory", headers=org_a.admin).json()[0]["below_min"] is False
+    client.patch(f"/api/products/{org_a.product}", headers=org_a.admin, json={"min_stock": "5"})
+    assert client.get("/api/inventory", headers=org_a.admin).json()[0]["below_min"] is True
 
 
 def test_salida_sin_existencias_no_deja_rastro(client: TestClient, org_a: Org) -> None:
@@ -142,6 +186,28 @@ def test_primera_entrada_concurrente_crea_un_solo_saldo(org_a: Org) -> None:
     results = _parallel(8, lambda _: _register(org_a, data))
     assert all(isinstance(r, Movement) for r in results), results
     assert stock(org_a)[0] == 8
+
+
+def test_entradas_concurrentes_con_costo_en_varias_bodegas(client: TestClient, org_a: Org) -> None:
+    """Sin bloquear el producto, dos bodegas a la vez perderían aportes al costo promedio."""
+    w2 = second_warehouse(client, org_a)
+    costs = [Decimal(100 * (i + 1)) for i in range(10)]
+
+    def entry(i: int) -> Movement:
+        data = MovementIn(
+            kind="ENTRADA",
+            product_id=org_a.product,
+            warehouse_id=org_a.warehouse if i % 2 else w2,
+            quantity=Decimal(3),
+            unit_cost=costs[i],
+        )
+        return _register(org_a, data)
+
+    results = _parallel(10, entry)
+    assert all(isinstance(r, Movement) for r in results), results
+    # Sin salidas, el promedio ponderado final no depende del orden: valor total / cantidad total.
+    assert stock(org_a)[1] == (sum(costs) * 3 / 30).quantize(Decimal("0.0001"))
+    assert stock(org_a)[0] + stock(org_a, w2)[0] == 30
 
 
 def test_reintentos_concurrentes_con_la_misma_clave(org_a: Org) -> None:

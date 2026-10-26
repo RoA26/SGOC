@@ -16,9 +16,9 @@ notas, **saldo resultante** y **costo promedio resultante**.
 
 ## Garantías
 
-- **Concurrencia.** En una transacción: se asegura la fila de saldo (`INSERT … ON CONFLICT DO
-  NOTHING`) y se bloquea con `SELECT … FOR UPDATE`. Las operaciones sobre el mismo producto y
-  bodega se serializan. Probado con 12 salidas simultáneas sobre 5 unidades: exactamente 5 se
+- **Concurrencia.** En una transacción: se bloquea la fila del producto (`SELECT … FOR UPDATE`),
+  se asegura la fila de saldo (`INSERT … ON CONFLICT DO NOTHING`) y se bloquea también. Las
+  operaciones sobre un mismo producto se serializan, en cualquier bodega. Probado con 12 salidas simultáneas sobre 5 unidades: exactamente 5 se
   confirman y 7 se rechazan con `409 stock_insuficiente`.
 - **Sin saldos negativos.** Se valida en el servicio y, además, con `CHECK (quantity >= 0)` en BD.
   No existe hoy una política que permita saldo negativo.
@@ -33,25 +33,42 @@ notas, **saldo resultante** y **costo promedio resultante**.
 
 ## Costo promedio ponderado
 
-Por producto **y bodega** (la columna `stock.avg_cost`):
+Alineado con `registrar_movimiento()` de Poliway (script 06; ver
+[`hallazgos-poliway.md`](hallazgos-poliway.md) §4). Un costo **por producto** en toda la
+organización (`products.avg_cost`), no por bodega:
 
 ```
 nuevo_costo = (Q · C + q · c) / (Q + q)
-Q = saldo previo, C = costo promedio previo, q = cantidad que entra, c = costo unitario de la entrada
+Q = existencia total del producto (todas las bodegas) antes de la entrada
+C = costo promedio vigente, q = cantidad que entra, c = costo unitario de la entrada
+si Q <= 0: nuevo_costo = c
 ```
 
-Redondeo a 4 decimales (`ROUND_HALF_UP`). Decisiones:
+- **Entrada sin costo:** conserva el costo promedio vigente (igual que Poliway).
+- **Salidas y ajustes:** no cambian el costo promedio (igual que Poliway).
+- **Saldo en cero:** se conserva el último costo; la siguiente entrada con costo lo fija.
+- **Valor del inventario:** `existencia en la bodega × costo promedio del producto`.
+- **Reversión de una entrada con costo** (Poliway no tiene reversiones):
+  `(Q · C − q · c) / (Q − q)` si la existencia restante es positiva y el resultado no es negativo;
+  si no, se conserva el promedio.
+- Cada movimiento guarda el costo promedio resultante (`avg_cost_after`).
 
-- **Entrada sin costo:** conserva el costo promedio actual (las unidades entran valoradas al
-  promedio vigente).
-- **Salidas y ajustes:** no cambian el costo promedio; las unidades salen al promedio vigente.
-- **Saldo en cero:** se conserva el último costo promedio para la siguiente entrada sin costo.
-- **Reversión de una entrada con costo:** `(Q · C − q · c) / (Q − q)` si el saldo resultante es
-  positivo y el resultado no es negativo; si no, se conserva el promedio.
+Concurrencia: se bloquea **primero la fila del producto y después la del saldo**, en ese orden
+fijo, como Poliway. Sin el bloqueo del producto, dos entradas con costo en bodegas distintas
+perderían aportes al promedio; la prueba `test_entradas_concurrentes_con_costo_en_varias_bodegas`
+lo detecta (comprobado: falla si se quita el bloqueo).
 
-**Pendiente de contrastar con Poliway.** No se encontraron los scripts SQL originales
-(incluido el script 07 de costos), así que no se pudo verificar que esta semántica coincida con
-la de Poliway. Lo único observado en su código (`lib/tipos.ts`) es que la vista `v_inventario`
-expone `valor_total` y `costo_unitario`, y que en ausencia de este último se calcula como
-`valor_total / cantidad`, lo que es compatible con un promedio ponderado. La valoración debe
-considerarse **provisional** hasta revisar ese script.
+### Desviación consciente: 4 decimales en lugar de 2
+
+Poliway redondea el costo a 2 decimales en cada entrada. Bastión guarda 4 (`ROUND_HALF_UP`) y
+redondea a 2 solo al mostrar el valor total. Motivo: con artículos de bajo costo unitario el
+redondeo repetido a 2 decimales acumula desviaciones en el valor del inventario. Si se requiere
+exactamente el comportamiento de Poliway, basta con cambiar `COST_Q` en
+`app/modules/movements/service.py`.
+
+### Historial del cambio
+
+La primera versión de Bastión calculaba el costo por (producto, bodega). La migración `0002`
+lo movió a `products.avg_cost`; para datos existentes toma el promedio de las bodegas ponderado
+por existencia. La valoración sigue siendo **provisional** hasta resolver las preguntas
+abiertas de `hallazgos-poliway.md` §9.

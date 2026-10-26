@@ -37,7 +37,8 @@ def stock_rows(db: Session, org_id: int, warehouse_id: int | None, below_min: bo
         stmt = stmt.where(Stock.warehouse_id == warehouse_id)
     rows = []
     for s, p, w in db.execute(stmt):
-        low = s.quantity <= p.min_stock
+        # Como el script 07 de Poliway: sin mínimo definido (0) no hay alerta.
+        low = p.min_stock > 0 and s.quantity <= p.min_stock
         if below_min and not low:
             continue
         rows.append(
@@ -51,8 +52,8 @@ def stock_rows(db: Session, org_id: int, warehouse_id: int | None, below_min: bo
                 quantity=s.quantity,
                 min_stock=p.min_stock,
                 below_min=low,
-                avg_cost=s.avg_cost,
-                total_value=(s.quantity * s.avg_cost).quantize(Decimal("0.01")),
+                avg_cost=p.avg_cost,
+                total_value=(s.quantity * p.avg_cost).quantize(Decimal("0.01")),
             )
         )
     return rows
