@@ -1,0 +1,62 @@
+# Proyecto Compose exclusivo de Bastión. Nombres de red, volumen e imágenes con prefijo "bastion".
+# No publica PostgreSQL ni la API: la única entrada es el frontend en 127.0.0.1:${BASTION_HTTP_PORT}.
+name: bastion
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bastion
+      POSTGRES_USER: bastion
+      POSTGRES_PASSWORD: ${BASTION_DB_PASSWORD:?defina BASTION_DB_PASSWORD en .env}
+    command: >
+      postgres -c max_connections=30 -c shared_buffers=96MB -c effective_cache_size=256MB
+      -c work_mem=4MB -c maintenance_work_mem=32MB
+    volumes:
+      - bastion_pgdata:/var/lib/postgresql/data
+    networks: [bastion_net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bastion -d bastion"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits: { memory: 384m }
+
+  backend:
+    image: bastion/backend:${BASTION_VERSION:-latest}
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      BASTION_ENV: production
+      BASTION_DATABASE_URL: postgresql+psycopg://bastion:${BASTION_DB_PASSWORD}@postgres:5432/bastion
+      BASTION_JWT_SECRET: ${BASTION_JWT_SECRET:?defina BASTION_JWT_SECRET en .env}
+      BASTION_JWT_EXPIRE_MINUTES: ${BASTION_JWT_EXPIRE_MINUTES:-30}
+      BASTION_DB_POOL_SIZE: "5"
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [bastion_net]
+    deploy:
+      resources:
+        limits: { memory: 256m }
+
+  frontend:
+    image: bastion/frontend:${BASTION_VERSION:-latest}
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:${BASTION_HTTP_PORT:-8090}:80"
+    networks: [bastion_net]
+    deploy:
+      resources:
+        limits: { memory: 64m }
+
+volumes:
+  bastion_pgdata:
+
+networks:
+  bastion_net:

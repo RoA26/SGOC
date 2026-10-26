@@ -1,0 +1,27 @@
+/* Tokens de marca de Bastión. Todo color de la interfaz sale de aquí. */
+:root {
+  --b-ink: #0c1724;          /* muralla: primario oscuro */
+  --b-ink-2: #14253a;
+  --b-ink-3: #1f3550;
+  --b-accent: #2fd1b8;       /* señal: acento sobre fondos oscuros */
+  --b-accent-strong: #0b7f6f;/* acento legible sobre fondos claros (5,2:1 sobre blanco) */
+  --b-accent-soft: #e3f7f3;
+  --b-bg: #f4f6f8;
+  --b-surface: #ffffff;
+  --b-surface-2: #eef2f6;
+  --b-line: #dbe2ea;
+  --b-line-strong: #b9c5d2;
+  --b-text: #0f1b28;
+  --b-text-2: #4a5a6c;       /* 7,0:1 sobre --b-bg */
+  --b-on-ink: #e8eef4;
+  --b-on-ink-2: #9fb0c3;
+  --b-danger: #b42318;
+  --b-danger-soft: #fdecea;
+  --b-warn: #8a5a00;
+  --b-warn-soft: #fff4dc;
+  --b-ok: #0b7f6f;
+  --b-ok-soft: #e3f7f3;
+  --b-radius: 10px;
+  --b-font: "Manrope Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --b-mono: "JetBrains Mono Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}

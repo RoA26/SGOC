@@ -1,0 +1,41 @@
+@import "tailwindcss";
+@import "./brand/tokens.css";
+
+@theme {
+  --color-ink: var(--b-ink);
+  --color-ink-2: var(--b-ink-2);
+  --color-ink-3: var(--b-ink-3);
+  --color-accent: var(--b-accent);
+  --color-accent-strong: var(--b-accent-strong);
+  --color-accent-soft: var(--b-accent-soft);
+  --color-bg: var(--b-bg);
+  --color-surface: var(--b-surface);
+  --color-surface-2: var(--b-surface-2);
+  --color-line: var(--b-line);
+  --color-line-strong: var(--b-line-strong);
+  --color-text: var(--b-text);
+  --color-text-2: var(--b-text-2);
+  --color-on-ink: var(--b-on-ink);
+  --color-on-ink-2: var(--b-on-ink-2);
+  --color-danger: var(--b-danger);
+  --color-danger-soft: var(--b-danger-soft);
+  --color-warn: var(--b-warn);
+  --color-warn-soft: var(--b-warn-soft);
+  --color-ok: var(--b-ok);
+  --color-ok-soft: var(--b-ok-soft);
+  --font-sans: var(--b-font);
+  --font-mono: var(--b-mono);
+  --radius-b: var(--b-radius);
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body { background: var(--b-bg); color: var(--b-text); font-family: var(--b-font); -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 2px solid var(--b-accent-strong); outline-offset: 2px; }
+  .on-ink :focus-visible { outline-color: var(--b-accent); }
+  .tnum { font-variant-numeric: tabular-nums; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
