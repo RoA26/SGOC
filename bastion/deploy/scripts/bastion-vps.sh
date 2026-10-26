@@ -35,6 +35,14 @@ requiere_dominio() {
   [[ "$DOMINIO" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] || falla "DOMINIO no válido: $DOMINIO"
 }
 
+INSTALAR_DOCKER="sudo apt update && sudo apt install -y docker.io docker-compose-v2"
+hay_docker() { command -v docker >/dev/null && docker info >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; }
+requiere_docker() {
+  command -v docker >/dev/null || falla "Docker no está instalado. En Ubuntu: $INSTALAR_DOCKER"
+  docker info >/dev/null 2>&1 || falla "Sin acceso al demonio de Docker (¿está iniciado? ¿usa sudo o el grupo docker?)"
+  docker compose version >/dev/null 2>&1 || falla "Falta el plugin Compose. En Ubuntu: sudo apt install -y docker-compose-v2"
+}
+
 puerto_env() { grep -E '^BASTION_HTTP_PORT=' .env 2>/dev/null | cut -d= -f2 || true; }
 puerto_libre() { local o; o="$(ss -ltnH "sport = :$1" 2>/dev/null)"; [[ -z "$o" ]]; }
 mem_disponible_mb() { awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo; }
@@ -63,18 +71,23 @@ diagnostico() {
   df -h / | sed 's/^/  /'
 
   titulo "Docker"
-  command -v docker >/dev/null || falla "Docker no está instalado"
-  docker version --format '  Docker {{.Server.Version}}' || falla "Sin acceso al demonio de Docker (¿usuario en el grupo docker o sudo?)"
-  docker compose version | sed 's/^/  /'
-  echo "  Proyectos Compose:"; docker compose ls --all | sed 's/^/    /'
-  echo "  Contenedores:"; docker ps --format '    {{.Names}}\t{{.Ports}}\t{{.Status}}'
-  docker stats --no-stream --format '    {{.Name}}\t{{.MemUsage}}' 2>/dev/null || true
-  local proyectos; proyectos="$(docker compose ls --all --format json)"
-  if grep -q '"Name":"bastion"' <<<"$proyectos"; then aviso "Ya existe un proyecto Compose 'bastion' (se actualizará en sitio)"; else ok "Nombre de proyecto 'bastion' libre"; fi
+  local publicados=""
+  if hay_docker; then
+    docker version --format '  Docker {{.Server.Version}}'
+    docker compose version | sed 's/^/  /'
+    echo "  Proyectos Compose:"; docker compose ls --all | sed 's/^/    /'
+    echo "  Contenedores:"; docker ps --format '    {{.Names}}\t{{.Ports}}\t{{.Status}}'
+    docker stats --no-stream --format '    {{.Name}}\t{{.MemUsage}}' 2>/dev/null || true
+    local proyectos; proyectos="$(docker compose ls --all --format json)"
+    if grep -q '"Name":"bastion"' <<<"$proyectos"; then aviso "Ya existe un proyecto Compose 'bastion' (se actualizará en sitio)"; else ok "Nombre de proyecto 'bastion' libre"; fi
+    publicados="$(docker ps --format '{{.Names}} {{.Ports}}')"
+  else
+    error "Docker (con el plugin Compose) no está instalado o no está activo. Instálelo con:"
+    echo "      $INSTALAR_DOCKER"
+  fi
 
   titulo "Puertos"
   local p; p="$(puerto_env)"; p="${p:-8090}"
-  local publicados; publicados="$(docker ps --format '{{.Names}} {{.Ports}}')"
   if puerto_libre "$p" || grep -q "^bastion-frontend.*127.0.0.1:$p->" <<<"$publicados"; then ok "Puerto 127.0.0.1:$p disponible para Bastión"
   else aviso "El puerto $p está ocupado: 'preparar' elegirá otro"; fi
   local prx; prx="$(proxy_detectado)"
@@ -132,6 +145,7 @@ esperar_sano() {
 }
 
 desplegar() {
+  requiere_docker
   [[ -f .env ]] || falla "Falta .env: ejecute primero 'preparar'"
   if [[ "${SIN_CONSTRUIR:-no}" != "si" ]]; then
     local mem; mem="$(mem_disponible_mb)"
@@ -153,6 +167,9 @@ desplegar() {
 }
 
 admin() {
+  requiere_docker
+  local estado_backend; estado_backend="$("${COMPOSE[@]}" ps --format '{{.Service}}={{.Health}}' 2>/dev/null)"
+  [[ "$estado_backend" == *"backend=healthy"* ]] || falla "Bastión no está en marcha: ejecute primero 'desplegar'"
   read -r -p "Correo del SUPER_ADMIN: " correo
   read -r -p "Nombre completo: " nombre
   "${COMPOSE[@]}" exec backend python -m app.bootstrap --email "$correo" --name "$nombre"
@@ -199,10 +216,16 @@ proxy() {
         falla "nginx -t falló: se retiró el archivo nuevo y no se recargó nada"
       fi
       ;;
-    caddy)
-      echo "  Añada este bloque al Caddyfile (Caddy obtiene el certificado solo):"
-      printf '\n    %s {\n        encode gzip\n        reverse_proxy 127.0.0.1:%s\n    }\n\n' "$DOMINIO" "$p"
-      echo "  Luego: sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy"
+    caddy|ninguno)
+      if [[ "${2:-}" != "--aplicar" ]]; then
+        [[ "$tipo" == ninguno ]] && aviso "Nada escucha en 80/443: se usará Caddy (HTTPS automático con Let's Encrypt)."
+        echo "  Bloque que se añadirá a /etc/caddy/Caddyfile:"
+        bloque_caddy "$p" | sed 's/^/    /'
+        echo "  Para instalar Caddy (si falta) y aplicarlo:"
+        echo "    sudo DOMINIO=$DOMINIO bash $0 proxy --aplicar"
+        return
+      fi
+      aplicar_caddy "$tipo" "$p"
       ;;
     docker)
       error "Los puertos 80/443 los ocupa un contenedor: $(docker ps --filter publish=80 --format '{{.Names}}') $(docker ps --filter publish=443 --format '{{.Names}}')"
@@ -212,17 +235,50 @@ proxy() {
       echo "   2. Mientras tanto, probar Bastión por túnel SSH: ssh -L $p:127.0.0.1:$p usuario@vps → http://localhost:$p"
       exit 1
       ;;
-    ninguno)
-      echo "  Nada escucha en 80/443. Lo más simple es instalar Caddy (HTTPS automático) y usar este bloque:"
-      printf '\n    %s {\n        reverse_proxy 127.0.0.1:%s\n    }\n\n' "$DOMINIO" "$p"
-      ;;
     *)
       falla "No se pudo identificar el proxy. Ejecute: sudo DOMINIO=$DOMINIO bash $0 diagnostico"
       ;;
   esac
 }
 
+bloque_caddy() {
+  printf '# Bastión (generado por bastion-vps.sh)\n%s {\n\tencode gzip\n\treverse_proxy 127.0.0.1:%s\n}\n' "$DOMINIO" "$1"
+}
+
+# Instala Caddy si falta y añade el sitio de Bastión. Si el Caddyfile es el de ejemplo del paquete
+# (sirve /usr/share/caddy en :80), se guarda una copia y se reemplaza; si tiene otros sitios, se
+# añade el bloque al final sin tocarlos.
+aplicar_caddy() {
+  local tipo="$1" p="$2" cf=/etc/caddy/Caddyfile
+  [[ $EUID -eq 0 ]] || falla "--aplicar requiere sudo"
+  if ! command -v caddy >/dev/null; then
+    [[ "$tipo" == ninguno ]] || falla "Algo escucha en 80/443 pero no se encontró el binario de Caddy"
+    titulo "Instalando Caddy"
+    apt-get update -q && apt-get install -y -q caddy
+  fi
+  [[ -f "$cf" ]] || touch "$cf"
+  if grep -qw -- "$DOMINIO" "$cf"; then falla "$cf ya menciona $DOMINIO: no se toca nada. Revíselo a mano."; fi
+  local copia; copia="$cf.antes-de-bastion.$(date +%Y%m%d%H%M%S)"
+  cp -p "$cf" "$copia"
+  local sitios; sitios="$(grep -vE '^\s*(#|$)' "$cf" || true)"
+  if [[ -z "$sitios" ]] || { grep -q 'root \* /usr/share/caddy' <<<"$sitios" && [[ "$(grep -c '{' <<<"$sitios")" -le 1 ]]; }; then
+    bloque_caddy "$p" > "$cf"          # Caddyfile vacío o de ejemplo
+  else
+    printf '\n' >> "$cf"; bloque_caddy "$p" >> "$cf"
+  fi
+  if ! caddy validate --config "$cf" --adapter caddyfile >/dev/null 2>&1; then
+    cp -p "$copia" "$cf"
+    falla "La configuración no es válida: se restauró el Caddyfile anterior ($copia)"
+  fi
+  ok "Caddyfile actualizado (copia previa: $copia)"
+  systemctl enable --now caddy >/dev/null 2>&1 || true
+  systemctl reload caddy || falla "No se pudo recargar Caddy: revise 'journalctl -u caddy'"
+  ok "Caddy recargado. Pedirá el certificado HTTPS en cuanto el dominio apunte a este servidor."
+  echo "  Compruebe en 1-2 minutos: curl -I https://$DOMINIO"
+}
+
 estado() {
+  requiere_docker
   "${COMPOSE[@]}" ps
   docker stats --no-stream --format '{{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}' | grep '^bastion-' || true
   local p; p="$(puerto_env)"

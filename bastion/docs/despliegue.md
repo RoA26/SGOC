@@ -24,6 +24,8 @@ proxy que exista realmente en 80/443.
 ## 0. Requisitos
 
 - Acceso SSH al VPS con un usuario que pueda usar Docker (y `sudo` para el paso del proxy).
+- Docker con el plugin Compose. En Ubuntu 24.04:
+  `sudo apt update && sudo apt install -y docker.io docker-compose-v2`
 - El dominio de DuckDNS apuntando a la IP pública del VPS (se actualiza en duckdns.org).
 - Acceso de lectura al repositorio desde el VPS (el mismo con el que se clonó Nexora).
 
@@ -74,7 +76,10 @@ Según lo que detecte:
   `sudo DOMINIO=b4sti0n.duckdns.org bash deploy/scripts/bastion-vps.sh proxy --aplicar`
   y después el certificado, que solo modifica ese sitio:
   `sudo certbot --nginx -d b4sti0n.duckdns.org --redirect`
-- **Caddy:** muestra el bloque para el Caddyfile (Caddy obtiene el certificado solo).
+- **Caddy, o nada en 80/443** (servidor limpio): `proxy --aplicar` instala Caddy si falta
+  (paquete de Ubuntu), guarda una copia del Caddyfile, añade el sitio, valida y recarga. Caddy
+  obtiene y renueva el certificado HTTPS solo:
+  `sudo DOMINIO=b4sti0n.duckdns.org bash deploy/scripts/bastion-vps.sh proxy --aplicar`
 - **Un contenedor ocupa 80/443** (p. ej. el frontend de Nexora): se detiene y explica las
   opciones. Requiere decidir cómo compartir 80/443 entre ambos; **no se toca nada**.
 
