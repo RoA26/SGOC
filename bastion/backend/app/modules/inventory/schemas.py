@@ -8,6 +8,11 @@ class WarehouseIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
 
 
+class WarehouseUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    active: bool | None = None
+
+
 class WarehouseOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -27,5 +32,6 @@ class StockRow(BaseModel):
     quantity: Decimal
     min_stock: Decimal
     below_min: bool
-    avg_cost: Decimal
-    total_value: Decimal
+    # Solo para el ADMINISTRADOR_COMERCIAL; vacíos para el TRABAJADOR.
+    avg_cost: Decimal | None
+    total_value: Decimal | None

@@ -56,14 +56,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    try {
-      await api("/auth/logout", { method: "POST" });
-    } finally {
-      tokenStore.clear();
-      setMe(null);
-      setSignedOut(true);
-      setStatus("anonymous");
-    }
+    // Se olvida el token localmente antes de avisar al servidor: aunque la pestaña se cierre o
+    // recargue a mitad, no queda una sesión revocada guardada en el navegador.
+    const token = tokenStore.get();
+    tokenStore.clear();
+    setMe(null);
+    setSignedOut(true);
+    setStatus("anonymous");
+    if (token) await api("/auth/logout", { method: "POST", headers: { Authorization: `Bearer ${token}` } }).catch(() => undefined);
   }, []);
 
   const value = useMemo<AuthValue>(

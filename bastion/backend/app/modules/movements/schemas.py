@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.modules.movements.models import Movement
+
 Qty = Field(max_digits=14, decimal_places=3)
 
 
@@ -45,8 +47,18 @@ class MovementOut(BaseModel):
     quantity: Decimal
     unit_cost: Decimal | None
     balance_after: Decimal
-    avg_cost_after: Decimal
+    avg_cost_after: Decimal | None
     reference: str | None
     notes: str | None
     reverses_id: int | None
     created_at: datetime
+    user_name: str
+
+    @classmethod
+    def build(cls, m: Movement, user_name: str, show_costs: bool) -> "MovementOut":
+        """Los costos son información administrativa: al TRABAJADOR se le devuelven vacíos."""
+        data = {f: getattr(m, f) for f in cls.model_fields if f != "user_name"}
+        if not show_costs:
+            data["unit_cost"] = None
+            data["avg_cost_after"] = None
+        return cls(**data, user_name=user_name)

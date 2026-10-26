@@ -1,8 +1,9 @@
 from fastapi import APIRouter
 
 from app.core.deps import DB, OrgAdmin, OrgMember
+from app.core.roles import Rol
 from app.modules.inventory import service
-from app.modules.inventory.schemas import StockRow, WarehouseIn, WarehouseOut
+from app.modules.inventory.schemas import StockRow, WarehouseIn, WarehouseOut, WarehouseUpdate
 
 router = APIRouter(tags=["inventory"])
 
@@ -19,4 +20,9 @@ def create_warehouse(body: WarehouseIn, actor: OrgAdmin, db: DB) -> WarehouseOut
 
 @router.get("/inventory", response_model=list[StockRow])
 def inventory(actor: OrgMember, db: DB, warehouse_id: int | None = None, below_min: bool = False) -> list[StockRow]:
-    return service.stock_rows(db, actor.org_id, warehouse_id, below_min)
+    return service.stock_rows(db, actor.org_id, warehouse_id, below_min, actor.role == Rol.ADMINISTRADOR_COMERCIAL)
+
+
+@router.patch("/warehouses/{warehouse_id}", response_model=WarehouseOut)
+def update_warehouse(warehouse_id: int, body: WarehouseUpdate, actor: OrgAdmin, db: DB) -> WarehouseOut:
+    return WarehouseOut.model_validate(service.update_warehouse(db, actor.org_id, warehouse_id, body.name, body.active))

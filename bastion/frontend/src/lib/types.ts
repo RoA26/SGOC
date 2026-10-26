@@ -32,8 +32,9 @@ export type StockRow = {
   quantity: string;
   min_stock: string;
   below_min: boolean;
-  avg_cost: string;
-  total_value: string;
+  /** null para el TRABAJADOR: los costos son información administrativa. */
+  avg_cost: string | null;
+  total_value: string | null;
 };
 export type MovementKind = "ENTRADA" | "SALIDA" | "AJUSTE" | "REVERSION";
 export type Movement = {
@@ -45,11 +46,12 @@ export type Movement = {
   quantity: string;
   unit_cost: string | null;
   balance_after: string;
-  avg_cost_after: string;
+  avg_cost_after: string | null;
   reference: string | null;
   notes: string | null;
   reverses_id: number | null;
   created_at: string;
+  user_name: string;
 };
 export type UserRow = {
   id: number;

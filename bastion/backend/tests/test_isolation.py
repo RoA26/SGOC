@@ -81,3 +81,10 @@ def test_la_bd_impide_mezclar_organizaciones(org_a: Org, org_b: Org) -> None:
         )
         with pytest.raises(IntegrityError):
             db.flush()
+
+
+def test_no_edita_bodegas_ni_claves_ajenas(client: TestClient, org_a: Org, org_b: Org) -> None:
+    r = client.patch(f"/api/warehouses/{org_b.warehouse}", headers=org_a.admin, json={"active": False})
+    assert r.status_code == 404
+    r = client.post(f"/api/users/{org_b.worker_id}/password", headers=org_a.admin, json={"password": "Clave-ajena-123"})
+    assert r.status_code == 404

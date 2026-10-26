@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { CreateForm } from "@/components/CreateForm";
 import { Table, td, th } from "@/components/Table";
-import { Alert, Badge, Button, ConfirmDialog, ErrorState, Field, Input, LoadingState, PageHeader, Panel } from "@/components/ui";
+import { z } from "zod";
+import { Alert, Badge, Button, ConfirmDialog, ErrorState, Field, Input, LoadingState, Modal, PageHeader, Panel } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { ROL_LABEL, type UserRow } from "@/lib/types";
 import { useResource } from "@/lib/useResource";
-import { personSchema } from "./schemas";
+import { password, personSchema } from "./schemas";
+
+const resetSchema = z.object({ password });
 
 export function UsersPage() {
   const { me } = useAuth();
@@ -14,6 +17,7 @@ export function UsersPage() {
   const [target, setTarget] = useState<UserRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [resetting, setResetting] = useState<UserRow | null>(null);
 
   async function toggle() {
     if (!target) return;
@@ -31,7 +35,7 @@ export function UsersPage() {
 
   return (
     <>
-      <PageHeader title="Usuarios" description="Trabajadores de su organización. Desactivar una cuenta cierra sus sesiones de inmediato." />
+      <PageHeader admin title="Equipo de trabajo" description="Los trabajadores registran entradas y salidas y consultan el inventario. Desactivar una cuenta cierra sus sesiones de inmediato." />
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <Panel>
           {msg && <div className="p-4 pb-0"><Alert tone="error">{msg}</Alert></div>}
@@ -42,8 +46,11 @@ export function UsersPage() {
                   <td className={td}><span className="font-semibold">{u.full_name}</span><span className="block text-xs text-text-2">{u.email}</span></td>
                   <td className={`${td} text-text-2`}>{ROL_LABEL[u.role]}</td>
                   <td className={td}>{u.active ? <Badge tone="ok">Activo</Badge> : <Badge>Inactivo</Badge>}</td>
-                  <td className={`${td} text-right`}>{u.role === "TRABAJADOR" && u.id !== me?.id && (
-                    <Button variant="ghost" className="min-h-8 px-2 text-xs" onClick={() => { setMsg(null); setTarget(u); }}>{u.active ? "Desactivar" : "Activar"}</Button>
+                  <td className={`${td} whitespace-nowrap text-right`}>{u.role === "TRABAJADOR" && u.id !== me?.id && (
+                    <>
+                      <Button variant="ghost" className="min-h-8 px-2 text-xs" onClick={() => setResetting(u)}>Nueva clave</Button>
+                      <Button variant="ghost" className="min-h-8 px-2 text-xs" onClick={() => { setMsg(null); setTarget(u); }}>{u.active ? "Desactivar" : "Activar"}</Button>
+                    </>
                   )}</td>
                 </tr>
               ))}
@@ -63,6 +70,13 @@ export function UsersPage() {
           </CreateForm>
         </Panel>
       </div>
+      {resetting && (
+        <Modal open title={`Nueva contraseña para ${resetting.full_name}`} onClose={() => setResetting(null)}>
+          <CreateForm schema={resetSchema} path={`/users/${resetting.id}/password`} icon="lock" submitLabel="Asignar contraseña" okMessage="Contraseña asignada. Sus sesiones abiertas se cerraron." onCreated={() => undefined}>
+            {(e) => <Field label="Contraseña nueva" error={e.password} hint="Mínimo 10 caracteres. Comuníquesela por un canal privado.">{(id, d) => <Input id={id} name="password" type="password" autoComplete="new-password" aria-describedby={d} invalid={!!e.password} />}</Field>}
+          </CreateForm>
+        </Modal>
+      )}
       <ConfirmDialog open={!!target} title={target?.active ? "Desactivar trabajador" : "Activar trabajador"} confirmLabel={target?.active ? "Desactivar" : "Activar"}
         tone={target?.active ? "danger" : "primary"} busy={busy} onCancel={() => setTarget(null)} onConfirm={() => void toggle()}>
         {target?.active ? `${target.full_name} no podrá iniciar sesión y sus sesiones abiertas se cerrarán.` : `${target?.full_name ?? ""} podrá volver a iniciar sesión.`}

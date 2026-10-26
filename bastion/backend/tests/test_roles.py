@@ -2,7 +2,7 @@
 
 from fastapi.testclient import TestClient
 
-from tests.conftest import PASSWORD, Org
+from tests.conftest import PASSWORD, Org, login
 
 
 def test_trabajador_no_gestiona_catalogo_ni_usuarios(client: TestClient, org_a: Org) -> None:
@@ -79,3 +79,51 @@ def test_superadmin_no_opera_datos_de_negocio(client: TestClient, superadmin: di
 def test_respuestas_no_exponen_hash(client: TestClient, superadmin: dict[str, str], org_a: Org) -> None:
     body = client.get("/api/users", headers=org_a.admin).text + client.get("/api/auth/me", headers=org_a.admin).text
     assert "password" not in body and "argon2" not in body
+
+
+def test_admin_edita_y_desactiva_bodegas(client: TestClient, org_a: Org) -> None:
+    url = f"/api/warehouses/{org_a.warehouse}"
+    assert client.patch(url, headers=org_a.worker, json={"active": False}).status_code == 403
+    r = client.patch(url, headers=org_a.admin, json={"name": "Central", "active": False})
+    assert r.status_code == 200 and r.json() == {**r.json(), "name": "Central", "active": False}
+    r = client.post(
+        "/api/movements",
+        headers=org_a.worker,
+        json={"kind": "ENTRADA", "product_id": org_a.product, "warehouse_id": org_a.warehouse, "quantity": "1"},
+    )
+    assert r.status_code == 422 and r.json()["code"] == "bodega_inactiva"
+
+
+def test_admin_restablece_clave_de_trabajador(client: TestClient, org_a: Org) -> None:
+    url = f"/api/users/{org_a.worker_id}/password"
+    assert client.post(url, headers=org_a.worker, json={"password": "Otra-clave-456"}).status_code == 403
+    assert client.post(url, headers=org_a.admin, json={"password": "corta"}).status_code == 422
+    assert client.post(url, headers=org_a.admin, json={"password": "Otra-clave-456"}).status_code == 204
+    assert client.get("/api/auth/me", headers=org_a.worker).status_code == 401  # sesión cerrada
+    login(client, "op@alfa.example.com", "Otra-clave-456")
+    me = client.get("/api/auth/me", headers=org_a.admin).json()
+    assert (
+        client.post(
+            f"/api/users/{me['id']}/password", headers=org_a.admin, json={"password": "Otra-clave-456"}
+        ).status_code
+        == 403
+    )
+
+
+def test_cambio_de_clave_propia(client: TestClient, org_a: Org) -> None:
+    bad = client.post(
+        "/api/auth/password",
+        headers=org_a.worker,
+        json={"current_password": "no-es-esta", "new_password": "Nueva-clave-789"},
+    )
+    assert bad.status_code == 422 and bad.json()["code"] == "clave_incorrecta"
+    r = client.post(
+        "/api/auth/password",
+        headers=org_a.worker,
+        json={"current_password": PASSWORD, "new_password": "Nueva-clave-789"},
+    )
+    assert r.status_code == 200
+    assert client.get("/api/auth/me", headers=org_a.worker).status_code == 401  # token anterior revocado
+    new = {"Authorization": f"Bearer {r.json()['access_token']}"}
+    assert client.get("/api/auth/me", headers=new).status_code == 200
+    login(client, "op@alfa.example.com", "Nueva-clave-789")

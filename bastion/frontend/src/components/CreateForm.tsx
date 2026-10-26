@@ -2,12 +2,13 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import type { ZodType, ZodTypeDef } from "zod";
 import { api } from "@/lib/api";
 import { serverErrors, validate, type Errors } from "@/lib/forms";
+import type { IconName } from "./Icon";
 import { Alert, Button } from "./ui";
 
-/** Formulario de alta genérico: valida con Zod, envía al backend y muestra errores por campo. */
-export function CreateForm<T>({ schema, path, submitLabel, onCreated, children, map }: {
+/** Formulario genérico (alta o edición): valida con Zod, envía al backend y muestra errores por campo. */
+export function CreateForm<T>({ schema, path, submitLabel, onCreated, children, map, method = "POST", okMessage = "Registro creado correctamente.", icon = "plus" }: {
   schema: ZodType<T, ZodTypeDef, unknown>; path: string; submitLabel: string; onCreated: () => void;
-  children: (errors: Errors) => ReactNode; map?: (v: T) => unknown;
+  children: (errors: Errors) => ReactNode; map?: (v: T) => unknown; method?: "POST" | "PATCH"; okMessage?: string; icon?: IconName;
 }) {
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
@@ -22,8 +23,8 @@ export function CreateForm<T>({ schema, path, submitLabel, onCreated, children, 
     setErrors({});
     setBusy(true);
     try {
-      await api(path, { method: "POST", body: map ? map(r.value) : r.value });
-      form.reset();
+      await api(path, { method, body: map ? map(r.value) : r.value });
+      if (method === "POST") form.reset();
       setOk(true);
       onCreated();
     } catch (err) {
@@ -35,10 +36,10 @@ export function CreateForm<T>({ schema, path, submitLabel, onCreated, children, 
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4 p-5">
-      {ok && <Alert tone="success">Registro creado correctamente.</Alert>}
+      {ok && <Alert tone="success">{okMessage}</Alert>}
       {errors._ && <Alert tone="error">{errors._}</Alert>}
       {children(errors)}
-      <Button type="submit" loading={busy} icon="plus">{submitLabel}</Button>
+      <Button type="submit" loading={busy} icon={icon}>{submitLabel}</Button>
     </form>
   );
 }

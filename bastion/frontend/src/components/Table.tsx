@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 export function Table({ head, children, caption }: { head: ReactNode; children: ReactNode; caption: string }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full min-w-[640px] text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead className="border-b border-line bg-surface-2/60 text-left text-xs font-semibold uppercase tracking-wide text-text-2">

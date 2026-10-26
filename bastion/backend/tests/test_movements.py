@@ -53,7 +53,7 @@ def test_entrada_salida_y_saldo(client: TestClient, org_a: Org) -> None:
     r = mov(client, org_a.worker, org_a, "SALIDA", "4")
     assert r.status_code == 201
     assert Decimal(r.json()["quantity"]) == -4 and Decimal(r.json()["balance_after"]) == 6
-    inv = client.get("/api/inventory", headers=org_a.worker).json()
+    inv = client.get("/api/inventory", headers=org_a.admin).json()
     assert Decimal(inv[0]["quantity"]) == 6 and Decimal(inv[0]["total_value"]) == Decimal("600.00")
 
 
@@ -259,11 +259,20 @@ def test_movimientos_son_inmutables_en_bd(client: TestClient, org_a: Org) -> Non
     assert count_movements() == 1
 
 
-def test_trabajador_solo_ve_sus_movimientos(client: TestClient, org_a: Org) -> None:
-    mov(client, org_a.admin, org_a, "ENTRADA", "5")
-    mov(client, org_a.worker, org_a, "SALIDA", "1")
-    assert len(client.get("/api/movements", headers=org_a.worker).json()) == 1
-    assert len(client.get("/api/movements", headers=org_a.admin).json()) == 2
+def test_historial_de_la_organizacion_y_costos_solo_para_el_admin(client: TestClient, org_a: Org) -> None:
+    mov(client, org_a.admin, org_a, "ENTRADA", "5", unit_cost="1000")
+    r = mov(client, org_a.worker, org_a, "SALIDA", "1")
+    assert r.json()["avg_cost_after"] is None and r.json()["user_name"] == "Operario"
+    worker_view = client.get("/api/movements", headers=org_a.worker).json()
+    admin_view = client.get("/api/movements", headers=org_a.admin).json()
+    assert len(worker_view) == len(admin_view) == 2
+    assert {m["user_name"] for m in admin_view} == {"Admin", "Operario"}
+    assert all(m["unit_cost"] is None and m["avg_cost_after"] is None for m in worker_view)
+    assert Decimal(admin_view[1]["unit_cost"]) == 1000 and Decimal(admin_view[0]["avg_cost_after"]) == 1000
+    inv_w = client.get("/api/inventory", headers=org_a.worker).json()[0]
+    inv_a = client.get("/api/inventory", headers=org_a.admin).json()[0]
+    assert inv_w["avg_cost"] is None and inv_w["total_value"] is None
+    assert Decimal(inv_a["total_value"]) == Decimal("4000.00")
 
 
 @pytest.mark.parametrize(

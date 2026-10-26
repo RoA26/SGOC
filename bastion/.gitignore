@@ -8,3 +8,4 @@ __pycache__/
 .venv/
 backups/
 *.tsbuildinfo
+deploy/nginx/generado/

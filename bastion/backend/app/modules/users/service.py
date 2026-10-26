@@ -59,3 +59,13 @@ def update_org_user(
         user.token_version += 1
     db.commit()
     return user
+
+
+def reset_worker_password(db: Session, org_id: int, actor_id: int, user_id: int, password: str) -> None:
+    """El administrador asigna una clave nueva a un trabajador y cierra sus sesiones abiertas."""
+    user = get_org_user(db, org_id, user_id)
+    if user.role != Rol.TRABAJADOR or user.id == actor_id:
+        raise DomainError(403, "prohibido", "Solo puede restablecer la contraseña de trabajadores")
+    user.password_hash = hash_password(password)
+    user.token_version += 1
+    db.commit()

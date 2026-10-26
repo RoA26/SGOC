@@ -133,7 +133,7 @@ export function MovementsPage() {
   const whs = warehouses.data;
   return (
     <>
-      <PageHeader title="Movimientos" description={isAdmin ? "Registre entradas, salidas y ajustes. Consulte el historial de la organización." : "Registre entradas y salidas. Aquí ve los movimientos que usted registró."} />
+      <PageHeader title="Movimientos" description={isAdmin ? "Registre entradas, salidas y ajustes, y revierta movimientos con error." : "Registre entradas y salidas. Los ajustes y las correcciones los hace el administrador."} />
       <Panel className="mb-8">
         <h2 className="border-b border-line px-5 py-4 font-bold">Nuevo movimiento</h2>
         {products.error || warehouses.error ? <ErrorState message={products.error ?? warehouses.error ?? ""} onRetry={() => { products.reload(); warehouses.reload(); }} />
@@ -149,7 +149,7 @@ export function MovementsPage() {
         {history.loading ? <LoadingState /> : history.error ? <ErrorState message={history.error} onRetry={history.reload} /> : !history.data?.length ? (
           <EmptyState icon="history" title="Aún no hay movimientos">Los movimientos registrados aparecerán aquí en orden cronológico.</EmptyState>
         ) : (
-          <Table caption="Historial de movimientos" head={<tr><th className={th}>#</th><th className={th}>Fecha</th><th className={th}>Tipo</th><th className={th}>Producto</th><th className={`${th} text-right`}>Cantidad</th><th className={`${th} text-right`}>Saldo</th><th className={th}>Referencia</th>{isAdmin && <th className={th}><span className="sr-only">Acciones</span></th>}</tr>}>
+          <Table caption="Historial de movimientos" head={<tr><th className={th}>#</th><th className={th}>Fecha</th><th className={th}>Tipo</th><th className={th}>Producto</th><th className={`${th} text-right`}>Cantidad</th><th className={`${th} text-right`}>Saldo</th><th className={th}>Registró</th><th className={th}>Referencia</th>{isAdmin && <th className={th}><span className="sr-only">Acciones</span></th>}</tr>}>
             {history.data.map((m) => (
               <tr key={m.id}>
                 <td className={`${td} font-mono text-xs text-text-2`}>{m.id}</td>
@@ -158,6 +158,7 @@ export function MovementsPage() {
                 <td className={td}>{productName.get(m.product_id) ?? `#${m.product_id}`} <span className="font-mono text-xs text-text-2">{whCode.get(m.warehouse_id)}</span></td>
                 <td className={`${td} text-right tnum font-semibold`}>{Number(m.quantity) > 0 ? "+" : ""}{fmtQty(m.quantity)}{m.unit_cost && <span className="block text-xs font-normal text-text-2">{fmtMoney(m.unit_cost)} c/u</span>}</td>
                 <td className={`${td} text-right tnum`}>{fmtQty(m.balance_after)}</td>
+                <td className={`${td} whitespace-nowrap text-text-2`}>{m.user_name}</td>
                 <td className={`${td} max-w-[220px] truncate text-text-2`} title={m.notes ?? undefined}>{m.reference ?? "—"}</td>
                 {isAdmin && <td className={`${td} text-right`}>{m.kind !== "REVERSION" && !reversed.has(m.id) && (
                   <Button variant="ghost" icon="undo" className="min-h-8 px-2 text-xs" onClick={() => { setRevMsg(null); setTarget(m); }} aria-label={`Revertir movimiento ${m.id}`}>Revertir</Button>

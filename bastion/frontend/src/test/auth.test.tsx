@@ -23,8 +23,23 @@ describe("rutas protegidas", () => {
     renderApp("/app");
     const nav = (await screen.findAllByRole("navigation", { name: "Secciones" }))[0]!;
     expect(nav).toHaveTextContent("Movimientos");
-    expect(nav).not.toHaveTextContent("Usuarios");
+    expect(nav).not.toHaveTextContent("Administración");
+    expect(nav).not.toHaveTextContent("Equipo de trabajo");
     expect(nav).not.toHaveTextContent("Organizaciones");
+    expect(screen.queryByText("Valor del inventario")).toBeNull();
+    expect(screen.getAllByText("Operación").length).toBeGreaterThan(0);
+  });
+
+  it("el administrador se distingue: distintivo, sección de administración y panel propio", async () => {
+    sessionStorage.setItem("bastion.token", "t");
+    mockApi((url) => (url === "/api/auth/me" ? { status: 200, body: ME_ADMIN } : { status: 200, body: [] }));
+    renderApp("/app");
+    const nav = (await screen.findAllByRole("navigation", { name: "Secciones" }))[0]!;
+    expect(nav).toHaveTextContent("Administración");
+    expect(nav).toHaveTextContent("Bodegas");
+    expect(nav).toHaveTextContent("Equipo de trabajo");
+    expect(screen.getAllByText("Administrador").length).toBeGreaterThan(0);
+    expect(await screen.findByText("Valor del inventario")).toBeInTheDocument();
   });
 
   it("un 401 del backend cierra la sesión local", async () => {
@@ -70,7 +85,7 @@ describe("inicio de sesión", () => {
     await userEvent.type(screen.getByLabelText("Correo electrónico"), "admin@alfa.example.com");
     await userEvent.type(screen.getByLabelText("Contraseña"), "secreta-123");
     await userEvent.click(screen.getByRole("button", { name: "Ingresar" }));
-    expect(await screen.findByRole("heading", { name: /hola, admin/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /panel de administración/i })).toBeInTheDocument();
     await waitFor(() => expect(sessionStorage.getItem("bastion.token")).toBe("tok"));
   });
 });
@@ -87,5 +102,35 @@ describe("cierre de sesión", () => {
     await userEvent.click((await screen.findAllByRole("button", { name: /cerrar sesión/i }))[0]!);
     expect(await screen.findByRole("heading", { name: "Iniciar sesión" })).toBeInTheDocument();
     expect(sessionStorage.getItem("bastion.token")).toBeNull();
+  });
+});
+
+describe("mi cuenta", () => {
+  it("valida que la contraseña nueva coincida antes de enviar", async () => {
+    sessionStorage.setItem("bastion.token", "t");
+    const calls = mockApi((url) => (url === "/api/auth/me" ? { status: 200, body: ME_WORKER } : undefined));
+    renderApp("/app/cuenta");
+    await userEvent.type(await screen.findByLabelText("Contraseña actual"), "actual-123");
+    await userEvent.type(screen.getByLabelText("Contraseña nueva"), "Nueva-clave-789");
+    await userEvent.type(screen.getByLabelText("Repita la contraseña nueva"), "Otra-clave-000");
+    await userEvent.click(screen.getByRole("button", { name: "Cambiar contraseña" }));
+    expect(screen.getByText("Las contraseñas no coinciden")).toBeInTheDocument();
+    expect(calls.filter((c) => c.url === "/api/auth/password")).toHaveLength(0);
+  });
+
+  it("guarda el token nuevo tras cambiar la contraseña", async () => {
+    sessionStorage.setItem("bastion.token", "t");
+    mockApi((url) => {
+      if (url === "/api/auth/me") return { status: 200, body: ME_WORKER };
+      if (url === "/api/auth/password") return { status: 200, body: { access_token: "nuevo", expires_in: 1800 } };
+      return undefined;
+    });
+    renderApp("/app/cuenta");
+    await userEvent.type(await screen.findByLabelText("Contraseña actual"), "actual-123");
+    await userEvent.type(screen.getByLabelText("Contraseña nueva"), "Nueva-clave-789");
+    await userEvent.type(screen.getByLabelText("Repita la contraseña nueva"), "Nueva-clave-789");
+    await userEvent.click(screen.getByRole("button", { name: "Cambiar contraseña" }));
+    expect(await screen.findByText(/contraseña actualizada/i)).toBeInTheDocument();
+    expect(sessionStorage.getItem("bastion.token")).toBe("nuevo");
   });
 });

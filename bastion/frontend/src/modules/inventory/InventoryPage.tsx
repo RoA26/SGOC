@@ -46,7 +46,7 @@ export function InventoryPage() {
                 <td className={`${td} font-mono text-xs`}>{r.warehouse_code}</td>
                 <td className={`${td} text-right tnum font-semibold`}>{fmtQty(r.quantity)} <span className="text-xs font-normal text-text-2">{r.unit}</span></td>
                 <td className={`${td} text-right tnum text-text-2`}>{fmtQty(r.min_stock)}</td>
-                {isAdmin && <><td className={`${td} text-right tnum`}>{fmtMoney(r.avg_cost)}</td><td className={`${td} text-right tnum`}>{fmtMoney(r.total_value)}</td></>}
+                {isAdmin && <><td className={`${td} text-right tnum`}>{r.avg_cost === null ? "—" : fmtMoney(r.avg_cost)}</td><td className={`${td} text-right tnum`}>{r.total_value === null ? "—" : fmtMoney(r.total_value)}</td></>}
                 <td className={td}>{r.below_min ? <Badge tone="warn">Bajo mínimo</Badge> : <Badge tone="ok">Normal</Badge>}</td>
               </tr>
             ))}

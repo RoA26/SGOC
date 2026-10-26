@@ -30,29 +30,30 @@ Dependencias del frontend y su motivo: `react-router-dom` (rutas y protección),
 (validación que refleja la del backend), `@fontsource-variable/*` (tipografía alojada en el
 propio sitio, sin peticiones a terceros). Los iconos son SVG propios (`src/components/Icon.tsx`).
 
-## Roles y permisos (política inicial)
+## Roles y permisos
+
+**Trabajador**: opera el inventario. **Administrador comercial**: además gestiona el catálogo,
+las bodegas, el equipo y los ajustes; la interfaz lo distingue con un distintivo, una franja de
+acento y la sección "Administración". **Super admin**: el equipo que desarrolla la plataforma;
+por ahora gestiona organizaciones (los informes y el control total llegarán en otra fase).
 
 | Operación | SUPER_ADMIN | ADMINISTRADOR_COMERCIAL | TRABAJADOR |
 |---|:-:|:-:|:-:|
 | Crear / activar / desactivar organizaciones (+ primer administrador) | ✔ | | |
-| Gestionar trabajadores de su organización | | ✔ | |
-| Crear productos, categorías y bodegas | | ✔ | |
-| Consultar catálogo y existencias | | ✔ | ✔ |
-| Ver costo promedio y valor del inventario (interfaz) | | ✔ | |
+| Crear, editar y desactivar productos y categorías | | ✔ | |
+| Crear, renombrar y desactivar bodegas | | ✔ | |
+| Crear trabajadores, activarlos/desactivarlos y asignarles contraseña | | ✔ | |
 | Registrar entradas y salidas | | ✔ | ✔ |
-| Registrar ajustes (con justificación) | | ✔ | |
-| Revertir movimientos | | ✔ | |
-| Ver historial de movimientos | | toda la organización | solo los propios |
+| Registrar ajustes (con justificación) y revertir movimientos | | ✔ | |
+| Consultar catálogo, existencias e historial de la organización | | ✔ | ✔ |
+| Ver costos, costo promedio y valor del inventario | | ✔ | |
+| Cambiar su propia contraseña | ✔ | ✔ | ✔ |
 
-Decisiones tomadas y que conviene confirmar:
+Notas:
 
-- **SUPER_ADMIN no opera datos de negocio** (productos, inventario) en esta fase: no pertenece a
-  ninguna organización. Si se necesita soporte sobre los datos de una empresa, habrá que diseñar
-  un acceso explícito, limitado y auditado.
-- El ADMINISTRADOR_COMERCIAL solo crea **TRABAJADOR**; otros administradores de la organización
-  los crea SUPER_ADMIN (en esta fase solo el primero, al crear la organización).
-- El costo y el valor se ocultan al TRABAJADOR en la interfaz, pero **la API de inventario sí
-  los devuelve** a cualquier miembro. Si deben ser confidenciales, hay que filtrarlos en el backend.
+- Los costos se ocultan al TRABAJADOR **en la API** (llegan vacíos), no solo en la interfaz.
+- SUPER_ADMIN no pertenece a ninguna organización y todavía no opera datos de negocio.
+- Ningún rol puede cambiar su propio rol ni crear roles superiores.
 
 ### Cómo se aplica
 
@@ -117,9 +118,9 @@ npm test && npm run build  # build incluye tsc estricto
 
 ## Despliegue
 
-Ver [`docs/despliegue.md`](docs/despliegue.md). Resumen: proyecto Compose `bastion`, solo el
-frontend publica un puerto y únicamente en `127.0.0.1`; PostgreSQL y la API quedan en la red
-interna `bastion_net`. El frontend se compila fuera del VPS.
+Ver [`docs/despliegue.md`](docs/despliegue.md): `deploy/scripts/bastion-vps.sh` diagnostica el
+VPS, prepara el `.env`, despliega el proyecto Compose `bastion` y configura el proxy del dominio
+sin tocar otros servicios. Solo el frontend publica un puerto, y únicamente en `127.0.0.1`.
 
 ## Estado y pendientes
 
@@ -127,10 +128,9 @@ Hecho en esta entrega (con pruebas): página de bienvenida, login, roles, organi
 usuarios, categorías, productos, bodegas, consulta de inventario, entradas/salidas/ajustes,
 reversiones, idempotencia, concurrencia, historial inmutable, panel con navegación por rol.
 
-Pendiente (fases siguientes): proveedores, conteos físicos (`ABIERTO/APROBADO/ANULADO`),
-escáner de códigos, informes PDF/Excel, importación, firmas y archivos privados, notificaciones,
-despiece; edición de productos y bodegas desde la interfaz (la API ya permite editar productos);
-traslados entre bodegas; limitación de intentos de inicio de sesión; cambio de contraseña;
-paginación en la interfaz; despliegue real; destino de las salidas (funcionario, área, cliente,
+Pendiente (fases siguientes): panel completo del SUPER_ADMIN (informes y control global),
+proveedores, conteos físicos (`ABIERTO/APROBADO/ANULADO`), escáner de códigos, informes
+PDF/Excel, importación, firmas y archivos privados, notificaciones, despiece; traslados entre
+bodegas; paginación en la interfaz; destino de las salidas (funcionario, área, cliente,
 equipo) como en Poliway. Las decisiones abiertas están en
 [`docs/hallazgos-poliway.md`](docs/hallazgos-poliway.md) §9.

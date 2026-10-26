@@ -1,4 +1,4 @@
-import { forwardRef, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import { forwardRef, useEffect, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
 import { Icon, type IconName } from "./Icon";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
@@ -119,10 +119,15 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
   );
 }
 
-export function PageHeader({ title, description, actions }: { title: string; description?: string | undefined; actions?: ReactNode }) {
+export function PageHeader({ title, description, actions, admin }: { title: string; description?: string | undefined; actions?: ReactNode; admin?: boolean }) {
   return (
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
+        {admin && (
+          <p className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.12em] text-accent-strong">
+            <Icon name="shield" className="h-3.5 w-3.5" /> Administración
+          </p>
+        )}
         <h1 className="text-2xl font-extrabold tracking-[-0.02em] text-text">{title}</h1>
         {description && <p className="mt-1 text-sm text-text-2">{description}</p>}
       </div>
@@ -132,7 +137,7 @@ export function PageHeader({ title, description, actions }: { title: string; des
 }
 
 export function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-xl border border-line bg-surface ${className}`}>{children}</section>;
+  return <section className={`min-w-0 rounded-xl border border-line bg-surface ${className}`}>{children}</section>;
 }
 
 export function Badge({ tone = "neutral", children }: { tone?: "neutral" | "ok" | "warn" | "danger"; children: ReactNode }) {
@@ -154,6 +159,28 @@ export function ConfirmDialog({ open, title, children, confirmLabel, onConfirm, 
           <Button variant="secondary" onClick={onCancel} disabled={busy}>Cancelar</Button>
           <Button variant={tone} onClick={onConfirm} loading={busy ?? false} autoFocus>{confirmLabel}</Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Ventana modal con formulario. Se cierra con Escape o al pulsar fuera. */
+export function Modal({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: ReactNode }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-ink/50 p-4" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-labelledby="modal-title" className="w-full max-w-lg rounded-xl bg-surface shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+          <h2 id="modal-title" className="text-lg font-bold">{title}</h2>
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="grid h-9 w-9 place-items-center rounded-b text-text-2 hover:bg-surface-2"><Icon name="close" className="h-4 w-4" /></button>
+        </div>
+        {children}
       </div>
     </div>
   );

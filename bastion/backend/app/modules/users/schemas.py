@@ -19,6 +19,10 @@ class UserUpdate(BaseModel):
     active: bool | None = None
 
 
+class PasswordReset(BaseModel):
+    password: str = Password
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

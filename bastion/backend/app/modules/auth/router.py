@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from app.core.deps import DB, CurrentActor
 from app.modules.auth import service
-from app.modules.auth.schemas import LoginIn, MeOut, TokenOut
+from app.modules.auth.schemas import LoginIn, MeOut, PasswordChange, TokenOut
 from app.modules.organizations.models import Organization
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -31,3 +31,9 @@ def me(actor: CurrentActor, db: DB) -> MeOut:
 @router.post("/logout", status_code=204)
 def logout(actor: CurrentActor, db: DB) -> None:
     service.logout(db, actor.user)
+
+
+@router.post("/password", response_model=TokenOut)
+def change_password(body: PasswordChange, actor: CurrentActor, db: DB) -> TokenOut:
+    token, ttl = service.change_password(db, actor.user, body.current_password, body.new_password)
+    return TokenOut(access_token=token, expires_in=ttl)

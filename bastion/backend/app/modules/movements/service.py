@@ -21,6 +21,7 @@ from app.modules.catalog.models import Product
 from app.modules.inventory.models import Stock, Warehouse
 from app.modules.movements.models import Movement
 from app.modules.movements.schemas import MovementIn
+from app.modules.users.models import User
 
 COST_Q = Decimal("0.0001")
 
@@ -227,12 +228,20 @@ def reverse(db: Session, actor: Actor, movement_id: int, notes: str) -> Movement
 
 def list_movements(
     db: Session, actor: Actor, product_id: int | None, warehouse_id: int | None, limit: int, offset: int
-) -> list[Movement]:
-    stmt = select(Movement).where(Movement.organization_id == actor.org_id)
-    if actor.role == Rol.TRABAJADOR:
-        stmt = stmt.where(Movement.user_id == actor.id)
+) -> list[tuple[Movement, str]]:
+    """Historial de la organización (ambos roles operan el inventario), con el nombre de quien registró."""
+    stmt = (
+        select(Movement, User.full_name)
+        .join(User, (User.id == Movement.user_id) & (User.organization_id == Movement.organization_id))
+        .where(Movement.organization_id == actor.org_id)
+    )
     if product_id is not None:
         stmt = stmt.where(Movement.product_id == product_id)
     if warehouse_id is not None:
         stmt = stmt.where(Movement.warehouse_id == warehouse_id)
-    return list(db.scalars(stmt.order_by(Movement.id.desc()).limit(limit).offset(offset)))
+    return [(m, name) for m, name in db.execute(stmt.order_by(Movement.id.desc()).limit(limit).offset(offset))]
+
+
+def author_name(db: Session, mov: Movement) -> str:
+    """Nombre de quien registró el movimiento (en un reintento idempotente puede ser otro usuario)."""
+    return db.scalar(select(User.full_name).where(User.id == mov.user_id)) or ""
